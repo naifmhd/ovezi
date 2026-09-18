@@ -28,6 +28,7 @@ use App\Http\Controllers\Api\V1\GroupMemberController;
 use App\Http\Controllers\Api\V1\PlaceholderClaimController;
 use App\Http\Controllers\Api\V1\PlaceholderController;
 use App\Http\Controllers\Api\V1\ProfileController;
+use App\Http\Controllers\Api\V1\SearchController;
 use App\Http\Controllers\Api\V1\SettlementController;
 use App\Http\Controllers\Api\V1\TransferGroupOwnershipController;
 use App\Http\Controllers\Api\V1\UpdateProfileController;
@@ -77,6 +78,7 @@ Route::prefix('v1')->name('api.v1.')->group(function (): void {
             ->name('me.destroy');
         Route::get('activity', [ActivityController::class, 'index'])
             ->name('activity.index');
+        Route::get('search', SearchController::class)->name('search');
         Route::apiResource('friends', FriendshipController::class)
             ->only(['index', 'store', 'destroy']);
         Route::post('friends/{friendship}/accept', AcceptFriendRequestController::class)

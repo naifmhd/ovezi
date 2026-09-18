@@ -62,11 +62,14 @@ export default function HomeScreen() {
       eyebrow={`Hello, ${user.name.split(' ')[0]}`}
       title="Your balance"
       action={
-        <Pressable onPress={() => router.push('/(app)/expenses/create')}>
-          <ThemedText style={styles.addAction} themeColor="primary">
-            + Expense
-          </ThemedText>
-        </Pressable>
+        <View style={styles.headerActions}>
+          <Pressable onPress={() => router.push('/(app)/search')}>
+            <ThemedText style={styles.addAction} themeColor="primary">Search</ThemedText>
+          </Pressable>
+          <Pressable onPress={() => router.push('/(app)/expenses/create')}>
+            <ThemedText style={styles.addAction} themeColor="primary">+ Expense</ThemedText>
+          </Pressable>
+        </View>
       }
       scrollProps={{
         refreshControl: <RefreshControl refreshing={refreshing} onRefresh={() => void refresh()} />,
@@ -168,6 +171,7 @@ export default function HomeScreen() {
 
 const styles = StyleSheet.create({
   addAction: { fontSize: 14, fontWeight: '800' },
+  headerActions: { flexDirection: 'row', alignItems: 'center', gap: 14 },
   verificationCard: { padding: 16, borderRadius: 18, gap: 3 },
   verificationTitle: { fontWeight: '800' },
   smallCopy: { fontSize: 14, lineHeight: 20 },

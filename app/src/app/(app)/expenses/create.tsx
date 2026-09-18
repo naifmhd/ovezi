@@ -33,16 +33,13 @@ import { fetchGroup, fetchGroups } from '@/lib/groups-api';
 import { useTheme } from '@/hooks/use-theme';
 import { createPlaceholder, fetchPlaceholders } from '@/lib/placeholders-api';
 import { useAuthStore } from '@/stores/auth-store';
+import {
+  type ExpenseDraftParticipant,
+  useExpenseDraftStore,
+} from '@/stores/expense-draft-store';
 import type { GroupMember, SplitType } from '@/types/api';
 
-type ParticipantDraft = {
-  key: string;
-  name: string;
-  userId?: number;
-  placeholderId?: number;
-  selected: boolean;
-  value: string;
-};
+type ParticipantDraft = ExpenseDraftParticipant;
 
 type Destination = 'personal' | 'direct' | 'group';
 
@@ -100,24 +97,36 @@ function memberDraft(member: GroupMember): ParticipantDraft {
 export default function CreateExpenseScreen() {
   const params = useLocalSearchParams<{
     expenseId?: string | string[];
+    friendId?: string | string[];
     groupId?: string | string[];
   }>();
   const rawGroupId = Array.isArray(params.groupId) ? params.groupId[0] : params.groupId;
   const rawExpenseId = Array.isArray(params.expenseId) ? params.expenseId[0] : params.expenseId;
+  const rawFriendId = Array.isArray(params.friendId) ? params.friendId[0] : params.friendId;
   const initialGroupId = Number(rawGroupId);
   const expenseId = Number(rawExpenseId);
+  const initialFriendId = Number(rawFriendId);
   const hasInitialGroup = Number.isInteger(initialGroupId) && initialGroupId > 0;
   const isEditing = Number.isInteger(expenseId) && expenseId > 0;
+  const hasInitialFriend = Number.isInteger(initialFriendId) && initialFriendId > 0;
   const token = useAuthStore((state) => state.token)!;
   const user = useAuthStore((state) => state.user)!;
+  const savedDraft = useExpenseDraftStore((state) => state.draft);
+  const draftHydrated = useExpenseDraftStore((state) => state.hydrated);
+  const saveDraft = useExpenseDraftStore((state) => state.saveDraft);
+  const clearDraft = useExpenseDraftStore((state) => state.clearDraft);
   const theme = useTheme();
   const queryClient = useQueryClient();
-  const [destination, setDestination] = useState<Destination>(hasInitialGroup ? 'group' : 'personal');
+  const [destination, setDestination] = useState<Destination>(
+    hasInitialGroup ? 'group' : hasInitialFriend ? 'direct' : 'personal',
+  );
   const [selectedGroupId, setSelectedGroupId] = useState<number | null>(
     hasInitialGroup ? initialGroupId : null,
   );
   const [selectedPlaceholderId, setSelectedPlaceholderId] = useState<number | null>(null);
-  const [selectedFriendId, setSelectedFriendId] = useState<number | null>(null);
+  const [selectedFriendId, setSelectedFriendId] = useState<number | null>(
+    hasInitialFriend ? initialFriendId : null,
+  );
   const [showGuestForm, setShowGuestForm] = useState(false);
   const [guestName, setGuestName] = useState('');
   const [guestContactType, setGuestContactType] = useState<'email' | 'phone'>('email');
@@ -134,6 +143,7 @@ export default function CreateExpenseScreen() {
   const [expenseRate, setExpenseRate] = useState('');
   const [recalculateRate, setRecalculateRate] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [draftDecisionMade, setDraftDecisionMade] = useState(false);
   const initializedExpenseId = useRef<number | null>(null);
 
   const expenseQuery = useQuery({
@@ -257,6 +267,108 @@ export default function CreateExpenseScreen() {
     }
   }, [editingExpense]);
 
+  useEffect(() => {
+    if (!draftHydrated || draftDecisionMade) return;
+
+    if (isEditing || !savedDraft) {
+      setDraftDecisionMade(true);
+      return;
+    }
+
+    if (savedDraft.userId !== user.id) {
+      clearDraft();
+      setDraftDecisionMade(true);
+    }
+  }, [clearDraft, draftDecisionMade, draftHydrated, isEditing, savedDraft, user.id]);
+
+  useEffect(() => {
+    if (isEditing || !draftHydrated || !draftDecisionMade) return;
+
+    const meaningful = Boolean(
+      description.trim()
+        || amount.trim()
+        || category
+        || selectedGroupId
+        || selectedPlaceholderId
+        || selectedFriendId
+        || participantOverrides,
+    );
+    const timer = setTimeout(() => {
+      if (!meaningful) {
+        clearDraft();
+        return;
+      }
+
+      saveDraft({
+        userId: user.id,
+        destination,
+        selectedGroupId,
+        selectedPlaceholderId,
+        selectedFriendId,
+        description,
+        amount,
+        currency: effectiveCurrency,
+        category,
+        occurredOn,
+        splitType,
+        participants: participantOverrides,
+        payerKey,
+        expenseRate,
+        recalculateRate,
+        savedAt: new Date().toISOString(),
+      });
+    }, 400);
+
+    return () => clearTimeout(timer);
+  }, [
+    amount,
+    category,
+    clearDraft,
+    description,
+    destination,
+    draftDecisionMade,
+    draftHydrated,
+    effectiveCurrency,
+    expenseRate,
+    isEditing,
+    occurredOn,
+    participantOverrides,
+    payerKey,
+    recalculateRate,
+    saveDraft,
+    selectedFriendId,
+    selectedGroupId,
+    selectedPlaceholderId,
+    splitType,
+    user.id,
+  ]);
+
+  function resumeDraft() {
+    if (!savedDraft || savedDraft.userId !== user.id) return;
+
+    setDestination(savedDraft.destination);
+    setSelectedGroupId(savedDraft.selectedGroupId);
+    setSelectedPlaceholderId(savedDraft.selectedPlaceholderId);
+    setSelectedFriendId(savedDraft.selectedFriendId);
+    setDescription(savedDraft.description);
+    setAmount(savedDraft.amount);
+    setCurrency(savedDraft.currency);
+    setCurrencyTouched(true);
+    setCategory(savedDraft.category);
+    setOccurredOn(savedDraft.occurredOn);
+    setSplitType(savedDraft.splitType);
+    setParticipantOverrides(savedDraft.participants);
+    setPayerKey(savedDraft.payerKey);
+    setExpenseRate(savedDraft.expenseRate);
+    setRecalculateRate(savedDraft.recalculateRate);
+    setDraftDecisionMade(true);
+  }
+
+  function discardDraft() {
+    clearDraft();
+    setDraftDecisionMade(true);
+  }
+
   const placeholderMutation = useMutation({
     mutationFn: () => createPlaceholder(token, {
       name: guestName.trim(),
@@ -279,6 +391,7 @@ export default function CreateExpenseScreen() {
       ? updateExpense(token, expenseId, input)
       : createExpense(token, input),
     onSuccess: async (expense) => {
+      if (!isEditing) clearDraft();
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['expenses'] }),
         queryClient.invalidateQueries({ queryKey: ['activity'] }),
@@ -464,6 +577,29 @@ export default function CreateExpenseScreen() {
             contentContainerStyle={styles.content}
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}>
+            {!isEditing && draftHydrated && savedDraft?.userId === user.id && !draftDecisionMade ? (
+              <ThemedView type="backgroundSelected" style={styles.draftCard}>
+                <View style={styles.draftCopy}>
+                  <ThemedText style={styles.infoTitle}>Resume saved expense?</ThemedText>
+                  <ThemedText style={styles.infoCopy} themeColor="textSecondary">
+                    Saved {new Date(savedDraft.savedAt).toLocaleString('en', {
+                      month: 'short',
+                      day: 'numeric',
+                      hour: 'numeric',
+                      minute: '2-digit',
+                    })}
+                  </ThemedText>
+                </View>
+                <View style={styles.draftActions}>
+                  <Pressable onPress={discardDraft} style={styles.draftAction}>
+                    <ThemedText style={styles.helper} themeColor="textSecondary">Discard</ThemedText>
+                  </Pressable>
+                  <Pressable onPress={resumeDraft} style={styles.draftAction}>
+                    <ThemedText style={styles.helper} themeColor="primary">Resume</ThemedText>
+                  </Pressable>
+                </View>
+              </ThemedView>
+            ) : null}
             {isEditing && expenseQuery.isLoading ? (
               <ThemedText themeColor="textSecondary">Loading expense…</ThemedText>
             ) : null}
@@ -803,4 +939,8 @@ const styles = StyleSheet.create({
   infoTitle: { fontWeight: '800' },
   infoCopy: { fontSize: 13, lineHeight: 19 },
   helper: { fontSize: 13, lineHeight: 19 },
+  draftCard: { borderRadius: 18, padding: 15, flexDirection: 'row', alignItems: 'center', gap: 12 },
+  draftCopy: { flex: 1, gap: 2 },
+  draftActions: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  draftAction: { minHeight: 40, justifyContent: 'center', paddingHorizontal: 9 },
 });

@@ -78,6 +78,12 @@ export type Friendship = {
   created_at: string;
 };
 
+export type SearchResults = {
+  groups: Group[];
+  expenses: Expense[];
+  friends: { id: number; name: string; email: string }[];
+};
+
 export type GroupInvite = {
   id: number;
   group_id: number;
