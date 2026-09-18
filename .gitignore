@@ -1,0 +1,7 @@
+# Operating system files
+.DS_Store
+Thumbs.db
+
+# Root-level editor settings
+/.idea/
+/.vscode/
