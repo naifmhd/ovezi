@@ -26,6 +26,7 @@ use App\Http\Controllers\Api\V1\GroupCurrencyRateController;
 use App\Http\Controllers\Api\V1\GroupHistoryExportController;
 use App\Http\Controllers\Api\V1\GroupInviteController;
 use App\Http\Controllers\Api\V1\GroupMemberController;
+use App\Http\Controllers\Api\V1\PersonalDataExportController;
 use App\Http\Controllers\Api\V1\PlaceholderClaimController;
 use App\Http\Controllers\Api\V1\PlaceholderController;
 use App\Http\Controllers\Api\V1\ProfileController;
@@ -59,6 +60,7 @@ Route::prefix('v1')->name('api.v1.')->group(function (): void {
 
     Route::middleware('auth:sanctum')->group(function (): void {
         Route::get('me', ProfileController::class)->name('me');
+        Route::get('me/export', PersonalDataExportController::class)->name('me.export');
         Route::get('currencies', CurrencyController::class)->name('currencies.index');
         Route::delete('auth/session', [SessionController::class, 'destroy'])
             ->name('auth.session.destroy');

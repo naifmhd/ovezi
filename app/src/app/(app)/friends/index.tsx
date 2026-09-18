@@ -6,6 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { FormField } from '@/components/auth/form-field';
 import { PrimaryButton } from '@/components/auth/primary-button';
+import { QueryErrorCard } from '@/components/query-error-card';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
@@ -95,9 +96,14 @@ export default function FriendsScreen() {
             </ThemedView>
 
             {successMessage ? <ThemedText style={styles.success} themeColor="primary">{successMessage}</ThemedText> : null}
-            {friendsQuery.error || mutationError ? (
-              <ThemedText themeColor="danger">{errorMessage(friendsQuery.error ?? mutationError)}</ThemedText>
+            {friendsQuery.error ? (
+              <QueryErrorCard
+                error={friendsQuery.error}
+                onRetry={() => void friendsQuery.refetch()}
+                retrying={friendsQuery.isRefetching}
+              />
             ) : null}
+            {mutationError ? <ThemedText themeColor="danger">{errorMessage(mutationError)}</ThemedText> : null}
             {friendsQuery.isLoading ? (
               <ThemedText style={styles.centered} themeColor="textSecondary">Loading friends…</ThemedText>
             ) : null}
@@ -135,7 +141,7 @@ export default function FriendsScreen() {
               />
             ))}
 
-            {!friendsQuery.isLoading && friendships.length === 0 ? (
+            {!friendsQuery.isLoading && !friendsQuery.error && friendships.length === 0 ? (
               <ThemedView type="backgroundSelected" style={styles.emptyCard}>
                 <ThemedText style={styles.cardTitle}>No friends yet</ThemedText>
                 <ThemedText style={styles.copy} themeColor="textSecondary">

@@ -5,10 +5,10 @@ import { Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-n
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ExpenseRow } from '@/components/expense-row';
+import { QueryErrorCard } from '@/components/query-error-card';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
-import { errorMessage } from '@/lib/api-client';
 import { fetchExpenses } from '@/lib/expenses-api';
 import { useTheme } from '@/hooks/use-theme';
 import { useAuthStore } from '@/stores/auth-store';
@@ -77,7 +77,13 @@ export default function ExpensesScreen() {
             </View>
           </ScrollView>
 
-          {query.error ? <ThemedText themeColor="danger">{errorMessage(query.error)}</ThemedText> : null}
+          {query.error ? (
+            <QueryErrorCard
+              error={query.error}
+              onRetry={() => void query.refetch()}
+              retrying={query.isRefetching}
+            />
+          ) : null}
           {query.isLoading ? (
             <ThemedText style={styles.centered} themeColor="textSecondary">Loading expenses…</ThemedText>
           ) : null}
@@ -89,7 +95,7 @@ export default function ExpensesScreen() {
               onPress={() => router.push({ pathname: '/(app)/expenses/[id]', params: { id: expense.id } })}
             />
           ))}
-          {!query.isLoading && expenses.length === 0 ? (
+          {!query.isLoading && !query.error && expenses.length === 0 ? (
             <ThemedView type="backgroundElement" style={styles.emptyCard}>
               <ThemedText style={styles.emptyTitle}>No expenses here yet</ThemedText>
               <ThemedText style={styles.emptyCopy} themeColor="textSecondary">

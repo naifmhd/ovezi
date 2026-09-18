@@ -6,6 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { QueryErrorCard } from '@/components/query-error-card';
 import { Spacing } from '@/constants/theme';
 import { errorMessage } from '@/lib/api-client';
 import { deleteExpense, fetchExpense, restoreExpense } from '@/lib/expenses-api';
@@ -140,7 +141,16 @@ export default function ExpenseDetailScreen() {
           {deletedAt === null && expenseQuery.isLoading ? (
             <ThemedText style={styles.centered} themeColor="textSecondary">Loading expense…</ThemedText>
           ) : null}
-          {deletedAt === null && error ? <ThemedText themeColor="danger">{errorMessage(error)}</ThemedText> : null}
+          {deletedAt === null && error ? (
+            <QueryErrorCard
+              error={error}
+              onRetry={() => {
+                void expenseQuery.refetch();
+                if (expense?.group_id) void groupQuery.refetch();
+              }}
+              retrying={expenseQuery.isRefetching || groupQuery.isRefetching}
+            />
+          ) : null}
           {deletedAt === null && mutationError ? (
             <ThemedText themeColor="danger">{errorMessage(mutationError)}</ThemedText>
           ) : null}

@@ -3,9 +3,9 @@ import { RefreshControl, StyleSheet } from 'react-native';
 
 import { ActivityRow } from '@/components/activity-row';
 import { AppScreen } from '@/components/app-screen';
+import { QueryErrorCard } from '@/components/query-error-card';
 import { ThemedText } from '@/components/themed-text';
 import { fetchActivity } from '@/lib/activity-api';
-import { errorMessage } from '@/lib/api-client';
 import { useAuthStore } from '@/stores/auth-store';
 
 export default function ActivityScreen() {
@@ -24,7 +24,13 @@ export default function ActivityScreen() {
           <RefreshControl refreshing={query.isRefetching} onRefresh={() => void query.refetch()} />
         ),
       }}>
-      {query.error ? <ThemedText themeColor="danger">{errorMessage(query.error)}</ThemedText> : null}
+      {query.error ? (
+        <QueryErrorCard
+          error={query.error}
+          onRetry={() => void query.refetch()}
+          retrying={query.isRefetching}
+        />
+      ) : null}
       {query.isLoading ? (
         <ThemedText style={styles.empty} themeColor="textSecondary">
           Loading activity…
@@ -33,7 +39,7 @@ export default function ActivityScreen() {
       {activities.map((activity) => (
         <ActivityRow activity={activity} key={activity.id} />
       ))}
-      {!query.isLoading && activities.length === 0 ? (
+      {!query.isLoading && !query.error && activities.length === 0 ? (
         <ThemedText style={styles.empty} themeColor="textSecondary">
           Your group and expense activity will appear here.
         </ThemedText>

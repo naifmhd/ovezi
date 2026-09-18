@@ -8,10 +8,10 @@ import { FormField } from '@/components/auth/form-field';
 import { PrimaryButton } from '@/components/auth/primary-button';
 import { ExpenseRow } from '@/components/expense-row';
 import { GroupCard } from '@/components/group-card';
+import { QueryErrorCard } from '@/components/query-error-card';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
-import { errorMessage } from '@/lib/api-client';
 import { searchOvezi } from '@/lib/search-api';
 import { useAuthStore } from '@/stores/auth-store';
 
@@ -73,7 +73,14 @@ export default function SearchScreen() {
               </View>
             </View>
 
-            {query.error ? <ThemedText themeColor="danger">{errorMessage(query.error)}</ThemedText> : null}
+            {query.error ? (
+              <QueryErrorCard
+                error={query.error}
+                onRetry={() => void query.refetch()}
+                retrying={query.isRefetching}
+                title="Search couldn’t finish"
+              />
+            ) : null}
             {!submittedQuery ? (
               <ThemedView type="backgroundSelected" style={styles.tipCard}>
                 <ThemedText style={styles.tipTitle}>Find anything quickly</ThemedText>

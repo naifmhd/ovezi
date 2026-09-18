@@ -5,8 +5,9 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { AppScreen } from '@/components/app-screen';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { sendVerificationEmail } from '@/lib/auth-api';
+import { exportPersonalData, sendVerificationEmail } from '@/lib/auth-api';
 import { errorMessage } from '@/lib/api-client';
+import { sharePersonalData } from '@/lib/share-text-file';
 import { useAuthStore } from '@/stores/auth-store';
 
 export default function ProfileScreen() {
@@ -15,6 +16,9 @@ export default function ProfileScreen() {
   const logout = useAuthStore((state) => state.logout);
   const verificationMutation = useMutation({
     mutationFn: () => sendVerificationEmail(token),
+  });
+  const exportMutation = useMutation({
+    mutationFn: async () => sharePersonalData(await exportPersonalData(token)),
   });
 
   return (
@@ -62,6 +66,9 @@ export default function ProfileScreen() {
       {verificationMutation.error ? (
         <ThemedText themeColor="danger">{errorMessage(verificationMutation.error)}</ThemedText>
       ) : null}
+      {exportMutation.error ? (
+        <ThemedText themeColor="danger">{errorMessage(exportMutation.error)}</ThemedText>
+      ) : null}
 
       <ThemedView type="backgroundElement" style={styles.menuCard}>
         <ProfileLink
@@ -80,6 +87,14 @@ export default function ProfileScreen() {
           label="Security & account"
           onPress={() => router.push('/(app)/profile/security')}
           subtitle="Password, email, sessions, and deletion"
+        />
+        <View style={styles.divider} />
+        <ProfileLink
+          label="Export my data"
+          onPress={() => {
+            if (!exportMutation.isPending) exportMutation.mutate();
+          }}
+          subtitle={exportMutation.isPending ? 'Preparing your archive…' : 'Download a JSON archive'}
         />
         <View style={styles.divider} />
         <ProfileLink

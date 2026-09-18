@@ -5,6 +5,7 @@ import { Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-n
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { PrimaryButton } from '@/components/auth/primary-button';
+import { QueryErrorCard } from '@/components/query-error-card';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
@@ -81,11 +82,14 @@ export default function PlaceholderClaimsScreen() {
           {successMessage ? (
             <ThemedText style={styles.success} themeColor="primary">{successMessage}</ThemedText>
           ) : null}
-          {claimsQuery.error || mutation.error ? (
-            <ThemedText themeColor="danger">
-              {errorMessage(claimsQuery.error ?? mutation.error)}
-            </ThemedText>
+          {claimsQuery.error ? (
+            <QueryErrorCard
+              error={claimsQuery.error}
+              onRetry={() => void claimsQuery.refetch()}
+              retrying={claimsQuery.isRefetching}
+            />
           ) : null}
+          {mutation.error ? <ThemedText themeColor="danger">{errorMessage(mutation.error)}</ThemedText> : null}
           {claimsQuery.isLoading ? (
             <ThemedText style={styles.centered} themeColor="textSecondary">
               Looking for matching history…
@@ -143,7 +147,7 @@ export default function PlaceholderClaimsScreen() {
             </ThemedView>
           ))}
 
-          {user.email_verified_at && !claimsQuery.isLoading && matches.length === 0 ? (
+          {user.email_verified_at && !claimsQuery.isLoading && !claimsQuery.error && matches.length === 0 ? (
             <ThemedView type="backgroundElement" style={styles.emptyCard}>
               <ThemedText style={styles.cardTitle}>No matching history</ThemedText>
               <ThemedText style={styles.copy} themeColor="textSecondary">

@@ -6,10 +6,10 @@ import { ActivityRow } from '@/components/activity-row';
 import { AppScreen } from '@/components/app-screen';
 import { ExpenseRow } from '@/components/expense-row';
 import { GroupCard } from '@/components/group-card';
+import { QueryErrorCard } from '@/components/query-error-card';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { fetchActivity } from '@/lib/activity-api';
-import { errorMessage } from '@/lib/api-client';
 import { fetchExpenses } from '@/lib/expenses-api';
 import { fetchGroupBalances, fetchGroups } from '@/lib/groups-api';
 import { useAuthStore } from '@/stores/auth-store';
@@ -84,7 +84,12 @@ export default function HomeScreen() {
       ) : null}
 
       {firstError ? (
-        <ThemedText themeColor="danger">{errorMessage(firstError)}</ThemedText>
+        <QueryErrorCard
+          error={firstError}
+          onRetry={() => void refresh()}
+          retrying={refreshing || balancesQuery.isRefetching}
+          title="Some dashboard data couldn’t refresh"
+        />
       ) : null}
 
       <View style={styles.sectionHeading}>
@@ -103,7 +108,7 @@ export default function HomeScreen() {
       {groups.slice(0, 3).map((group) => (
         <GroupCard key={group.id} balanceMinor={balanceByGroup.get(group.id)} group={group} />
       ))}
-      {!groupsQuery.isLoading && groups.length === 0 ? (
+      {!groupsQuery.isLoading && !groupsQuery.error && groups.length === 0 ? (
         <ThemedView type="backgroundElement" style={styles.emptyCard}>
           <ThemedText style={styles.emptyTitle}>Create your first group</ThemedText>
           <ThemedText style={styles.smallCopy} themeColor="textSecondary">
@@ -138,7 +143,7 @@ export default function HomeScreen() {
           onPress={() => router.push({ pathname: '/(app)/expenses/[id]', params: { id: expense.id } })}
         />
       ))}
-      {!expensesQuery.isLoading && recentPersonalExpenses.length === 0 ? (
+      {!expensesQuery.isLoading && !expensesQuery.error && recentPersonalExpenses.length === 0 ? (
         <ThemedText style={styles.emptyActivity} themeColor="textSecondary">
           No personal or 1-on-1 expenses yet.
         </ThemedText>
@@ -160,7 +165,7 @@ export default function HomeScreen() {
       {(activityQuery.data?.data ?? []).map((activity) => (
         <ActivityRow activity={activity} key={activity.id} />
       ))}
-      {!activityQuery.isLoading && activityQuery.data?.data.length === 0 ? (
+      {!activityQuery.isLoading && !activityQuery.error && activityQuery.data?.data.length === 0 ? (
         <ThemedText style={styles.emptyActivity} themeColor="textSecondary">
           Nothing has happened yet.
         </ThemedText>

@@ -5,9 +5,9 @@ import { Pressable, RefreshControl, StyleSheet, View } from 'react-native';
 
 import { AppScreen } from '@/components/app-screen';
 import { GroupCard } from '@/components/group-card';
+import { QueryErrorCard } from '@/components/query-error-card';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { errorMessage } from '@/lib/api-client';
 import { fetchGroups } from '@/lib/groups-api';
 import { useTheme } from '@/hooks/use-theme';
 import { useAuthStore } from '@/stores/auth-store';
@@ -37,7 +37,13 @@ export default function GroupsScreen() {
           <RefreshControl refreshing={query.isRefetching} onRefresh={() => void query.refetch()} />
         ),
       }}>
-      {query.error ? <ThemedText themeColor="danger">{errorMessage(query.error)}</ThemedText> : null}
+      {query.error ? (
+        <QueryErrorCard
+          error={query.error}
+          onRetry={() => void query.refetch()}
+          retrying={query.isRefetching}
+        />
+      ) : null}
       <View style={styles.filterRow}>
         {(['active', 'archived'] as const).map((item) => {
           const selected = status === item;
@@ -67,7 +73,7 @@ export default function GroupsScreen() {
       {groups.map((group) => (
         <GroupCard group={group} key={group.id} />
       ))}
-      {!query.isLoading && groups.length === 0 ? (
+      {!query.isLoading && !query.error && groups.length === 0 ? (
         <ThemedView type="backgroundElement" style={styles.empty}>
           <ThemedText style={styles.emptyTitle}>
             {status === 'active' ? 'No groups yet' : 'No archived groups'}

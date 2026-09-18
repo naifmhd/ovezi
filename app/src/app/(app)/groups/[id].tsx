@@ -5,15 +5,15 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ActivityRow } from '@/components/activity-row';
 import { ExpenseRow } from '@/components/expense-row';
+import { QueryErrorCard } from '@/components/query-error-card';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
 import { fetchActivity } from '@/lib/activity-api';
-import { errorMessage } from '@/lib/api-client';
 import { fetchExpenses } from '@/lib/expenses-api';
 import { formatMoney, minorAmountInput } from '@/lib/format';
 import { fetchGroup, fetchGroupBalances, fetchGroupHistoryCsv } from '@/lib/groups-api';
-import { shareCsv } from '@/lib/share-csv';
+import { shareCsv } from '@/lib/share-text-file';
 import { useAuthStore } from '@/stores/auth-store';
 
 export default function GroupDetailScreen() {
@@ -160,7 +160,14 @@ function AppGroupContent({
       contentContainerStyle={styles.content}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} />}
       showsVerticalScrollIndicator={false}>
-      {error ? <ThemedText themeColor="danger">{errorMessage(error)}</ThemedText> : null}
+      {error ? (
+        <QueryErrorCard
+          error={error}
+          onRetry={() => void onRefresh()}
+          retrying={refreshing}
+          title="Some group data couldn’t refresh"
+        />
+      ) : null}
       {!group && !error ? (
         <ThemedText style={styles.empty} themeColor="textSecondary">
           Loading group…

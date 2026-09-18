@@ -1,7 +1,7 @@
 import * as Device from 'expo-device';
 import { Platform } from 'react-native';
 
-import { apiRequest } from '@/lib/api-client';
+import { apiRequest, apiTextRequest } from '@/lib/api-client';
 import type { AuthSession, User } from '@/types/api';
 
 type DataResponse<T> = { data: T };
@@ -148,4 +148,8 @@ export function deleteAccount(token: string, currentPassword: string) {
     token,
     body: { current_password: currentPassword },
   });
+}
+
+export function exportPersonalData(token: string) {
+  return apiTextRequest('/me/export', token, 'application/json');
 }

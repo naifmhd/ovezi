@@ -85,5 +85,5 @@ export async function transferGroupOwnership(token: string, groupId: number, use
 }
 
 export function fetchGroupHistoryCsv(token: string, groupId: number) {
-  return apiTextRequest(`/groups/${groupId}/export`, token);
+  return apiTextRequest(`/groups/${groupId}/export`, token, 'text/csv');
 }

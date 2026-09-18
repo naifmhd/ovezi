@@ -65,10 +65,14 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions = {
   return response.json() as Promise<T>;
 }
 
-export async function apiTextRequest(path: string, token: string): Promise<string> {
+export async function apiTextRequest(
+  path: string,
+  token: string,
+  accept = 'text/plain',
+): Promise<string> {
   const response = await fetch(path.startsWith('http') ? path : `${apiBaseUrl}${path}`, {
     headers: {
-      Accept: 'text/csv',
+      Accept: accept,
       Authorization: `Bearer ${token}`,
     },
   });
@@ -83,6 +87,10 @@ export async function apiTextRequest(path: string, token: string): Promise<strin
 export function errorMessage(error: unknown) {
   if (error instanceof ApiError) {
     return Object.values(error.errors).flat()[0] ?? error.message;
+  }
+
+  if (error instanceof TypeError || (error instanceof Error && /network|fetch|offline/i.test(error.message))) {
+    return 'Ovezi can’t reach the server. Check your connection and try again.';
   }
 
   return error instanceof Error ? error.message : 'Something went wrong. Please try again.';
