@@ -5,16 +5,73 @@ namespace App\Http\Controllers\Api\V1;
 use App\Actions\CreateExpense;
 use App\ExpenseType;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Api\V1\IndexExpenseRequest;
 use App\Http\Requests\Api\V1\StoreExpenseRequest;
 use App\Http\Resources\Api\V1\ExpenseResource;
+use App\Models\Expense;
 use App\Models\Group;
 use App\SplitType;
 use Carbon\CarbonImmutable;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Support\Facades\Gate;
 use Symfony\Component\HttpFoundation\Response;
 
 class ExpenseController extends Controller
 {
+    public function index(IndexExpenseRequest $request): AnonymousResourceCollection
+    {
+        $user = $request->user();
+        $expenses = Expense::query()
+            ->where(function (Builder $query) use ($user): void {
+                $query->where(function (Builder $groupQuery) use ($user): void {
+                    $groupQuery->where('expense_type', ExpenseType::Group)
+                        ->whereHas('group.members', fn (Builder $memberQuery): Builder => $memberQuery
+                            ->whereBelongsTo($user)
+                            ->whereNull('left_at'));
+                })->orWhere(function (Builder $personalQuery) use ($user): void {
+                    $personalQuery->where('expense_type', ExpenseType::Personal)
+                        ->where('created_by', $user->id);
+                })->orWhere(function (Builder $directQuery) use ($user): void {
+                    $directQuery->where('expense_type', ExpenseType::Direct)
+                        ->where(function (Builder $participantQuery) use ($user): void {
+                            $participantQuery->where('created_by', $user->id)
+                                ->orWhere('payer_user_id', $user->id)
+                                ->orWhereHas('splits', fn (Builder $splitQuery): Builder => $splitQuery
+                                    ->where('user_id', $user->id));
+                        });
+                });
+            })
+            ->when($request->filled('group_id'), fn (Builder $query): Builder => $query
+                ->where('group_id', $request->integer('group_id')))
+            ->when($request->filled('expense_type'), fn (Builder $query): Builder => $query
+                ->where('expense_type', $request->string('expense_type')->toString()))
+            ->with([
+                'payerUser:id,name',
+                'payerPlaceholder:id,name',
+                'splits.user:id,name',
+                'splits.placeholder:id,name',
+            ])
+            ->latest('occurred_at')
+            ->latest('id')
+            ->paginate($request->integer('per_page', 20));
+
+        return ExpenseResource::collection($expenses);
+    }
+
+    public function show(Expense $expense): ExpenseResource
+    {
+        Gate::authorize('view', $expense);
+
+        return ExpenseResource::make($expense->load([
+            'payerUser:id,name',
+            'payerPlaceholder:id,name',
+            'splits.user:id,name',
+            'splits.placeholder:id,name',
+        ]));
+    }
+
     public function store(StoreExpenseRequest $request, CreateExpense $createExpense): JsonResponse
     {
         $validated = $request->validated();
@@ -44,7 +101,12 @@ class ExpenseController extends Controller
             'expense_rate' => $validated['expense_rate'] ?? null,
         ]);
 
-        return ExpenseResource::make($expense)
+        return ExpenseResource::make($expense->load([
+            'payerUser:id,name',
+            'payerPlaceholder:id,name',
+            'splits.user:id,name',
+            'splits.placeholder:id,name',
+        ]))
             ->response()
             ->setStatusCode(Response::HTTP_CREATED);
     }

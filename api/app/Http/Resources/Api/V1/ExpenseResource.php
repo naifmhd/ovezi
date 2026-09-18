@@ -21,6 +21,7 @@ class ExpenseResource extends JsonResource
             'payer' => [
                 'user_id' => $this->payer_user_id,
                 'placeholder_id' => $this->payer_placeholder_id,
+                'name' => $this->payerUser?->name ?? $this->payerPlaceholder?->name,
             ],
             'amount_minor' => $this->amount_minor,
             'currency_code' => $this->currency_code,
@@ -37,6 +38,7 @@ class ExpenseResource extends JsonResource
                 'id' => $split->id,
                 'user_id' => $split->user_id,
                 'placeholder_id' => $split->placeholder_id,
+                'name' => $split->user?->name ?? $split->placeholder?->name,
                 'amount_owed_minor' => $split->amount_owed_minor,
                 'reporting_amount_owed_minor' => $split->reporting_amount_owed_minor,
                 'split_type' => $split->split_type,

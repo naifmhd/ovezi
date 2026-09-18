@@ -11,6 +11,38 @@ export function formatMoney(minorAmount: number, currencyCode: string) {
   return formatter.format(minorAmount / 10 ** digits);
 }
 
+export function currencyFractionDigits(currencyCode: string) {
+  try {
+    return new Intl.NumberFormat('en', {
+      style: 'currency',
+      currency: currencyCode,
+    }).resolvedOptions().maximumFractionDigits ?? 2;
+  } catch {
+    return 2;
+  }
+}
+
+export function parseDecimalToInteger(value: string, fractionDigits: number) {
+  const normalized = value.trim().replaceAll(',', '');
+  const match = normalized.match(/^(\d+)(?:\.(\d*))?$/);
+  if (!match || (match[2]?.length ?? 0) > fractionDigits) return null;
+
+  const whole = Number(match[1]);
+  const fraction = (match[2] ?? '').padEnd(fractionDigits, '0');
+  const result = whole * 10 ** fractionDigits + Number(fraction || 0);
+
+  return Number.isSafeInteger(result) ? result : null;
+}
+
+export function minorAmountInput(minorAmount: number, currencyCode: string) {
+  const digits = currencyFractionDigits(currencyCode);
+  const divisor = 10 ** digits;
+  const whole = Math.floor(Math.abs(minorAmount) / divisor);
+  const fraction = String(Math.abs(minorAmount) % divisor).padStart(digits, '0');
+
+  return `${minorAmount < 0 ? '-' : ''}${whole}${digits > 0 ? `.${fraction}` : ''}`;
+}
+
 const activityLabels: Record<string, string> = {
   'group.created': 'created the group',
   'group.updated': 'updated the group',

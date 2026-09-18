@@ -4,11 +4,13 @@ import { Pressable, RefreshControl, StyleSheet, View } from 'react-native';
 
 import { ActivityRow } from '@/components/activity-row';
 import { AppScreen } from '@/components/app-screen';
+import { ExpenseRow } from '@/components/expense-row';
 import { GroupCard } from '@/components/group-card';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { fetchActivity } from '@/lib/activity-api';
 import { errorMessage } from '@/lib/api-client';
+import { fetchExpenses } from '@/lib/expenses-api';
 import { fetchGroupBalances, fetchGroups } from '@/lib/groups-api';
 import { useAuthStore } from '@/stores/auth-store';
 
@@ -23,6 +25,10 @@ export default function HomeScreen() {
     queryKey: ['activity', 'global', 5],
     queryFn: () => fetchActivity(token, undefined, 5),
   });
+  const expensesQuery = useQuery({
+    queryKey: ['expenses', 'recent'],
+    queryFn: () => fetchExpenses(token, { perPage: 20 }),
+  });
   const groups = groupsQuery.data?.data ?? [];
   const balancesQuery = useQuery({
     queryKey: ['dashboard-balances', groups.map((group) => group.id)],
@@ -36,11 +42,19 @@ export default function HomeScreen() {
       balances.members.find((member) => member.participant.user_id === user.id)?.balance_minor ?? 0,
     ]),
   );
-  const refreshing = groupsQuery.isRefetching || activityQuery.isRefetching;
-  const firstError = groupsQuery.error ?? activityQuery.error ?? balancesQuery.error;
+  const recentPersonalExpenses = (expensesQuery.data?.data ?? [])
+    .filter((expense) => expense.expense_type !== 'group')
+    .slice(0, 5);
+  const refreshing = groupsQuery.isRefetching || activityQuery.isRefetching || expensesQuery.isRefetching;
+  const firstError = groupsQuery.error ?? activityQuery.error ?? expensesQuery.error ?? balancesQuery.error;
 
   async function refresh() {
-    await Promise.all([groupsQuery.refetch(), activityQuery.refetch(), balancesQuery.refetch()]);
+    await Promise.all([
+      groupsQuery.refetch(),
+      activityQuery.refetch(),
+      expensesQuery.refetch(),
+      balancesQuery.refetch(),
+    ]);
   }
 
   return (
@@ -48,9 +62,9 @@ export default function HomeScreen() {
       eyebrow={`Hello, ${user.name.split(' ')[0]}`}
       title="Your balance"
       action={
-        <Pressable onPress={() => router.push('/(app)/groups/create')}>
+        <Pressable onPress={() => router.push('/(app)/expenses/create')}>
           <ThemedText style={styles.addAction} themeColor="primary">
-            + Group
+            + Expense
           </ThemedText>
         </Pressable>
       }
@@ -98,6 +112,28 @@ export default function HomeScreen() {
             </ThemedText>
           </Pressable>
         </ThemedView>
+      ) : null}
+
+      <View style={styles.sectionHeading}>
+        <ThemedText style={styles.sectionTitle}>Personal & 1-on-1</ThemedText>
+        <Pressable onPress={() => router.push('/(app)/expenses/create')}>
+          <ThemedText style={styles.seeAll} themeColor="primary">
+            Add
+          </ThemedText>
+        </Pressable>
+      </View>
+      {expensesQuery.isLoading ? (
+        <ThemedText style={styles.emptyActivity} themeColor="textSecondary">
+          Loading expenses…
+        </ThemedText>
+      ) : null}
+      {recentPersonalExpenses.map((expense) => (
+        <ExpenseRow currentUserId={user.id} expense={expense} key={expense.id} />
+      ))}
+      {!expensesQuery.isLoading && recentPersonalExpenses.length === 0 ? (
+        <ThemedText style={styles.emptyActivity} themeColor="textSecondary">
+          No personal or 1-on-1 expenses yet.
+        </ThemedText>
       ) : null}
 
       <View style={styles.sectionHeading}>

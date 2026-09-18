@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\Currency;
+use App\Models\Expense;
 use App\Models\Group;
 use App\Models\GroupMember;
 use App\Models\Placeholder;
@@ -8,6 +9,110 @@ use App\Models\User;
 
 it('returns 401 when no access token is provided', function () {
     $this->postJson('/api/v1/expenses')->assertUnauthorized();
+    $this->getJson('/api/v1/expenses')->assertUnauthorized();
+});
+
+it('lists only expenses visible to the authenticated user', function () {
+    $currency = Currency::factory()->mvr()->create();
+    $user = User::factory()->create(['default_currency_code' => $currency->code]);
+    $outsider = User::factory()->create(['default_currency_code' => $currency->code]);
+    $group = Group::factory()->for($user, 'creator')->create([
+        'reporting_currency_code' => $currency->code,
+    ]);
+    GroupMember::factory()->owner()->for($group)->for($user)->create();
+    $visibleGroupExpense = Expense::factory()->for($group)->create([
+        'expense_type' => 'group',
+        'payer_user_id' => $user->id,
+        'created_by' => $user->id,
+        'currency_code' => $currency->code,
+        'reporting_currency_code' => $currency->code,
+    ]);
+    $visiblePersonalExpense = Expense::factory()->create([
+        'expense_type' => 'personal',
+        'payer_user_id' => $user->id,
+        'created_by' => $user->id,
+        'currency_code' => $currency->code,
+        'reporting_currency_code' => $currency->code,
+    ]);
+    Expense::factory()->create([
+        'expense_type' => 'personal',
+        'payer_user_id' => $outsider->id,
+        'created_by' => $outsider->id,
+        'currency_code' => $currency->code,
+        'reporting_currency_code' => $currency->code,
+    ]);
+    $token = $user->createToken('User phone');
+
+    $response = $this->withToken($token->plainTextToken)->getJson('/api/v1/expenses?per_page=100');
+
+    $response->assertOk()->assertJsonCount(2, 'data');
+    expect(collect($response->json('data'))->pluck('id')->all())
+        ->toContain($visibleGroupExpense->id, $visiblePersonalExpense->id);
+});
+
+it('filters expenses by group and returns calculated splits', function () {
+    $currency = Currency::factory()->mvr()->create();
+    $user = User::factory()->create(['default_currency_code' => $currency->code]);
+    $group = Group::factory()->for($user, 'creator')->create([
+        'reporting_currency_code' => $currency->code,
+    ]);
+    GroupMember::factory()->owner()->for($group)->for($user)->create();
+    $token = $user->createToken('User phone');
+
+    $this->withToken($token->plainTextToken)->postJson('/api/v1/expenses', [
+        'expense_type' => 'group',
+        'group_id' => $group->id,
+        'payer_user_id' => $user->id,
+        'amount_minor' => 1200,
+        'currency_code' => $currency->code,
+        'description' => 'Lunch',
+        'occurred_at' => '2026-09-18T09:00:00+05:00',
+        'split_type' => 'equal',
+        'participants' => [['user_id' => $user->id]],
+    ])->assertCreated();
+
+    $response = $this->withToken($token->plainTextToken)
+        ->getJson("/api/v1/expenses?group_id={$group->id}");
+
+    $response
+        ->assertOk()
+        ->assertJsonCount(1, 'data')
+        ->assertJsonPath('data.0.description', 'Lunch')
+        ->assertJsonPath('data.0.splits.0.amount_owed_minor', 1200);
+});
+
+it('shows an expense visible to the authenticated user', function () {
+    $currency = Currency::factory()->mvr()->create();
+    $owner = User::factory()->create(['default_currency_code' => $currency->code]);
+    $expense = Expense::factory()->create([
+        'expense_type' => 'personal',
+        'payer_user_id' => $owner->id,
+        'created_by' => $owner->id,
+        'currency_code' => $currency->code,
+        'reporting_currency_code' => $currency->code,
+    ]);
+
+    $this->withToken($owner->createToken('Owner phone')->plainTextToken)
+        ->getJson("/api/v1/expenses/{$expense->id}")
+        ->assertOk()
+        ->assertJsonPath('data.id', $expense->id);
+});
+
+it('forbids viewing an expense belonging to someone else', function () {
+    $currency = Currency::factory()->mvr()->create();
+    $owner = User::factory()->create(['default_currency_code' => $currency->code]);
+    $outsider = User::factory()->create(['default_currency_code' => $currency->code]);
+    $expense = Expense::factory()->create([
+        'expense_type' => 'personal',
+        'payer_user_id' => $owner->id,
+        'created_by' => $owner->id,
+        'currency_code' => $currency->code,
+        'reporting_currency_code' => $currency->code,
+    ]);
+
+    $this->withToken($outsider->createToken('Outsider phone')->plainTextToken)
+        ->getJson("/api/v1/expenses/{$expense->id}")
+        ->assertForbidden();
 });
 
 it('returns 403 when creating an expense in another group', function () {
@@ -181,7 +286,9 @@ it('creates a direct expense with a creator-owned placeholder', function () {
     $response
         ->assertCreated()
         ->assertJsonPath('data.expense_type', 'direct')
+        ->assertJsonPath('data.payer.name', $creator->name)
         ->assertJsonPath('data.splits.1.placeholder_id', $placeholder->id)
+        ->assertJsonPath('data.splits.1.name', $placeholder->name)
         ->assertJsonPath('data.splits.1.amount_owed_minor', 750);
     $this->assertDatabaseHas('expense_splits', [
         'placeholder_id' => $placeholder->id,

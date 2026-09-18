@@ -38,6 +38,15 @@ export type Group = {
   updated_at: string;
 };
 
+export type Placeholder = {
+  id: number;
+  name: string;
+  contact_type: 'email' | 'phone';
+  is_claimed: boolean;
+  claimed_at: string | null;
+  created_at: string;
+};
+
 export type BalanceMember = {
   member_id: number;
   participant: {
@@ -64,6 +73,41 @@ export type Activity = {
   event: string;
   metadata: Record<string, unknown> | null;
   created_at: string;
+};
+
+export type ExpenseType = 'group' | 'direct' | 'personal';
+export type SplitType = 'equal' | 'exact' | 'percentage' | 'shares';
+
+export type ExpenseSplit = {
+  id: number;
+  user_id: number | null;
+  placeholder_id: number | null;
+  name: string | null;
+  amount_owed_minor: number;
+  reporting_amount_owed_minor: number;
+  split_type: SplitType;
+  split_value: string | null;
+};
+
+export type Expense = {
+  id: number;
+  expense_type: ExpenseType;
+  group_id: number | null;
+  payer: { user_id: number | null; placeholder_id: number | null; name: string | null };
+  amount_minor: number;
+  currency_code: string;
+  reporting_amount_minor: number;
+  reporting_currency_code: string;
+  exchange_rate: string | null;
+  exchange_rate_source: string;
+  exchange_rate_effective_date: string | null;
+  description: string;
+  category: string | null;
+  occurred_at: string;
+  created_by: number;
+  splits: ExpenseSplit[];
+  created_at: string;
+  updated_at: string;
 };
 
 export type PaginatedResponse<T> = {

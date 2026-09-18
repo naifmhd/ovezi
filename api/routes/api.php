@@ -72,8 +72,8 @@ Route::prefix('v1')->name('api.v1.')->group(function (): void {
             ->name('me.destroy');
         Route::get('activity', [ActivityController::class, 'index'])
             ->name('activity.index');
-        Route::post('expenses', [ExpenseController::class, 'store'])
-            ->name('expenses.store');
+        Route::apiResource('expenses', ExpenseController::class)
+            ->only(['index', 'show', 'store']);
         Route::apiResource('groups', GroupController::class)
             ->only(['index', 'store', 'show', 'update']);
         Route::post('groups/{group}/members', [GroupMemberController::class, 'store'])

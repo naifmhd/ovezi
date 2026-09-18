@@ -4,12 +4,14 @@ import { Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-n
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ActivityRow } from '@/components/activity-row';
+import { ExpenseRow } from '@/components/expense-row';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
 import { fetchActivity } from '@/lib/activity-api';
 import { errorMessage } from '@/lib/api-client';
-import { formatMoney } from '@/lib/format';
+import { fetchExpenses } from '@/lib/expenses-api';
+import { formatMoney, minorAmountInput } from '@/lib/format';
 import { fetchGroup, fetchGroupBalances } from '@/lib/groups-api';
 import { useAuthStore } from '@/stores/auth-store';
 
@@ -35,6 +37,11 @@ export default function GroupDetailScreen() {
     queryFn: () => fetchActivity(token, groupId, 20),
     enabled: validId,
   });
+  const expensesQuery = useQuery({
+    queryKey: ['expenses', 'group', groupId],
+    queryFn: () => fetchExpenses(token, { groupId, perPage: 20 }),
+    enabled: validId,
+  });
   const group = groupQuery.data;
   const balances = balancesQuery.data;
   const currentBalance = balances?.members.find(
@@ -43,12 +50,17 @@ export default function GroupDetailScreen() {
   const participantNames = new Map(
     (balances?.members ?? []).map((member) => [member.participant.key, member.participant.name]),
   );
-  const error = groupQuery.error ?? balancesQuery.error ?? activityQuery.error;
+  const error = groupQuery.error ?? balancesQuery.error ?? activityQuery.error ?? expensesQuery.error;
   const refreshing =
-    groupQuery.isRefetching || balancesQuery.isRefetching || activityQuery.isRefetching;
+    groupQuery.isRefetching || balancesQuery.isRefetching || activityQuery.isRefetching || expensesQuery.isRefetching;
 
   async function refresh() {
-    await Promise.all([groupQuery.refetch(), balancesQuery.refetch(), activityQuery.refetch()]);
+    await Promise.all([
+      groupQuery.refetch(),
+      balancesQuery.refetch(),
+      activityQuery.refetch(),
+      expensesQuery.refetch(),
+    ]);
   }
 
   return (
@@ -71,7 +83,9 @@ export default function GroupDetailScreen() {
             activity={activityQuery.data?.data ?? []}
             balance={currentBalance}
             currency={group?.reporting_currency_code}
+            currentUserId={user.id}
             error={error}
+            expenses={expensesQuery.data?.data ?? []}
             group={group}
             participantNames={participantNames}
             refreshing={refreshing}
@@ -87,10 +101,12 @@ export default function GroupDetailScreen() {
 type ContentProps = {
   group: Awaited<ReturnType<typeof fetchGroup>> | undefined;
   currency: string | undefined;
+  currentUserId: number;
   balance: number | undefined;
   settlements: { from: string; to: string; amount_minor: number }[];
   participantNames: Map<string, string>;
   activity: Awaited<ReturnType<typeof fetchActivity>>['data'];
+  expenses: Awaited<ReturnType<typeof fetchExpenses>>['data'];
   error: Error | null;
   refreshing: boolean;
   onRefresh: () => Promise<void>;
@@ -99,10 +115,12 @@ type ContentProps = {
 function AppGroupContent({
   group,
   currency,
+  currentUserId,
   balance,
   settlements,
   participantNames,
   activity,
+  expenses,
   error,
   refreshing,
   onRefresh,
@@ -132,6 +150,47 @@ function AppGroupContent({
             </ThemedText>
           </ThemedView>
 
+          <View style={styles.actionRow}>
+            {!group.is_archived ? (
+              <Pressable
+                onPress={() =>
+                  router.push({ pathname: '/(app)/expenses/create', params: { groupId: group.id } })
+                }
+                style={[styles.actionButton, styles.addExpenseButton]}>
+                <ThemedText style={styles.addExpenseLabel}>+ Expense</ThemedText>
+              </Pressable>
+            ) : null}
+            {settlements.length > 0 ? (
+              <Pressable
+                onPress={() =>
+                  router.push({ pathname: '/(app)/settlements/create', params: { groupId: group.id } })
+                }
+                style={[styles.actionButton, styles.settleButton]}>
+                <ThemedText style={styles.settleLabel}>Settle up</ThemedText>
+              </Pressable>
+            ) : null}
+          </View>
+
+          <SectionTitle title="Expenses" />
+          {expenses.map((expense) => {
+            const payerKey = expense.payer.user_id
+              ? `user:${expense.payer.user_id}`
+              : `placeholder:${expense.payer.placeholder_id}`;
+            return (
+              <ExpenseRow
+                currentUserId={currentUserId}
+                expense={expense}
+                key={expense.id}
+                payerName={participantNames.get(payerKey)}
+              />
+            );
+          })}
+          {expenses.length === 0 ? (
+            <ThemedText style={styles.empty} themeColor="textSecondary">
+              No expenses yet. Add the first one when this group spends together.
+            </ThemedText>
+          ) : null}
+
           <SectionTitle title={`Members · ${group.members?.length ?? 0}`} />
           <ThemedView type="backgroundElement" style={styles.listCard}>
             {(group.members ?? []).map((member, index) => (
@@ -158,7 +217,13 @@ function AppGroupContent({
             <>
               <SectionTitle title="Suggested settlements" />
               <ThemedView type="backgroundElement" style={styles.listCard}>
-                {settlements.map((settlement, index) => (
+                {settlements.map((settlement, index) => {
+                  const currentUserKey = `user:${currentUserId}`;
+                  const canRecord = group.members?.some(
+                    (member) => member.user?.id === currentUserId && member.role === 'owner',
+                  ) || settlement.from === currentUserKey || settlement.to === currentUserKey;
+
+                  return (
                   <View key={`${settlement.from}-${settlement.to}`}>
                     {index > 0 ? <View style={styles.divider} /> : null}
                     <View style={styles.settlementRow}>
@@ -171,12 +236,31 @@ function AppGroupContent({
                           Suggested payment
                         </ThemedText>
                       </View>
-                      <ThemedText style={styles.settlementAmount} themeColor="primary">
-                        {formatMoney(settlement.amount_minor, currency)}
-                      </ThemedText>
+                      <View style={styles.settlementAction}>
+                        <ThemedText style={styles.settlementAmount} themeColor="primary">
+                          {formatMoney(settlement.amount_minor, currency)}
+                        </ThemedText>
+                        {canRecord ? (
+                          <Pressable
+                            onPress={() => router.push({
+                              pathname: '/(app)/settlements/create',
+                              params: {
+                                groupId: group.id,
+                                from: settlement.from,
+                                to: settlement.to,
+                                amount: minorAmountInput(settlement.amount_minor, currency),
+                              },
+                            })}>
+                            <ThemedText style={styles.recordLink} themeColor="primary">
+                              Record
+                            </ThemedText>
+                          </Pressable>
+                        ) : null}
+                      </View>
                     </View>
                   </View>
-                ))}
+                  );
+                })}
               </ThemedView>
             </>
           ) : null}
@@ -216,6 +300,18 @@ const styles = StyleSheet.create({
   headerSpacer: { width: 48 },
   content: { padding: Spacing.four, paddingBottom: 80, gap: 12 },
   balanceCard: { borderRadius: 24, padding: 22, alignItems: 'center', marginBottom: 10 },
+  actionRow: { flexDirection: 'row', gap: 10 },
+  actionButton: {
+    flex: 1,
+    height: 52,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  addExpenseButton: { backgroundColor: '#00F5A0' },
+  addExpenseLabel: { color: '#061A14', fontSize: 15, fontWeight: '900' },
+  settleButton: { backgroundColor: '#DDFBF0' },
+  settleLabel: { color: '#0A6B4E', fontSize: 15, fontWeight: '900' },
   balanceAmount: { fontSize: 34, lineHeight: 43, fontWeight: '800', marginVertical: 3 },
   sectionTitle: { fontSize: 17, lineHeight: 24, fontWeight: '800', marginTop: 14 },
   listCard: { borderRadius: 20, paddingHorizontal: 16 },
@@ -227,6 +323,8 @@ const styles = StyleSheet.create({
   role: { fontSize: 12, lineHeight: 17, textTransform: 'capitalize' },
   settlementRow: { minHeight: 68, flexDirection: 'row', alignItems: 'center', gap: 12 },
   settlementCopy: { flex: 1 },
+  settlementAction: { alignItems: 'flex-end', gap: 3 },
   settlementAmount: { fontSize: 15, fontWeight: '800' },
+  recordLink: { fontSize: 12, fontWeight: '800' },
   empty: { textAlign: 'center', paddingVertical: 24 },
 });
