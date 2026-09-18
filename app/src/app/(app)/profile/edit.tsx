@@ -6,6 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { FormField } from '@/components/auth/form-field';
 import { PrimaryButton } from '@/components/auth/primary-button';
+import { CurrencyPicker } from '@/components/currency-picker';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
@@ -55,11 +56,9 @@ export default function EditProfileScreen() {
             onChangeText={setName}
             value={name}
           />
-          <FormField
-            autoCapitalize="characters"
+          <CurrencyPicker
             label="Default currency"
-            maxLength={3}
-            onChangeText={setCurrency}
+            onChange={setCurrency}
             value={currency}
           />
           <ThemedText style={styles.hint} themeColor="textSecondary">

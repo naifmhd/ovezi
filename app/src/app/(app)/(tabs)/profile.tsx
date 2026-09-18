@@ -75,6 +75,12 @@ export default function ProfileScreen() {
           onPress={() => router.push('/(app)/profile/security')}
           subtitle="Password, email, sessions, and deletion"
         />
+        <View style={styles.divider} />
+        <ProfileLink
+          label="Claim previous history"
+          onPress={() => router.push('/(app)/profile/placeholder-claims')}
+          subtitle="Find expenses recorded for your verified email"
+        />
       </ThemedView>
 
       <Pressable onPress={() => void logout()}>

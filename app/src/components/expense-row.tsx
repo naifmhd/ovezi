@@ -49,11 +49,15 @@ export function ExpenseRow({ expense, payerName, currentUserId, onPress }: Expen
 function directExpenseSummary(expense: Expense, currentUserId?: number) {
   if (expense.expense_type !== 'direct' || currentUserId === undefined) return null;
 
-  const ownSplit = expense.splits.find((split) => split.user_id === currentUserId);
-  const otherSplit = expense.splits.find((split) => split.user_id !== currentUserId);
+  const ownSplit = expense.splits.find(
+    (split) => (split.user_id ?? split.claimed_user_id) === currentUserId,
+  );
+  const otherSplit = expense.splits.find(
+    (split) => (split.user_id ?? split.claimed_user_id) !== currentUserId,
+  );
   if (!ownSplit || !otherSplit) return null;
 
-  if (expense.payer.user_id === currentUserId) {
+  if ((expense.payer.user_id ?? expense.payer.claimed_user_id) === currentUserId) {
     return `${otherSplit.name ?? 'They'} owe you ${formatMoney(otherSplit.amount_owed_minor, expense.currency_code)}`;
   }
 

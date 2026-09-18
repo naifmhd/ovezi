@@ -34,7 +34,12 @@ class ExpensePolicy
 
         return $expense->created_by === $user->id
             || $expense->payer_user_id === $user->id
-            || $expense->splits()->whereBelongsTo($user)->exists();
+            || $expense->payerPlaceholder?->claimed_by === $user->id
+            || $expense->splits()->whereBelongsTo($user)->exists()
+            || $expense->splits()->whereHas(
+                'placeholder',
+                fn ($query) => $query->where('claimed_by', $user->id),
+            )->exists();
     }
 
     /**

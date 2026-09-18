@@ -14,6 +14,7 @@ use App\Http\Controllers\Api\V1\Auth\SocialLoginController;
 use App\Http\Controllers\Api\V1\Auth\UpdateEmailController;
 use App\Http\Controllers\Api\V1\Auth\UpdatePasswordController;
 use App\Http\Controllers\Api\V1\Auth\VerifyEmailController;
+use App\Http\Controllers\Api\V1\CurrencyController;
 use App\Http\Controllers\Api\V1\DeleteAccountController;
 use App\Http\Controllers\Api\V1\ExpenseController;
 use App\Http\Controllers\Api\V1\GroupActivityController;
@@ -22,6 +23,7 @@ use App\Http\Controllers\Api\V1\GroupController;
 use App\Http\Controllers\Api\V1\GroupCurrencyRateController;
 use App\Http\Controllers\Api\V1\GroupInviteController;
 use App\Http\Controllers\Api\V1\GroupMemberController;
+use App\Http\Controllers\Api\V1\PlaceholderClaimController;
 use App\Http\Controllers\Api\V1\PlaceholderController;
 use App\Http\Controllers\Api\V1\ProfileController;
 use App\Http\Controllers\Api\V1\SettlementController;
@@ -53,6 +55,7 @@ Route::prefix('v1')->name('api.v1.')->group(function (): void {
 
     Route::middleware('auth:sanctum')->group(function (): void {
         Route::get('me', ProfileController::class)->name('me');
+        Route::get('currencies', CurrencyController::class)->name('currencies.index');
         Route::delete('auth/session', [SessionController::class, 'destroy'])
             ->name('auth.session.destroy');
         Route::delete('auth/sessions', AllSessionsController::class)
@@ -73,7 +76,7 @@ Route::prefix('v1')->name('api.v1.')->group(function (): void {
         Route::get('activity', [ActivityController::class, 'index'])
             ->name('activity.index');
         Route::apiResource('expenses', ExpenseController::class)
-            ->only(['index', 'show', 'store', 'destroy']);
+            ->only(['index', 'show', 'store', 'update', 'destroy']);
         Route::post('expenses/{expense}/restore', [ExpenseController::class, 'restore'])
             ->whereNumber('expense')
             ->name('expenses.restore');
@@ -105,6 +108,10 @@ Route::prefix('v1')->name('api.v1.')->group(function (): void {
             ->name('groups.archive.destroy');
         Route::apiResource('placeholders', PlaceholderController::class)
             ->only(['index', 'store', 'update']);
+        Route::get('placeholder-claims', [PlaceholderClaimController::class, 'index'])
+            ->name('placeholder-claims.index');
+        Route::post('placeholder-claims/{placeholder}', [PlaceholderClaimController::class, 'store'])
+            ->name('placeholder-claims.store');
         Route::post('group-invites/accept', AcceptGroupInviteController::class)
             ->name('group-invites.accept');
     });

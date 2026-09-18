@@ -7,6 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { FormField } from '@/components/auth/form-field';
 import { PrimaryButton } from '@/components/auth/primary-button';
+import { CurrencyPicker } from '@/components/currency-picker';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
@@ -192,12 +193,10 @@ export default function GroupSettingsScreen() {
                   onChangeText={setName}
                   value={effectiveName}
                 />
-                <FormField
-                  autoCapitalize="characters"
-                  editable={!group.is_archived}
+                <CurrencyPicker
+                  disabled={group.is_archived}
                   label="Reporting currency"
-                  maxLength={3}
-                  onChangeText={setCurrency}
+                  onChange={setCurrency}
                   value={effectiveCurrency}
                 />
                 <ThemedText style={styles.copy} themeColor="textSecondary">
@@ -234,27 +233,19 @@ export default function GroupSettingsScreen() {
                 ))}
                 {!group.is_archived ? (
                   <ThemedView type="backgroundElement" style={styles.rateForm}>
-                    <View style={styles.rateInputs}>
-                      <View style={styles.rateCurrencyField}>
-                        <FormField
-                          autoCapitalize="characters"
-                          label="Base"
-                          maxLength={3}
-                          onChangeText={setRateCurrency}
-                          placeholder="USD"
-                          value={rateCurrency}
-                        />
-                      </View>
-                      <View style={styles.rateValueField}>
-                        <FormField
-                          keyboardType="decimal-pad"
-                          label={`Rate in ${group.reporting_currency_code}`}
-                          onChangeText={setRate}
-                          placeholder="15.42"
-                          value={rate}
-                        />
-                      </View>
-                    </View>
+                    <CurrencyPicker
+                      excludeCode={group.reporting_currency_code}
+                      label="Base currency"
+                      onChange={setRateCurrency}
+                      value={rateCurrency}
+                    />
+                    <FormField
+                      keyboardType="decimal-pad"
+                      label={`1 ${rateCurrency.trim().toUpperCase() || 'base'} in ${group.reporting_currency_code}`}
+                      onChangeText={setRate}
+                      placeholder="15.42"
+                      value={rate}
+                    />
                     <PrimaryButton
                       label="Save override"
                       loading={rateMutation.isPending}
@@ -410,7 +401,4 @@ const styles = StyleSheet.create({
   chevron: { fontSize: 28, lineHeight: 30, fontWeight: '500' },
   rateRow: { minHeight: 64, borderRadius: 18, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', gap: 12 },
   rateForm: { borderRadius: 20, padding: 16, gap: 14 },
-  rateInputs: { flexDirection: 'row', gap: 10 },
-  rateCurrencyField: { width: 105 },
-  rateValueField: { flex: 1 },
 });

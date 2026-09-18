@@ -198,6 +198,157 @@ it('forbids another user from deleting or restoring an expense', function () {
         ->assertForbidden();
 });
 
+it('updates an expense while retaining its captured conversion rate', function () {
+    $mvr = Currency::factory()->mvr()->create();
+    $usd = Currency::factory()->usd()->create();
+    $owner = User::factory()->create(['default_currency_code' => $mvr->code]);
+    $expense = Expense::factory()->create([
+        'expense_type' => 'personal',
+        'payer_user_id' => $owner->id,
+        'created_by' => $owner->id,
+        'amount_minor' => 1000,
+        'currency_code' => $usd->code,
+        'reporting_amount_minor' => 15_500,
+        'reporting_currency_code' => $mvr->code,
+        'exchange_rate' => '15.500000000000',
+        'exchange_rate_source' => 'expense',
+        'exchange_rate_effective_date' => '2026-09-18',
+    ]);
+
+    $response = $this->withToken($owner->createToken('Owner phone')->plainTextToken)
+        ->putJson("/api/v1/expenses/{$expense->id}", [
+            'expense_type' => 'personal',
+            'payer_user_id' => $owner->id,
+            'amount_minor' => 2000,
+            'currency_code' => $usd->code,
+            'description' => 'Updated purchase',
+            'category' => 'shopping',
+            'occurred_at' => '2026-09-19T09:00:00+05:00',
+        ]);
+
+    $response
+        ->assertOk()
+        ->assertJsonPath('data.amount_minor', 2000)
+        ->assertJsonPath('data.reporting_amount_minor', 31_000)
+        ->assertJsonPath('data.exchange_rate', '15.500000000000')
+        ->assertJsonPath('data.description', 'Updated purchase');
+    $this->assertDatabaseHas('activity_logs', [
+        'subject_id' => $expense->id,
+        'event' => 'expense.updated',
+    ]);
+});
+
+it('recalculates a captured conversion rate only when requested', function () {
+    $mvr = Currency::factory()->mvr()->create();
+    $usd = Currency::factory()->usd()->create();
+    $owner = User::factory()->create(['default_currency_code' => $mvr->code]);
+    $expense = Expense::factory()->create([
+        'expense_type' => 'personal',
+        'payer_user_id' => $owner->id,
+        'created_by' => $owner->id,
+        'amount_minor' => 1000,
+        'currency_code' => $usd->code,
+        'reporting_amount_minor' => 15_500,
+        'reporting_currency_code' => $mvr->code,
+        'exchange_rate' => '15.500000000000',
+        'exchange_rate_source' => 'expense',
+    ]);
+
+    $this->withToken($owner->createToken('Owner phone')->plainTextToken)
+        ->putJson("/api/v1/expenses/{$expense->id}", [
+            'expense_type' => 'personal',
+            'payer_user_id' => $owner->id,
+            'amount_minor' => 2000,
+            'currency_code' => $usd->code,
+            'description' => 'Repriced purchase',
+            'occurred_at' => '2026-09-19T09:00:00+05:00',
+            'expense_rate' => '16',
+            'recalculate_rate' => true,
+        ])
+        ->assertOk()
+        ->assertJsonPath('data.reporting_amount_minor', 32_000)
+        ->assertJsonPath('data.exchange_rate', '16.000000000000')
+        ->assertJsonPath('data.exchange_rate_source', 'expense');
+});
+
+it('replaces group splits atomically when an expense is edited', function () {
+    $currency = Currency::factory()->mvr()->create();
+    $owner = User::factory()->create(['default_currency_code' => $currency->code]);
+    $member = User::factory()->create(['default_currency_code' => $currency->code]);
+    $group = Group::factory()->for($owner, 'creator')->create([
+        'reporting_currency_code' => $currency->code,
+    ]);
+    GroupMember::factory()->owner()->for($group)->for($owner)->create();
+    GroupMember::factory()->for($group)->for($member)->create();
+    $token = $owner->createToken('Owner phone')->plainTextToken;
+    $created = $this->withToken($token)->postJson('/api/v1/expenses', [
+        'expense_type' => 'group',
+        'group_id' => $group->id,
+        'payer_user_id' => $owner->id,
+        'amount_minor' => 1000,
+        'currency_code' => $currency->code,
+        'description' => 'Dinner',
+        'occurred_at' => '2026-09-18T09:00:00+05:00',
+        'split_type' => 'equal',
+        'participants' => [
+            ['user_id' => $owner->id],
+            ['user_id' => $member->id],
+        ],
+    ])->assertCreated();
+    $expenseId = $created->json('data.id');
+
+    $response = $this->withToken($token)->putJson("/api/v1/expenses/{$expenseId}", [
+        'expense_type' => 'group',
+        'group_id' => $group->id,
+        'payer_user_id' => $member->id,
+        'amount_minor' => 1200,
+        'currency_code' => $currency->code,
+        'description' => 'Updated dinner',
+        'occurred_at' => '2026-09-18T10:00:00+05:00',
+        'split_type' => 'exact',
+        'participants' => [
+            ['user_id' => $owner->id, 'value' => 400],
+            ['user_id' => $member->id, 'value' => 800],
+        ],
+    ]);
+
+    $response
+        ->assertOk()
+        ->assertJsonPath('data.payer.user_id', $member->id)
+        ->assertJsonPath('data.amount_minor', 1200)
+        ->assertJsonPath('data.splits.0.amount_owed_minor', 400)
+        ->assertJsonPath('data.splits.1.amount_owed_minor', 800)
+        ->assertJsonPath('data.splits.0.split_type', 'exact')
+        ->assertJsonCount(2, 'data.splits');
+    $this->assertDatabaseCount('expense_splits', 2);
+});
+
+it('forbids moving an expense to another type or group during editing', function () {
+    $currency = Currency::factory()->mvr()->create();
+    $owner = User::factory()->create(['default_currency_code' => $currency->code]);
+    $expense = Expense::factory()->create([
+        'expense_type' => 'personal',
+        'payer_user_id' => $owner->id,
+        'created_by' => $owner->id,
+        'currency_code' => $currency->code,
+        'reporting_currency_code' => $currency->code,
+    ]);
+
+    $this->withToken($owner->createToken('Owner phone')->plainTextToken)
+        ->putJson("/api/v1/expenses/{$expense->id}", [
+            'expense_type' => 'direct',
+            'payer_user_id' => $owner->id,
+            'amount_minor' => 1500,
+            'currency_code' => $currency->code,
+            'description' => 'Moved expense',
+            'occurred_at' => now()->toISOString(),
+            'split_type' => 'equal',
+            'participants' => [['user_id' => $owner->id]],
+        ])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors('expense_type');
+});
+
 it('returns 403 when creating an expense in another group', function () {
     $currency = Currency::factory()->mvr()->create();
     $outsider = User::factory()->create(['default_currency_code' => $currency->code]);

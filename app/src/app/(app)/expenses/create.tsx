@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   KeyboardAvoidingView,
   Platform,
@@ -14,16 +14,20 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { FormField } from '@/components/auth/form-field';
 import { PrimaryButton } from '@/components/auth/primary-button';
+import { CurrencyPicker } from '@/components/currency-picker';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
 import { errorMessage } from '@/lib/api-client';
 import {
   createExpense,
+  fetchExpense,
   type CreateExpenseInput,
   type ExpenseParticipantInput,
+  type UpdateExpenseInput,
+  updateExpense,
 } from '@/lib/expenses-api';
-import { currencyFractionDigits, parseDecimalToInteger } from '@/lib/format';
+import { currencyFractionDigits, minorAmountInput, parseDecimalToInteger } from '@/lib/format';
 import { fetchGroup, fetchGroups } from '@/lib/groups-api';
 import { useTheme } from '@/hooks/use-theme';
 import { createPlaceholder, fetchPlaceholders } from '@/lib/placeholders-api';
@@ -50,6 +54,28 @@ const splitOptions: { value: SplitType; label: string }[] = [
 
 const categories = ['Food', 'Transport', 'Home', 'Travel', 'Other'];
 
+function dateInputValue(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function occurrenceISOString(value: string) {
+  const match = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) return null;
+
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const date = new Date(year, month - 1, day, 12);
+  if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) {
+    return null;
+  }
+
+  return date.toISOString();
+}
+
 function memberDraft(member: GroupMember): ParticipantDraft {
   if (member.user) {
     return {
@@ -71,10 +97,16 @@ function memberDraft(member: GroupMember): ParticipantDraft {
 }
 
 export default function CreateExpenseScreen() {
-  const params = useLocalSearchParams<{ groupId?: string | string[] }>();
+  const params = useLocalSearchParams<{
+    expenseId?: string | string[];
+    groupId?: string | string[];
+  }>();
   const rawGroupId = Array.isArray(params.groupId) ? params.groupId[0] : params.groupId;
+  const rawExpenseId = Array.isArray(params.expenseId) ? params.expenseId[0] : params.expenseId;
   const initialGroupId = Number(rawGroupId);
+  const expenseId = Number(rawExpenseId);
   const hasInitialGroup = Number.isInteger(initialGroupId) && initialGroupId > 0;
+  const isEditing = Number.isInteger(expenseId) && expenseId > 0;
   const token = useAuthStore((state) => state.token)!;
   const user = useAuthStore((state) => state.user)!;
   const theme = useTheme();
@@ -92,12 +124,22 @@ export default function CreateExpenseScreen() {
   const [amount, setAmount] = useState('');
   const [currency, setCurrency] = useState(user.default_currency_code);
   const [category, setCategory] = useState('');
+  const [occurredOn, setOccurredOn] = useState(dateInputValue(new Date()));
   const [splitType, setSplitType] = useState<SplitType>('equal');
   const [participantOverrides, setParticipantOverrides] = useState<ParticipantDraft[] | null>(null);
   const [payerKey, setPayerKey] = useState('');
   const [currencyTouched, setCurrencyTouched] = useState(false);
   const [expenseRate, setExpenseRate] = useState('');
+  const [recalculateRate, setRecalculateRate] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const initializedExpenseId = useRef<number | null>(null);
+
+  const expenseQuery = useQuery({
+    queryKey: ['expense', expenseId],
+    queryFn: () => fetchExpense(token, expenseId),
+    enabled: isEditing,
+  });
+  const editingExpense = expenseQuery.data;
 
   const groupsQuery = useQuery({
     queryKey: ['groups', 'active'],
@@ -113,8 +155,9 @@ export default function CreateExpenseScreen() {
     queryFn: () => fetchPlaceholders(token),
   });
   const group = groupQuery.data;
-  const placeholders = (placeholdersQuery.data?.data ?? []).filter((item) => !item.is_claimed);
-  const selectedPlaceholder = placeholders.find((item) => item.id === selectedPlaceholderId);
+  const allPlaceholders = placeholdersQuery.data?.data ?? [];
+  const placeholders = allPlaceholders.filter((item) => !item.is_claimed);
+  const selectedPlaceholder = allPlaceholders.find((item) => item.id === selectedPlaceholderId);
   let defaultParticipants: ParticipantDraft[] = [];
   if (destination === 'group') defaultParticipants = (group?.members ?? []).map(memberDraft);
   if (destination === 'direct' && selectedPlaceholder) {
@@ -145,11 +188,54 @@ export default function CreateExpenseScreen() {
   const effectiveCurrency = !currencyTouched && destination === 'group' && group
     ? group.reporting_currency_code
     : currency;
-  const reportingCurrency = group?.reporting_currency_code ?? user.default_currency_code;
+  const reportingCurrency = editingExpense?.reporting_currency_code
+    ?? group?.reporting_currency_code
+    ?? user.default_currency_code;
   const rateNeeded = Boolean(
     destination !== 'personal'
       && effectiveCurrency.trim().toUpperCase() !== reportingCurrency,
   );
+
+  useEffect(() => {
+    if (!editingExpense || initializedExpenseId.current === editingExpense.id) return;
+
+    initializedExpenseId.current = editingExpense.id;
+    setDestination(editingExpense.expense_type);
+    setSelectedGroupId(editingExpense.group_id);
+    setDescription(editingExpense.description);
+    setAmount(minorAmountInput(editingExpense.amount_minor, editingExpense.currency_code));
+    setCurrency(editingExpense.currency_code);
+    setCurrencyTouched(true);
+    setCategory(
+      categories.find((item) => item.toLowerCase() === editingExpense.category) ?? '',
+    );
+    setOccurredOn(dateInputValue(new Date(editingExpense.occurred_at)));
+    const existingSplitType = editingExpense.splits[0]?.split_type ?? 'equal';
+    setSplitType(existingSplitType);
+    setParticipantOverrides(editingExpense.splits.map((split) => ({
+      key: split.user_id ? `user:${split.user_id}` : `placeholder:${split.placeholder_id}`,
+      name: split.name ?? 'Unknown',
+      ...(split.user_id ? { userId: split.user_id } : {}),
+      ...(split.placeholder_id ? { placeholderId: split.placeholder_id } : {}),
+      selected: true,
+      value: split.split_value === null
+        ? ''
+        : existingSplitType === 'exact'
+          ? minorAmountInput(Number(split.split_value), editingExpense.currency_code)
+          : existingSplitType === 'percentage'
+            ? String(Number(split.split_value) / 100)
+            : String(Number(split.split_value)),
+    })));
+    setPayerKey(
+      editingExpense.payer.user_id
+        ? `user:${editingExpense.payer.user_id}`
+        : `placeholder:${editingExpense.payer.placeholder_id}`,
+    );
+    if (editingExpense.expense_type === 'direct') {
+      const otherPlaceholder = editingExpense.splits.find((split) => split.placeholder_id !== null);
+      setSelectedPlaceholderId(otherPlaceholder?.placeholder_id ?? null);
+    }
+  }, [editingExpense]);
 
   const placeholderMutation = useMutation({
     mutationFn: () => createPlaceholder(token, {
@@ -169,7 +255,9 @@ export default function CreateExpenseScreen() {
   });
 
   const mutation = useMutation({
-    mutationFn: (input: CreateExpenseInput) => createExpense(token, input),
+    mutationFn: (input: UpdateExpenseInput) => isEditing
+      ? updateExpense(token, expenseId, input)
+      : createExpense(token, input),
     onSuccess: async (expense) => {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['expenses'] }),
@@ -177,7 +265,10 @@ export default function CreateExpenseScreen() {
         queryClient.invalidateQueries({ queryKey: ['group-balances'] }),
         queryClient.invalidateQueries({ queryKey: ['dashboard-balances'] }),
       ]);
-      if (expense.group_id) {
+      if (isEditing) {
+        queryClient.setQueryData(['expense', expense.id], expense);
+        router.replace({ pathname: '/(app)/expenses/[id]', params: { id: expense.id } });
+      } else if (expense.group_id) {
         router.replace({ pathname: '/(app)/groups/[id]', params: { id: expense.group_id } });
       } else {
         router.back();
@@ -264,9 +355,11 @@ export default function CreateExpenseScreen() {
     const currencyCode = effectiveCurrency.trim().toUpperCase();
     const fractionDigits = currencyFractionDigits(currencyCode);
     const amountMinor = parseDecimalToInteger(amount, fractionDigits);
+    const occurredAt = occurrenceISOString(occurredOn);
     if (!description.trim()) return setFormError('Enter what the expense was for.');
     if (currencyCode.length !== 3) return setFormError('Enter a valid three-letter currency code.');
     if (!amountMinor || amountMinor < 1) return setFormError('Enter a valid amount.');
+    if (!occurredAt) return setFormError('Enter a valid date in YYYY-MM-DD format.');
 
     if (destination === 'personal') {
       mutation.mutate({
@@ -276,7 +369,8 @@ export default function CreateExpenseScreen() {
         currency_code: currencyCode,
         description: description.trim(),
         ...(category ? { category: category.toLowerCase() } : {}),
-        occurred_at: new Date().toISOString(),
+        occurred_at: occurredAt,
+        ...(isEditing ? { recalculate_rate: recalculateRate } : {}),
       });
       return;
     }
@@ -307,10 +401,14 @@ export default function CreateExpenseScreen() {
       currency_code: currencyCode,
       description: description.trim(),
       ...(category ? { category: category.toLowerCase() } : {}),
-      occurred_at: new Date().toISOString(),
+      occurred_at: occurredAt,
       split_type: splitType,
       participants: participantInput,
       ...(rateNeeded && expenseRate.trim() ? { expense_rate: expenseRate.trim() } : {}),
+      ...(isEditing ? {
+        recalculate_rate: recalculateRate
+          || effectiveCurrency.trim().toUpperCase() !== editingExpense?.currency_code,
+      } : {}),
     });
   }
 
@@ -325,7 +423,7 @@ export default function CreateExpenseScreen() {
           <Pressable onPress={() => router.back()}>
             <ThemedText style={styles.headerAction} themeColor="textSecondary">Cancel</ThemedText>
           </Pressable>
-          <ThemedText style={styles.headerTitle}>Add expense</ThemedText>
+          <ThemedText style={styles.headerTitle}>{isEditing ? 'Edit expense' : 'Add expense'}</ThemedText>
           <View style={styles.headerSpacer} />
         </View>
         <KeyboardAvoidingView
@@ -335,29 +433,45 @@ export default function CreateExpenseScreen() {
             contentContainerStyle={styles.content}
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}>
+            {isEditing && expenseQuery.isLoading ? (
+              <ThemedText themeColor="textSecondary">Loading expense…</ThemedText>
+            ) : null}
             <SectionLabel label="Where" />
-            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-              <View style={styles.chipRow}>
-                <ChoiceChip
-                  active={destination === 'personal'}
-                  label="Just for me"
-                  onPress={() => selectDestination('personal')}
-                />
-                <ChoiceChip
-                  active={destination === 'direct'}
-                  label="1-on-1"
-                  onPress={() => selectDestination('direct')}
-                />
-                {(groupsQuery.data?.data ?? []).map((item) => (
+            {isEditing ? (
+              <ThemedView type="backgroundSelected" style={styles.infoCard}>
+                <ThemedText style={styles.infoTitle}>
+                  {destination === 'group'
+                    ? group?.name ?? 'Group expense'
+                    : destination === 'direct' ? '1-on-1' : 'Just for me'}
+                </ThemedText>
+                <ThemedText style={styles.infoCopy} themeColor="textSecondary">
+                  Expense type and group stay fixed when editing.
+                </ThemedText>
+              </ThemedView>
+            ) : (
+              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                <View style={styles.chipRow}>
                   <ChoiceChip
-                    active={destination === 'group' && selectedGroupId === item.id}
-                    key={item.id}
-                    label={item.name}
-                    onPress={() => selectDestination('group', item.id)}
+                    active={destination === 'personal'}
+                    label="Just for me"
+                    onPress={() => selectDestination('personal')}
                   />
-                ))}
-              </View>
-            </ScrollView>
+                  <ChoiceChip
+                    active={destination === 'direct'}
+                    label="1-on-1"
+                    onPress={() => selectDestination('direct')}
+                  />
+                  {(groupsQuery.data?.data ?? []).map((item) => (
+                    <ChoiceChip
+                      active={destination === 'group' && selectedGroupId === item.id}
+                      key={item.id}
+                      label={item.name}
+                      onPress={() => selectDestination('group', item.id)}
+                    />
+                  ))}
+                </View>
+              </ScrollView>
+            )}
 
             <FormField
               autoCapitalize="sentences"
@@ -366,29 +480,21 @@ export default function CreateExpenseScreen() {
               placeholder="Dinner, taxi, groceries…"
               value={description}
             />
-            <View style={styles.amountRow}>
-              <View style={styles.amountField}>
-                <FormField
-                  keyboardType="decimal-pad"
-                  label="Amount"
-                  onChangeText={setAmount}
-                  placeholder="0.00"
-                  value={amount}
-                />
-              </View>
-              <View style={styles.currencyField}>
-                <FormField
-                  autoCapitalize="characters"
-                  label="Currency"
-                  maxLength={3}
-                  onChangeText={(value) => {
-                    setCurrencyTouched(true);
-                    setCurrency(value);
-                  }}
-                  value={effectiveCurrency}
-                />
-              </View>
-            </View>
+            <FormField
+              keyboardType="decimal-pad"
+              label="Amount"
+              onChangeText={setAmount}
+              placeholder="0.00"
+              value={amount}
+            />
+            <CurrencyPicker
+              label="Currency"
+              onChange={(value) => {
+                setCurrencyTouched(true);
+                setCurrency(value);
+              }}
+              value={effectiveCurrency}
+            />
 
             <SectionLabel label="Category (optional)" />
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
@@ -403,6 +509,16 @@ export default function CreateExpenseScreen() {
                 ))}
               </View>
             </ScrollView>
+
+            <FormField
+              autoCapitalize="none"
+              keyboardType="numbers-and-punctuation"
+              label="Date"
+              maxLength={10}
+              onChangeText={setOccurredOn}
+              placeholder="YYYY-MM-DD"
+              value={occurredOn}
+            />
 
             {destination === 'direct' ? (
               <>
@@ -552,13 +668,25 @@ export default function CreateExpenseScreen() {
                 </ThemedView>
 
                 {rateNeeded ? (
-                  <FormField
-                    keyboardType="decimal-pad"
-                    label={`Rate · 1 ${effectiveCurrency.trim().toUpperCase()} in ${reportingCurrency} (optional)`}
-                    onChangeText={setExpenseRate}
-                    placeholder="Use saved/default rate"
-                    value={expenseRate}
-                  />
+                  <>
+                    <FormField
+                      keyboardType="decimal-pad"
+                      label={`Rate · 1 ${effectiveCurrency.trim().toUpperCase()} in ${reportingCurrency} (optional)`}
+                      onChangeText={(value) => {
+                        setExpenseRate(value);
+                        if (isEditing && value.trim()) setRecalculateRate(true);
+                      }}
+                      placeholder={isEditing ? 'Keep captured rate' : 'Use saved/default rate'}
+                      value={expenseRate}
+                    />
+                    {isEditing ? (
+                      <ChoiceChip
+                        active={recalculateRate}
+                        label="Recalculate conversion rate"
+                        onPress={() => setRecalculateRate((current) => !current)}
+                      />
+                    ) : null}
+                  </>
                 ) : null}
               </>
             ) : (
@@ -572,8 +700,8 @@ export default function CreateExpenseScreen() {
 
             {visibleError ? <ThemedText themeColor="danger">{visibleError}</ThemedText> : null}
             <PrimaryButton
-              disabled={destination === 'group' && groupQuery.isLoading}
-              label="Save expense"
+              disabled={(destination === 'group' && groupQuery.isLoading) || (isEditing && expenseQuery.isLoading)}
+              label={isEditing ? 'Save changes' : 'Save expense'}
               loading={mutation.isPending}
               onPress={submit}
             />
@@ -623,9 +751,6 @@ const styles = StyleSheet.create({
   segmentRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   chip: { minHeight: 40, borderWidth: 1, borderRadius: 14, paddingHorizontal: 14, alignItems: 'center', justifyContent: 'center' },
   chipLabel: { fontSize: 13, fontWeight: '800' },
-  amountRow: { flexDirection: 'row', gap: 10 },
-  amountField: { flex: 1 },
-  currencyField: { width: 106 },
   participantCard: { borderRadius: 20, paddingHorizontal: 15 },
   participantRow: { minHeight: 64, flexDirection: 'row', alignItems: 'center', gap: 11 },
   participantName: { flex: 1, fontSize: 14, fontWeight: '700' },

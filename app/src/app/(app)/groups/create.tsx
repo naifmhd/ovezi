@@ -7,6 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { FormField } from '@/components/auth/form-field';
 import { FormMessage } from '@/components/auth/form-message';
 import { PrimaryButton } from '@/components/auth/primary-button';
+import { CurrencyPicker } from '@/components/currency-picker';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
@@ -60,12 +61,9 @@ export default function CreateGroupScreen() {
               placeholder="Malé weekend"
               value={name}
             />
-            <FormField
-              autoCapitalize="characters"
+            <CurrencyPicker
               label="Group currency"
-              maxLength={3}
-              onChangeText={setCurrency}
-              placeholder="MVR"
+              onChange={setCurrency}
               value={currency}
             />
             <ThemedText style={styles.hint} themeColor="textSecondary">

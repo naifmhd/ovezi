@@ -17,6 +17,13 @@ export type AuthSession = {
 
 export type ValidationErrors = Record<string, string[]>;
 
+export type Currency = {
+  code: string;
+  name: string;
+  symbol: string | null;
+  minor_unit_factor: number;
+};
+
 export type GroupMember = {
   id: number;
   group_id: number;
@@ -44,6 +51,19 @@ export type Placeholder = {
   id: number;
   name: string;
   contact_type: 'email' | 'phone';
+  is_claimed: boolean;
+  claimed_at: string | null;
+  created_at: string;
+};
+
+export type PlaceholderClaim = {
+  id: number;
+  name: string;
+  contact_type: 'email';
+  created_by: { id: number; name: string } | null;
+  groups: { id: number; name: string | null }[];
+  expense_count: number;
+  group_count: number;
   is_claimed: boolean;
   claimed_at: string | null;
   created_at: string;
@@ -108,6 +128,7 @@ export type ExpenseSplit = {
   id: number;
   user_id: number | null;
   placeholder_id: number | null;
+  claimed_user_id: number | null;
   name: string | null;
   amount_owed_minor: number;
   reporting_amount_owed_minor: number;
@@ -119,7 +140,12 @@ export type Expense = {
   id: number;
   expense_type: ExpenseType;
   group_id: number | null;
-  payer: { user_id: number | null; placeholder_id: number | null; name: string | null };
+  payer: {
+    user_id: number | null;
+    placeholder_id: number | null;
+    claimed_user_id: number | null;
+    name: string | null;
+  };
   amount_minor: number;
   currency_code: string;
   reporting_amount_minor: number;

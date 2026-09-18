@@ -26,7 +26,10 @@ class ActivityController extends Controller
                                     [Expense::class],
                                     fn (Builder $expenseQuery): Builder => $expenseQuery->whereHas(
                                         'splits',
-                                        fn (Builder $splitQuery): Builder => $splitQuery->where('user_id', $user->id),
+                                        fn (Builder $splitQuery): Builder => $splitQuery
+                                            ->where('user_id', $user->id)
+                                            ->orWhereHas('placeholder', fn (Builder $placeholderQuery): Builder => $placeholderQuery
+                                                ->where('claimed_by', $user->id)),
                                     ),
                                 );
                         });

@@ -98,7 +98,15 @@ export default function ExpenseDetailScreen() {
             <ThemedText style={styles.headerAction} themeColor="primary">‹ Back</ThemedText>
           </Pressable>
           <ThemedText style={styles.headerTitle}>Expense</ThemedText>
-          <View style={styles.headerSpacer} />
+          {expense && canManage && deletedAt === null ? (
+            <Pressable
+              onPress={() => router.push({
+                pathname: '/(app)/expenses/create',
+                params: { expenseId: expense.id },
+              })}>
+              <ThemedText style={styles.headerAction} themeColor="primary">Edit</ThemedText>
+            </Pressable>
+          ) : <View style={styles.headerSpacer} />}
         </View>
         <ScrollView
           contentContainerStyle={styles.content}
@@ -187,8 +195,10 @@ function ExpenseContent({
   expense: Expense;
   groupName?: string;
 }) {
-  const ownSplit = expense.splits.find((split) => split.user_id === currentUserId);
-  const paidByCurrentUser = expense.payer.user_id === currentUserId;
+  const ownSplit = expense.splits.find(
+    (split) => (split.user_id ?? split.claimed_user_id) === currentUserId,
+  );
+  const paidByCurrentUser = (expense.payer.user_id ?? expense.payer.claimed_user_id) === currentUserId;
   const personalImpact = expense.expense_type === 'personal'
     ? 'Personal tracking entry · no balance impact'
     : paidByCurrentUser
@@ -243,7 +253,7 @@ function ExpenseContent({
                 <View style={styles.splitRow}>
                   <View style={styles.splitCopy}>
                     <ThemedText style={styles.splitName}>
-                      {split.user_id === currentUserId ? 'You' : split.name ?? 'Unknown'}
+                      {(split.user_id ?? split.claimed_user_id) === currentUserId ? 'You' : split.name ?? 'Unknown'}
                     </ThemedText>
                     {splitValueLabel(split, expense) ? (
                       <ThemedText style={styles.splitValue} themeColor="textSecondary">

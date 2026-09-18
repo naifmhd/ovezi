@@ -24,6 +24,10 @@ export type CreateExpenseInput = {
   expense_rate?: string;
 };
 
+export type UpdateExpenseInput = CreateExpenseInput & {
+  recalculate_rate?: boolean;
+};
+
 export function fetchExpenses(
   token: string,
   options: { groupId?: number; expenseType?: ExpenseType; perPage?: number } = {},
@@ -39,6 +43,15 @@ export function fetchExpenses(
 export async function createExpense(token: string, input: CreateExpenseInput) {
   const response = await apiRequest<DataResponse<Expense>>('/expenses', {
     method: 'POST',
+    token,
+    body: input,
+  });
+  return response.data;
+}
+
+export async function updateExpense(token: string, expenseId: number, input: UpdateExpenseInput) {
+  const response = await apiRequest<DataResponse<Expense>>(`/expenses/${expenseId}`, {
+    method: 'PUT',
     token,
     body: input,
   });
