@@ -2,7 +2,12 @@
 
 namespace App\Providers;
 
+use App\Models\Expense;
+use App\Models\Group;
+use App\Models\GroupMember;
+use App\Models\Settlement;
 use App\Models\User;
+use App\Observers\DomainChangeObserver;
 use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Auth\Notifications\VerifyEmail;
 use Illuminate\Cache\RateLimiting\Limit;
@@ -27,6 +32,11 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        Expense::observe(DomainChangeObserver::class);
+        Settlement::observe(DomainChangeObserver::class);
+        Group::observe(DomainChangeObserver::class);
+        GroupMember::observe(DomainChangeObserver::class);
+
         VerifyEmail::createUrlUsing(function (User $user): string {
             $verificationUrl = URL::temporarySignedRoute(
                 'api.v1.auth.email.verify',

@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { PropsWithChildren, useEffect, useState } from 'react';
 
 import { ApiError } from '@/lib/api-client';
+import { RealtimeSync } from '@/providers/realtime-sync';
 import { useAuthStore } from '@/stores/auth-store';
 
 export function AppProvider({ children }: PropsWithChildren) {
@@ -26,5 +27,10 @@ export function AppProvider({ children }: PropsWithChildren) {
     void hydrate();
   }, [hydrate]);
 
-  return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
+  return (
+    <QueryClientProvider client={queryClient}>
+      <RealtimeSync />
+      {children}
+    </QueryClientProvider>
+  );
 }
