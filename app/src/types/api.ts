@@ -69,6 +69,15 @@ export type PlaceholderClaim = {
   created_at: string;
 };
 
+export type Friendship = {
+  id: number;
+  friend: { id: number; name: string; email: string };
+  status: 'pending' | 'accepted';
+  direction: 'incoming' | 'outgoing';
+  accepted_at: string | null;
+  created_at: string;
+};
+
 export type GroupInvite = {
   id: number;
   group_id: number;

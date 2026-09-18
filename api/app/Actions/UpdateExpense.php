@@ -255,7 +255,16 @@ class UpdateExpense
         }
 
         foreach ($participants as $participant) {
+            $participantUserId = $participant['user_id'] ?? null;
             $placeholderId = $participant['placeholder_id'] ?? null;
+
+            if ($participantUserId !== null
+                && $participantUserId !== $expense->created_by
+                && ! $editor->isFriendsWith($participantUserId)) {
+                throw ValidationException::withMessages([
+                    'participants' => 'Registered participants in a direct expense must be accepted friends.',
+                ]);
+            }
 
             if ($placeholderId !== null && ! Placeholder::query()
                 ->whereKey($placeholderId)

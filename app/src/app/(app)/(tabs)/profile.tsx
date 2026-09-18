@@ -71,6 +71,12 @@ export default function ProfileScreen() {
         />
         <View style={styles.divider} />
         <ProfileLink
+          label="Friends"
+          onPress={() => router.push('/(app)/friends')}
+          subtitle="Requests and people you split with"
+        />
+        <View style={styles.divider} />
+        <ProfileLink
           label="Security & account"
           onPress={() => router.push('/(app)/profile/security')}
           subtitle="Password, email, sessions, and deletion"

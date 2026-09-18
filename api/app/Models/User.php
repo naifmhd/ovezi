@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\FriendshipStatus;
 use Database\Factories\UserFactory;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -56,6 +57,19 @@ class User extends Authenticatable implements MustVerifyEmail
     public function expenseSplits(): HasMany
     {
         return $this->hasMany(ExpenseSplit::class);
+    }
+
+    public function isFriendsWith(int $otherUserId): bool
+    {
+        [$userId, $friendId] = $this->id < $otherUserId
+            ? [$this->id, $otherUserId]
+            : [$otherUserId, $this->id];
+
+        return Friendship::query()
+            ->where('user_id', $userId)
+            ->where('friend_id', $friendId)
+            ->where('status', FriendshipStatus::Accepted)
+            ->exists();
     }
 
     /**

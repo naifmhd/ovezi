@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\V1\AcceptFriendRequestController;
 use App\Http\Controllers\Api\V1\AcceptGroupInviteController;
 use App\Http\Controllers\Api\V1\ActivityController;
 use App\Http\Controllers\Api\V1\ArchivedGroupController;
@@ -17,6 +18,7 @@ use App\Http\Controllers\Api\V1\Auth\VerifyEmailController;
 use App\Http\Controllers\Api\V1\CurrencyController;
 use App\Http\Controllers\Api\V1\DeleteAccountController;
 use App\Http\Controllers\Api\V1\ExpenseController;
+use App\Http\Controllers\Api\V1\FriendshipController;
 use App\Http\Controllers\Api\V1\GroupActivityController;
 use App\Http\Controllers\Api\V1\GroupBalanceController;
 use App\Http\Controllers\Api\V1\GroupController;
@@ -75,6 +77,10 @@ Route::prefix('v1')->name('api.v1.')->group(function (): void {
             ->name('me.destroy');
         Route::get('activity', [ActivityController::class, 'index'])
             ->name('activity.index');
+        Route::apiResource('friends', FriendshipController::class)
+            ->only(['index', 'store', 'destroy']);
+        Route::post('friends/{friendship}/accept', AcceptFriendRequestController::class)
+            ->name('friends.accept');
         Route::apiResource('expenses', ExpenseController::class)
             ->only(['index', 'show', 'store', 'update', 'destroy']);
         Route::post('expenses/{expense}/restore', [ExpenseController::class, 'restore'])

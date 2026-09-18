@@ -28,6 +28,7 @@ import {
   updateExpense,
 } from '@/lib/expenses-api';
 import { currencyFractionDigits, minorAmountInput, parseDecimalToInteger } from '@/lib/format';
+import { fetchFriends } from '@/lib/friends-api';
 import { fetchGroup, fetchGroups } from '@/lib/groups-api';
 import { useTheme } from '@/hooks/use-theme';
 import { createPlaceholder, fetchPlaceholders } from '@/lib/placeholders-api';
@@ -116,6 +117,7 @@ export default function CreateExpenseScreen() {
     hasInitialGroup ? initialGroupId : null,
   );
   const [selectedPlaceholderId, setSelectedPlaceholderId] = useState<number | null>(null);
+  const [selectedFriendId, setSelectedFriendId] = useState<number | null>(null);
   const [showGuestForm, setShowGuestForm] = useState(false);
   const [guestName, setGuestName] = useState('');
   const [guestContactType, setGuestContactType] = useState<'email' | 'phone'>('email');
@@ -154,13 +156,19 @@ export default function CreateExpenseScreen() {
     queryKey: ['placeholders'],
     queryFn: () => fetchPlaceholders(token),
   });
+  const friendsQuery = useQuery({
+    queryKey: ['friends'],
+    queryFn: () => fetchFriends(token),
+  });
   const group = groupQuery.data;
   const allPlaceholders = placeholdersQuery.data?.data ?? [];
   const placeholders = allPlaceholders.filter((item) => !item.is_claimed);
   const selectedPlaceholder = allPlaceholders.find((item) => item.id === selectedPlaceholderId);
+  const friends = (friendsQuery.data ?? []).filter((item) => item.status === 'accepted');
+  const selectedFriend = friends.find((item) => item.friend.id === selectedFriendId)?.friend;
   let defaultParticipants: ParticipantDraft[] = [];
   if (destination === 'group') defaultParticipants = (group?.members ?? []).map(memberDraft);
-  if (destination === 'direct' && selectedPlaceholder) {
+  if (destination === 'direct' && (selectedPlaceholder || selectedFriend)) {
     defaultParticipants = [
       {
         key: `user:${user.id}`,
@@ -169,13 +177,21 @@ export default function CreateExpenseScreen() {
         selected: true,
         value: '',
       },
-      {
-        key: `placeholder:${selectedPlaceholder.id}`,
-        name: selectedPlaceholder.name,
-        placeholderId: selectedPlaceholder.id,
-        selected: true,
-        value: '',
-      },
+      selectedFriend
+        ? {
+            key: `user:${selectedFriend.id}`,
+            name: selectedFriend.name,
+            userId: selectedFriend.id,
+            selected: true,
+            value: '',
+          }
+        : {
+            key: `placeholder:${selectedPlaceholder!.id}`,
+            name: selectedPlaceholder!.name,
+            placeholderId: selectedPlaceholder!.id,
+            selected: true,
+            value: '',
+          },
     ];
   }
   const participants = participantOverrides ?? defaultParticipants;
@@ -232,7 +248,11 @@ export default function CreateExpenseScreen() {
         : `placeholder:${editingExpense.payer.placeholder_id}`,
     );
     if (editingExpense.expense_type === 'direct') {
+      const otherUser = editingExpense.splits.find(
+        (split) => split.user_id !== null && split.user_id !== user.id,
+      );
       const otherPlaceholder = editingExpense.splits.find((split) => split.placeholder_id !== null);
+      setSelectedFriendId(otherUser?.user_id ?? null);
       setSelectedPlaceholderId(otherPlaceholder?.placeholder_id ?? null);
     }
   }, [editingExpense]);
@@ -280,6 +300,7 @@ export default function CreateExpenseScreen() {
     setDestination(nextDestination);
     setSelectedGroupId(groupId);
     setSelectedPlaceholderId(null);
+    setSelectedFriendId(null);
     setParticipantOverrides(null);
     setSplitType('equal');
     setPayerKey('');
@@ -292,6 +313,15 @@ export default function CreateExpenseScreen() {
 
   function selectPlaceholder(placeholderId: number) {
     setSelectedPlaceholderId(placeholderId);
+    setSelectedFriendId(null);
+    setParticipantOverrides(null);
+    setPayerKey('');
+    setFormError(null);
+  }
+
+  function selectFriend(friendId: number) {
+    setSelectedFriendId(friendId);
+    setSelectedPlaceholderId(null);
     setParticipantOverrides(null);
     setPayerKey('');
     setFormError(null);
@@ -376,7 +406,7 @@ export default function CreateExpenseScreen() {
     }
 
     if (destination === 'group' && !group) return setFormError('The group is still loading.');
-    if (destination === 'direct' && !selectedPlaceholder) {
+    if (destination === 'direct' && !selectedPlaceholder && !selectedFriend) {
       return setFormError('Choose or add the person sharing this expense.');
     }
     if (selectedParticipants.length === 0) return setFormError('Select at least one participant.');
@@ -414,6 +444,7 @@ export default function CreateExpenseScreen() {
 
   const visibleError = formError
     ?? (placeholderMutation.error ? errorMessage(placeholderMutation.error) : null)
+    ?? (friendsQuery.error ? errorMessage(friendsQuery.error) : null)
     ?? (mutation.error ? errorMessage(mutation.error) : null);
 
   return (
@@ -523,10 +554,18 @@ export default function CreateExpenseScreen() {
             {destination === 'direct' ? (
               <>
                 <SectionLabel label="With" />
-                {placeholdersQuery.isLoading ? (
+                {placeholdersQuery.isLoading || friendsQuery.isLoading ? (
                   <ThemedText themeColor="textSecondary">Loading people…</ThemedText>
                 ) : null}
                 <View style={styles.chipWrap}>
+                  {friends.map((friendship) => (
+                    <ChoiceChip
+                      active={selectedFriendId === friendship.friend.id}
+                      key={`friend:${friendship.friend.id}`}
+                      label={friendship.friend.name}
+                      onPress={() => selectFriend(friendship.friend.id)}
+                    />
+                  ))}
                   {placeholders.map((placeholder) => (
                     <ChoiceChip
                       active={selectedPlaceholderId === placeholder.id}
@@ -541,9 +580,9 @@ export default function CreateExpenseScreen() {
                     onPress={() => setShowGuestForm((visible) => !visible)}
                   />
                 </View>
-                {!placeholdersQuery.isLoading && placeholders.length === 0 && !showGuestForm ? (
+                {!placeholdersQuery.isLoading && !friendsQuery.isLoading && friends.length === 0 && placeholders.length === 0 && !showGuestForm ? (
                   <ThemedText style={styles.helper} themeColor="textSecondary">
-                    Add someone with an email or international phone number. They do not need an account yet.
+                    Add a friend from Profile, or create a placeholder for someone who does not have an account yet.
                   </ThemedText>
                 ) : null}
                 {showGuestForm ? (

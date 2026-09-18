@@ -2,6 +2,7 @@
 
 use App\Models\Currency;
 use App\Models\Expense;
+use App\Models\Friendship;
 use App\Models\Group;
 use App\Models\GroupMember;
 use App\Models\Placeholder;
@@ -528,4 +529,55 @@ it('creates a direct expense with a creator-owned placeholder', function () {
         'placeholder_id' => $placeholder->id,
         'amount_owed_minor' => 750,
     ]);
+});
+
+it('creates a direct expense with an accepted registered friend', function () {
+    $currency = Currency::factory()->mvr()->create();
+    $creator = User::factory()->create(['default_currency_code' => $currency->code]);
+    $friend = User::factory()->create(['default_currency_code' => $currency->code]);
+    Friendship::factory()->accepted()->create([
+        'user_id' => min($creator->id, $friend->id),
+        'friend_id' => max($creator->id, $friend->id),
+        'requested_by' => $creator->id,
+    ]);
+
+    $this->withToken($creator->createToken('Creator phone')->plainTextToken)
+        ->postJson('/api/v1/expenses', [
+            'expense_type' => 'direct',
+            'payer_user_id' => $creator->id,
+            'amount_minor' => 1500,
+            'currency_code' => $currency->code,
+            'description' => 'Coffee',
+            'occurred_at' => '2026-09-18T09:00:00+05:00',
+            'split_type' => 'equal',
+            'participants' => [
+                ['user_id' => $creator->id],
+                ['user_id' => $friend->id],
+            ],
+        ])
+        ->assertCreated()
+        ->assertJsonPath('data.splits.1.user_id', $friend->id);
+});
+
+it('rejects a registered direct participant who is not an accepted friend', function () {
+    $currency = Currency::factory()->mvr()->create();
+    $creator = User::factory()->create(['default_currency_code' => $currency->code]);
+    $otherUser = User::factory()->create(['default_currency_code' => $currency->code]);
+
+    $this->withToken($creator->createToken('Creator phone')->plainTextToken)
+        ->postJson('/api/v1/expenses', [
+            'expense_type' => 'direct',
+            'payer_user_id' => $creator->id,
+            'amount_minor' => 1500,
+            'currency_code' => $currency->code,
+            'description' => 'Coffee',
+            'occurred_at' => '2026-09-18T09:00:00+05:00',
+            'split_type' => 'equal',
+            'participants' => [
+                ['user_id' => $creator->id],
+                ['user_id' => $otherUser->id],
+            ],
+        ])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors('participants');
 });
