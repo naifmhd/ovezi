@@ -49,3 +49,18 @@ export async function fetchExpense(token: string, expenseId: number) {
   const response = await apiRequest<DataResponse<Expense>>(`/expenses/${expenseId}`, { token });
   return response.data;
 }
+
+export function deleteExpense(token: string, expenseId: number) {
+  return apiRequest<void>(`/expenses/${expenseId}`, {
+    method: 'DELETE',
+    token,
+  });
+}
+
+export async function restoreExpense(token: string, expenseId: number) {
+  const response = await apiRequest<DataResponse<Expense>>(`/expenses/${expenseId}/restore`, {
+    method: 'POST',
+    token,
+  });
+  return response.data;
+}

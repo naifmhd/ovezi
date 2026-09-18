@@ -115,6 +115,89 @@ it('forbids viewing an expense belonging to someone else', function () {
         ->assertForbidden();
 });
 
+it('soft deletes an expense and lets its manager undo within 30 seconds', function () {
+    $currency = Currency::factory()->mvr()->create();
+    $owner = User::factory()->create(['default_currency_code' => $currency->code]);
+    $expense = Expense::factory()->create([
+        'expense_type' => 'personal',
+        'payer_user_id' => $owner->id,
+        'created_by' => $owner->id,
+        'currency_code' => $currency->code,
+        'reporting_currency_code' => $currency->code,
+    ]);
+    $token = $owner->createToken('Owner phone')->plainTextToken;
+
+    $this->withToken($token)
+        ->deleteJson("/api/v1/expenses/{$expense->id}")
+        ->assertNoContent();
+
+    $this->assertSoftDeleted('expenses', ['id' => $expense->id]);
+    $this->assertDatabaseHas('activity_logs', [
+        'subject_id' => $expense->id,
+        'event' => 'expense.deleted',
+    ]);
+    $this->withToken($token)
+        ->getJson("/api/v1/expenses/{$expense->id}")
+        ->assertNotFound();
+
+    $this->withToken($token)
+        ->postJson("/api/v1/expenses/{$expense->id}/restore")
+        ->assertOk()
+        ->assertJsonPath('data.id', $expense->id);
+
+    $this->assertNotSoftDeleted('expenses', ['id' => $expense->id]);
+    $this->assertDatabaseHas('activity_logs', [
+        'subject_id' => $expense->id,
+        'event' => 'expense.restored',
+    ]);
+});
+
+it('rejects restoring an expense after the undo window expires', function () {
+    $currency = Currency::factory()->mvr()->create();
+    $owner = User::factory()->create(['default_currency_code' => $currency->code]);
+    $expense = Expense::factory()->create([
+        'expense_type' => 'personal',
+        'payer_user_id' => $owner->id,
+        'created_by' => $owner->id,
+        'currency_code' => $currency->code,
+        'reporting_currency_code' => $currency->code,
+    ]);
+    $expense->delete();
+    $expense->forceFill(['deleted_at' => now()->subSeconds(31)])->saveQuietly();
+
+    $this->withToken($owner->createToken('Owner phone')->plainTextToken)
+        ->postJson("/api/v1/expenses/{$expense->id}/restore")
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors('expense')
+        ->assertJsonPath('errors.expense.0', 'The 30-second undo window has expired.');
+
+    $this->assertSoftDeleted('expenses', ['id' => $expense->id]);
+});
+
+it('forbids another user from deleting or restoring an expense', function () {
+    $currency = Currency::factory()->mvr()->create();
+    $owner = User::factory()->create(['default_currency_code' => $currency->code]);
+    $outsider = User::factory()->create(['default_currency_code' => $currency->code]);
+    $expense = Expense::factory()->create([
+        'expense_type' => 'personal',
+        'payer_user_id' => $owner->id,
+        'created_by' => $owner->id,
+        'currency_code' => $currency->code,
+        'reporting_currency_code' => $currency->code,
+    ]);
+    $token = $outsider->createToken('Outsider phone')->plainTextToken;
+
+    $this->withToken($token)
+        ->deleteJson("/api/v1/expenses/{$expense->id}")
+        ->assertForbidden();
+
+    $expense->delete();
+
+    $this->withToken($token)
+        ->postJson("/api/v1/expenses/{$expense->id}/restore")
+        ->assertForbidden();
+});
+
 it('returns 403 when creating an expense in another group', function () {
     $currency = Currency::factory()->mvr()->create();
     $outsider = User::factory()->create(['default_currency_code' => $currency->code]);

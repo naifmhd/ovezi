@@ -7,7 +7,9 @@ import { activityDescription, formatRelativeDate } from '@/lib/format';
 import type { Activity } from '@/types/api';
 
 export function ActivityRow({ activity }: { activity: Activity }) {
-  const expenseId = activity.subject.type === 'expense' ? activity.subject.id : null;
+  const expenseId = activity.subject.type === 'expense' && activity.event !== 'expense.deleted'
+    ? activity.subject.id
+    : null;
 
   return (
     <Pressable

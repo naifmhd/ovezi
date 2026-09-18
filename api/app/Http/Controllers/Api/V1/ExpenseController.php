@@ -8,14 +8,18 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\IndexExpenseRequest;
 use App\Http\Requests\Api\V1\StoreExpenseRequest;
 use App\Http\Resources\Api\V1\ExpenseResource;
+use App\Models\ActivityLog;
 use App\Models\Expense;
 use App\Models\Group;
 use App\SplitType;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpFoundation\Response;
 
 class ExpenseController extends Controller
@@ -109,5 +113,61 @@ class ExpenseController extends Controller
         ]))
             ->response()
             ->setStatusCode(Response::HTTP_CREATED);
+    }
+
+    public function destroy(Request $request, Expense $expense): Response
+    {
+        Gate::authorize('delete', $expense);
+
+        DB::transaction(function () use ($expense, $request): void {
+            ActivityLog::query()->create([
+                'group_id' => $expense->group_id,
+                'actor_id' => $request->user()->id,
+                'subject_type' => $expense->getMorphClass(),
+                'subject_id' => $expense->id,
+                'event' => 'expense.deleted',
+            ]);
+
+            $expense->delete();
+        });
+
+        return response()->noContent();
+    }
+
+    public function restore(Request $request, int $expense): ExpenseResource
+    {
+        $expenseModel = Expense::withTrashed()->findOrFail($expense);
+        Gate::authorize('restore', $expenseModel);
+
+        if (! $expenseModel->trashed()) {
+            throw ValidationException::withMessages([
+                'expense' => 'This expense has not been deleted.',
+            ]);
+        }
+
+        if ($expenseModel->deleted_at->lt(now()->subSeconds(30))) {
+            throw ValidationException::withMessages([
+                'expense' => 'The 30-second undo window has expired.',
+            ]);
+        }
+
+        DB::transaction(function () use ($expenseModel, $request): void {
+            $expenseModel->restore();
+
+            ActivityLog::query()->create([
+                'group_id' => $expenseModel->group_id,
+                'actor_id' => $request->user()->id,
+                'subject_type' => $expenseModel->getMorphClass(),
+                'subject_id' => $expenseModel->id,
+                'event' => 'expense.restored',
+            ]);
+        });
+
+        return ExpenseResource::make($expenseModel->load([
+            'payerUser:id,name',
+            'payerPlaceholder:id,name',
+            'splits.user:id,name',
+            'splits.placeholder:id,name',
+        ]));
     }
 }

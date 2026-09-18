@@ -1,5 +1,6 @@
 <?php
 
+use App\Jobs\PurgeDeletedExpenses;
 use App\Jobs\SyncExchangeRates;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
@@ -11,5 +12,10 @@ Artisan::command('inspire', function () {
 
 Schedule::job(new SyncExchangeRates)
     ->dailyAt('18:15')
+    ->onOneServer()
+    ->withoutOverlapping(30);
+
+Schedule::job(new PurgeDeletedExpenses)
+    ->dailyAt('18:45')
     ->onOneServer()
     ->withoutOverlapping(30);

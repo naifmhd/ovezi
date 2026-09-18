@@ -1,5 +1,6 @@
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { router, useLocalSearchParams } from 'expo-router';
+import { useEffect, useState } from 'react';
 import { Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -7,7 +8,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
 import { errorMessage } from '@/lib/api-client';
-import { fetchExpense } from '@/lib/expenses-api';
+import { deleteExpense, fetchExpense, restoreExpense } from '@/lib/expenses-api';
 import { formatMoney } from '@/lib/format';
 import { fetchGroup } from '@/lib/groups-api';
 import { useAuthStore } from '@/stores/auth-store';
@@ -22,6 +23,10 @@ export default function ExpenseDetailScreen() {
   const expenseId = Number(firstParam(params.id));
   const token = useAuthStore((state) => state.token)!;
   const user = useAuthStore((state) => state.user)!;
+  const queryClient = useQueryClient();
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [deletedAt, setDeletedAt] = useState<number | null>(null);
+  const [undoSeconds, setUndoSeconds] = useState(30);
   const validExpenseId = Number.isInteger(expenseId) && expenseId > 0;
   const expenseQuery = useQuery({
     queryKey: ['expense', expenseId],
@@ -35,6 +40,55 @@ export default function ExpenseDetailScreen() {
     enabled: Boolean(expense?.group_id),
   });
   const error = expenseQuery.error ?? groupQuery.error;
+  const isGroupOwner = groupQuery.data?.members?.some(
+    (member) => member.user?.id === user.id && member.role === 'owner',
+  ) ?? false;
+  const canManage = expense?.created_by === user.id || Boolean(expense?.group_id && isGroupOwner);
+  const deleteMutation = useMutation({
+    mutationFn: () => deleteExpense(token, expenseId),
+    onSuccess: async () => {
+      setConfirmingDelete(false);
+      setDeletedAt(Date.now());
+      setUndoSeconds(30);
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['expenses'] }),
+        queryClient.invalidateQueries({ queryKey: ['activity'] }),
+        queryClient.invalidateQueries({ queryKey: ['group-balances'] }),
+        queryClient.invalidateQueries({ queryKey: ['dashboard-balances'] }),
+      ]);
+    },
+  });
+  const restoreMutation = useMutation({
+    mutationFn: () => restoreExpense(token, expenseId),
+    onSuccess: async (restoredExpense) => {
+      setDeletedAt(null);
+      setUndoSeconds(30);
+      queryClient.setQueryData(['expense', expenseId], restoredExpense);
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['expenses'] }),
+        queryClient.invalidateQueries({ queryKey: ['activity'] }),
+        queryClient.invalidateQueries({ queryKey: ['group-balances'] }),
+        queryClient.invalidateQueries({ queryKey: ['dashboard-balances'] }),
+      ]);
+    },
+  });
+
+  useEffect(() => {
+    if (deletedAt === null) return;
+
+    const timer = setInterval(() => {
+      const seconds = Math.max(0, 30 - Math.floor((Date.now() - deletedAt) / 1000));
+      setUndoSeconds(seconds);
+      if (seconds === 0) {
+        clearInterval(timer);
+        router.back();
+      }
+    }, 250);
+
+    return () => clearInterval(timer);
+  }, [deletedAt]);
+
+  const mutationError = deleteMutation.error ?? restoreMutation.error;
 
   return (
     <ThemedView style={styles.screen}>
@@ -58,16 +112,65 @@ export default function ExpenseDetailScreen() {
             />
           )}
           showsVerticalScrollIndicator={false}>
-          {expenseQuery.isLoading ? (
+          {deletedAt !== null ? (
+            <ThemedView type="backgroundElement" style={styles.deletedCard}>
+              <ThemedText style={styles.deletedTitle}>Expense deleted</ThemedText>
+              <ThemedText style={styles.deletedCopy} themeColor="textSecondary">
+                You can undo this for {undoSeconds} second{undoSeconds === 1 ? '' : 's'}.
+              </ThemedText>
+              {mutationError ? <ThemedText themeColor="danger">{errorMessage(mutationError)}</ThemedText> : null}
+              <Pressable
+                disabled={restoreMutation.isPending || undoSeconds === 0}
+                onPress={() => restoreMutation.mutate()}
+                style={styles.undoButton}>
+                <ThemedText style={styles.undoText} themeColor="primary">
+                  {restoreMutation.isPending ? 'Restoring…' : 'Undo delete'}
+                </ThemedText>
+              </Pressable>
+            </ThemedView>
+          ) : null}
+          {deletedAt === null && expenseQuery.isLoading ? (
             <ThemedText style={styles.centered} themeColor="textSecondary">Loading expense…</ThemedText>
           ) : null}
-          {error ? <ThemedText themeColor="danger">{errorMessage(error)}</ThemedText> : null}
-          {expense ? (
+          {deletedAt === null && error ? <ThemedText themeColor="danger">{errorMessage(error)}</ThemedText> : null}
+          {deletedAt === null && mutationError ? (
+            <ThemedText themeColor="danger">{errorMessage(mutationError)}</ThemedText>
+          ) : null}
+          {deletedAt === null && expense ? (
             <ExpenseContent
               currentUserId={user.id}
               expense={expense}
               groupName={groupQuery.data?.name}
             />
+          ) : null}
+          {deletedAt === null && expense && canManage ? (
+            <>
+              {confirmingDelete ? (
+                <ThemedView type="backgroundElement" style={styles.confirmCard}>
+                  <ThemedText style={styles.confirmTitle}>Delete this expense?</ThemedText>
+                  <ThemedText style={styles.deletedCopy} themeColor="textSecondary">
+                    Balances will update immediately. You will have 30 seconds to undo.
+                  </ThemedText>
+                  <View style={styles.confirmActions}>
+                    <Pressable onPress={() => setConfirmingDelete(false)} style={styles.confirmButton}>
+                      <ThemedText style={styles.confirmAction} themeColor="textSecondary">Cancel</ThemedText>
+                    </Pressable>
+                    <Pressable
+                      disabled={deleteMutation.isPending}
+                      onPress={() => deleteMutation.mutate()}
+                      style={styles.confirmButton}>
+                      <ThemedText style={styles.confirmAction} themeColor="danger">
+                        {deleteMutation.isPending ? 'Deleting…' : 'Delete'}
+                      </ThemedText>
+                    </Pressable>
+                  </View>
+                </ThemedView>
+              ) : (
+                <Pressable onPress={() => setConfirmingDelete(true)} style={styles.deleteButton}>
+                  <ThemedText style={styles.deleteText} themeColor="danger">Delete expense</ThemedText>
+                </Pressable>
+              )}
+            </>
           ) : null}
         </ScrollView>
       </SafeAreaView>
@@ -275,4 +378,16 @@ const styles = StyleSheet.create({
   splitAmount: { fontSize: 14, fontWeight: '800' },
   groupLink: { minHeight: 48, alignItems: 'center', justifyContent: 'center', marginTop: 6 },
   groupLinkText: { fontSize: 14, fontWeight: '800' },
+  deleteButton: { minHeight: 48, alignItems: 'center', justifyContent: 'center', marginTop: 10 },
+  deleteText: { fontSize: 14, fontWeight: '800' },
+  confirmCard: { borderRadius: 20, padding: 18, gap: 8, marginTop: 8 },
+  confirmTitle: { fontSize: 17, lineHeight: 23, fontWeight: '800' },
+  confirmActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 12, marginTop: 6 },
+  confirmButton: { minHeight: 42, justifyContent: 'center', paddingHorizontal: 12 },
+  confirmAction: { fontSize: 14, fontWeight: '800' },
+  deletedCard: { borderRadius: 24, padding: 22, gap: 9, marginTop: 20 },
+  deletedTitle: { fontSize: 21, lineHeight: 28, fontWeight: '900' },
+  deletedCopy: { fontSize: 14, lineHeight: 20 },
+  undoButton: { minHeight: 48, alignItems: 'center', justifyContent: 'center', marginTop: 5 },
+  undoText: { fontSize: 15, fontWeight: '900' },
 });
