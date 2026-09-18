@@ -25,6 +25,7 @@ class ExpenseSplitFactory extends Factory
             'user_id' => User::factory(),
             'placeholder_id' => null,
             'amount_owed_minor' => 750,
+            'reporting_amount_owed_minor' => 750,
             'split_type' => SplitType::Equal,
             'split_value' => null,
         ];

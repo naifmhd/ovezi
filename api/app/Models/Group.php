@@ -33,6 +33,11 @@ class Group extends Model
         return $this->hasMany(GroupMember::class);
     }
 
+    public function activeMembers(): HasMany
+    {
+        return $this->members()->whereNull('left_at');
+    }
+
     public function invites(): HasMany
     {
         return $this->hasMany(GroupInvite::class);

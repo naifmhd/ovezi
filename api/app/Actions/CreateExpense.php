@@ -12,6 +12,7 @@ use App\Models\Placeholder;
 use App\Models\User;
 use App\Services\ExchangeRateResolver;
 use App\Services\MoneyConverter;
+use App\Services\ReportingSplitAllocator;
 use App\Services\SplitCalculator;
 use App\SplitType;
 use Carbon\CarbonImmutable;
@@ -24,6 +25,7 @@ class CreateExpense
         private readonly SplitCalculator $splitCalculator,
         private readonly ExchangeRateResolver $exchangeRateResolver,
         private readonly MoneyConverter $moneyConverter,
+        private readonly ReportingSplitAllocator $reportingSplitAllocator,
     ) {}
 
     /**
@@ -91,6 +93,7 @@ class CreateExpense
             );
 
         $allocations = [];
+        $reportingAllocations = [];
         $splitType = $data['split_type'] ?? SplitType::Equal;
 
         if ($expenseType !== ExpenseType::Personal) {
@@ -99,6 +102,11 @@ class CreateExpense
                 $data['amount_minor'],
                 $splitType,
                 $splitValues,
+                $this->participantKey($payerUserId, $payerPlaceholderId),
+            );
+            $reportingAllocations = $this->reportingSplitAllocator->allocate(
+                $reportingAmountMinor,
+                $allocations,
                 $this->participantKey($payerUserId, $payerPlaceholderId),
             );
         }
@@ -115,6 +123,7 @@ class CreateExpense
             $resolvedRate,
             $participants,
             $allocations,
+            $reportingAllocations,
             $splitType,
         ): Expense {
             $expense = Expense::query()->create([
@@ -146,6 +155,7 @@ class CreateExpense
                     'user_id' => $participant['user_id'] ?? null,
                     'placeholder_id' => $participant['placeholder_id'] ?? null,
                     'amount_owed_minor' => $allocations[$participantKey],
+                    'reporting_amount_owed_minor' => $reportingAllocations[$participantKey],
                     'split_type' => $splitType,
                     'split_value' => $splitType === SplitType::Equal ? null : $participant['value'],
                 ]);

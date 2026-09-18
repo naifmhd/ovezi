@@ -59,7 +59,7 @@ class Expense extends Model
 
     public function splits(): HasMany
     {
-        return $this->hasMany(ExpenseSplit::class);
+        return $this->hasMany(ExpenseSplit::class)->orderBy('id');
     }
 
     public function activities(): MorphMany

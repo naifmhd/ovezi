@@ -10,7 +10,10 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use InvalidArgumentException;
 
-#[Fillable(['expense_id', 'user_id', 'placeholder_id', 'amount_owed_minor', 'split_type', 'split_value'])]
+#[Fillable([
+    'expense_id', 'user_id', 'placeholder_id', 'amount_owed_minor', 'reporting_amount_owed_minor',
+    'split_type', 'split_value',
+])]
 class ExpenseSplit extends Model
 {
     /** @use HasFactory<ExpenseSplitFactory> */
@@ -44,6 +47,7 @@ class ExpenseSplit extends Model
     {
         return [
             'amount_owed_minor' => 'integer',
+            'reporting_amount_owed_minor' => 'integer',
             'split_type' => SplitType::class,
             'split_value' => 'decimal:8',
         ];

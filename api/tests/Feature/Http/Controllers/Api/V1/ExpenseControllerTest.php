@@ -124,6 +124,7 @@ it('creates a group expense and returns its calculated splits', function () {
         ->assertJsonPath('data.category', 'food')
         ->assertJsonPath('data.created_by', $creator->id)
         ->assertJsonPath('data.splits.0.amount_owed_minor', 34)
+        ->assertJsonPath('data.splits.0.reporting_amount_owed_minor', 34)
         ->assertJsonCount(3, 'data.splits');
 
     $this->assertDatabaseHas('expenses', [

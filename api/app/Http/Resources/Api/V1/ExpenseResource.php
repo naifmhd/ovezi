@@ -38,6 +38,7 @@ class ExpenseResource extends JsonResource
                 'user_id' => $split->user_id,
                 'placeholder_id' => $split->placeholder_id,
                 'amount_owed_minor' => $split->amount_owed_minor,
+                'reporting_amount_owed_minor' => $split->reporting_amount_owed_minor,
                 'split_type' => $split->split_type,
                 'split_value' => $split->split_value,
             ])),

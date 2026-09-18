@@ -20,6 +20,7 @@ class UserResource extends JsonResource
             'email' => $this->email,
             'email_verified_at' => $this->email_verified_at,
             'default_currency_code' => $this->default_currency_code,
+            'avatar_url' => $this->avatar_path,
             'created_at' => $this->created_at,
         ];
     }

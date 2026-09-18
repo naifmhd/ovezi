@@ -5,6 +5,7 @@ namespace App\Policies;
 use App\GroupMemberRole;
 use App\Models\Group;
 use App\Models\User;
+use Illuminate\Auth\Access\Response;
 
 class GroupPolicy
 {
@@ -19,12 +20,11 @@ class GroupPolicy
     /**
      * Determine whether the user can view the model.
      */
-    public function view(User $user, Group $group): bool
+    public function view(User $user, Group $group): bool|Response
     {
-        return $group->members()
-            ->whereBelongsTo($user)
-            ->whereNull('left_at')
-            ->exists();
+        return $this->isActiveMember($user, $group)
+            ? true
+            : Response::denyAsNotFound();
     }
 
     /**
@@ -38,25 +38,25 @@ class GroupPolicy
     /**
      * Determine whether the user can update the model.
      */
-    public function update(User $user, Group $group): bool
+    public function update(User $user, Group $group): bool|Response
     {
-        return $this->isOwner($user, $group);
+        return $this->manageResponse($user, $group);
     }
 
     /**
      * Determine whether the user can delete the model.
      */
-    public function delete(User $user, Group $group): bool
+    public function delete(User $user, Group $group): bool|Response
     {
-        return $this->isOwner($user, $group);
+        return $this->manageResponse($user, $group);
     }
 
     /**
      * Determine whether the user can restore the model.
      */
-    public function restore(User $user, Group $group): bool
+    public function restore(User $user, Group $group): bool|Response
     {
-        return $this->isOwner($user, $group);
+        return $this->manageResponse($user, $group);
     }
 
     /**
@@ -74,5 +74,22 @@ class GroupPolicy
             ->where('role', GroupMemberRole::Owner->value)
             ->whereNull('left_at')
             ->exists();
+    }
+
+    private function isActiveMember(User $user, Group $group): bool
+    {
+        return $group->members()
+            ->whereBelongsTo($user)
+            ->whereNull('left_at')
+            ->exists();
+    }
+
+    private function manageResponse(User $user, Group $group): bool|Response
+    {
+        if (! $this->isActiveMember($user, $group)) {
+            return Response::denyAsNotFound();
+        }
+
+        return $this->isOwner($user, $group);
     }
 }
