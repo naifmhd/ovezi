@@ -22,6 +22,7 @@ export type CreateExpenseInput = {
   split_type?: SplitType;
   participants?: ExpenseParticipantInput[];
   expense_rate?: string;
+  confirmed_duplicate?: boolean;
 };
 
 export type UpdateExpenseInput = CreateExpenseInput & {

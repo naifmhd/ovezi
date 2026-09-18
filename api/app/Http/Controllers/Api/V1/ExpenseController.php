@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Actions\CreateExpense;
+use App\Actions\FindDuplicateExpense;
 use App\Actions\UpdateExpense;
 use App\ExpenseType;
 use App\Http\Controllers\Controller;
@@ -86,28 +87,61 @@ class ExpenseController extends Controller
         ]));
     }
 
-    public function store(StoreExpenseRequest $request, CreateExpense $createExpense): JsonResponse
-    {
+    public function store(
+        StoreExpenseRequest $request,
+        CreateExpense $createExpense,
+        FindDuplicateExpense $findDuplicateExpense,
+    ): JsonResponse {
         $validated = $request->validated();
         $participants = array_map(fn (array $participant): array => [
             'user_id' => isset($participant['user_id']) ? (int) $participant['user_id'] : null,
             'placeholder_id' => isset($participant['placeholder_id']) ? (int) $participant['placeholder_id'] : null,
             ...(array_key_exists('value', $participant) ? ['value' => (int) $participant['value']] : []),
         ], $validated['participants'] ?? []);
+        $expenseType = ExpenseType::from($validated['expense_type']);
+        $group = isset($validated['group_id'])
+            ? Group::query()->findOrFail((int) $validated['group_id'])
+            : null;
+        $payerUserId = isset($validated['payer_user_id']) ? (int) $validated['payer_user_id'] : null;
+        $payerPlaceholderId = isset($validated['payer_placeholder_id'])
+            ? (int) $validated['payer_placeholder_id']
+            : null;
+        $occurredAt = CarbonImmutable::parse($validated['occurred_at']);
+
+        if (! ($validated['confirmed_duplicate'] ?? false)) {
+            $duplicate = $findDuplicateExpense->execute(
+                $request->user(),
+                $expenseType,
+                $group,
+                $payerUserId,
+                $payerPlaceholderId,
+                (int) $validated['amount_minor'],
+                $validated['currency_code'],
+                $validated['description'],
+                $occurredAt,
+                $participants,
+            );
+
+            if ($duplicate !== null) {
+                return response()->json([
+                    'message' => 'This looks like an expense you already added.',
+                    'errors' => [
+                        'duplicate' => ['An expense with the same details already exists for this date.'],
+                    ],
+                ], Response::HTTP_CONFLICT);
+            }
+        }
+
         $expense = $createExpense->execute($request->user(), [
-            'expense_type' => ExpenseType::from($validated['expense_type']),
-            'group' => isset($validated['group_id'])
-                ? Group::query()->findOrFail((int) $validated['group_id'])
-                : null,
-            'payer_user_id' => isset($validated['payer_user_id']) ? (int) $validated['payer_user_id'] : null,
-            'payer_placeholder_id' => isset($validated['payer_placeholder_id'])
-                ? (int) $validated['payer_placeholder_id']
-                : null,
+            'expense_type' => $expenseType,
+            'group' => $group,
+            'payer_user_id' => $payerUserId,
+            'payer_placeholder_id' => $payerPlaceholderId,
             'amount_minor' => (int) $validated['amount_minor'],
             'currency_code' => $validated['currency_code'],
             'description' => $validated['description'],
             'category' => $validated['category'] ?? null,
-            'occurred_at' => CarbonImmutable::parse($validated['occurred_at']),
+            'occurred_at' => $occurredAt,
             'split_type' => isset($validated['split_type'])
                 ? SplitType::from($validated['split_type'])
                 : SplitType::Equal,

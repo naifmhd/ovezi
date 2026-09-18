@@ -96,6 +96,7 @@ class StoreExpenseRequest extends FormRequest
                 'gt:0',
                 'regex:/^\d{1,12}(\.\d{1,12})?$/',
             ],
+            'confirmed_duplicate' => ['sometimes', 'boolean'],
         ];
     }
 

@@ -18,7 +18,7 @@ import { CurrencyPicker } from '@/components/currency-picker';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
-import { errorMessage } from '@/lib/api-client';
+import { ApiError, errorMessage } from '@/lib/api-client';
 import {
   createExpense,
   fetchExpense,
@@ -143,6 +143,7 @@ export default function CreateExpenseScreen() {
   const [expenseRate, setExpenseRate] = useState('');
   const [recalculateRate, setRecalculateRate] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [duplicateInput, setDuplicateInput] = useState<CreateExpenseInput | null>(null);
   const [draftDecisionMade, setDraftDecisionMade] = useState(false);
   const initializedExpenseId = useRef<number | null>(null);
 
@@ -407,6 +408,11 @@ export default function CreateExpenseScreen() {
         router.back();
       }
     },
+    onError: (error, input) => {
+      if (!isEditing && error instanceof ApiError && error.status === 409 && error.errors.duplicate) {
+        setDuplicateInput(input as CreateExpenseInput);
+      }
+    },
   });
 
   function selectDestination(nextDestination: Destination, groupId: number | null = null) {
@@ -495,6 +501,7 @@ export default function CreateExpenseScreen() {
 
   function submit() {
     setFormError(null);
+    setDuplicateInput(null);
     const currencyCode = effectiveCurrency.trim().toUpperCase();
     const fractionDigits = currencyFractionDigits(currencyCode);
     const amountMinor = parseDecimalToInteger(amount, fractionDigits);
@@ -558,7 +565,7 @@ export default function CreateExpenseScreen() {
   const visibleError = formError
     ?? (placeholderMutation.error ? errorMessage(placeholderMutation.error) : null)
     ?? (friendsQuery.error ? errorMessage(friendsQuery.error) : null)
-    ?? (mutation.error ? errorMessage(mutation.error) : null);
+    ?? (mutation.error && !duplicateInput ? errorMessage(mutation.error) : null);
 
   return (
     <ThemedView style={styles.screen}>
@@ -596,6 +603,36 @@ export default function CreateExpenseScreen() {
                   </Pressable>
                   <Pressable onPress={resumeDraft} style={styles.draftAction}>
                     <ThemedText style={styles.helper} themeColor="primary">Resume</ThemedText>
+                  </Pressable>
+                </View>
+              </ThemedView>
+            ) : null}
+            {duplicateInput ? (
+              <ThemedView type="backgroundSelected" style={styles.duplicateCard}>
+                <View style={styles.draftCopy}>
+                  <ThemedText style={styles.infoTitle}>Possible duplicate</ThemedText>
+                  <ThemedText style={styles.infoCopy} themeColor="textSecondary">
+                    You already added an expense with the same date, amount, currency, description,
+                    payer, and participants.
+                  </ThemedText>
+                </View>
+                <View style={styles.duplicateActions}>
+                  <Pressable
+                    onPress={() => {
+                      setDuplicateInput(null);
+                      mutation.reset();
+                    }}
+                    style={styles.duplicateAction}>
+                    <ThemedText style={styles.helper} themeColor="textSecondary">Cancel</ThemedText>
+                  </Pressable>
+                  <Pressable
+                    onPress={() => {
+                      const input = duplicateInput;
+                      setDuplicateInput(null);
+                      mutation.mutate({ ...input, confirmed_duplicate: true });
+                    }}
+                    style={styles.duplicateAction}>
+                    <ThemedText style={styles.helper} themeColor="primary">Add anyway</ThemedText>
                   </Pressable>
                 </View>
               </ThemedView>
@@ -943,4 +980,7 @@ const styles = StyleSheet.create({
   draftCopy: { flex: 1, gap: 2 },
   draftActions: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   draftAction: { minHeight: 40, justifyContent: 'center', paddingHorizontal: 9 },
+  duplicateCard: { borderRadius: 18, padding: 15, gap: 12 },
+  duplicateActions: { flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center', gap: 4 },
+  duplicateAction: { minHeight: 40, justifyContent: 'center', paddingHorizontal: 9 },
 });

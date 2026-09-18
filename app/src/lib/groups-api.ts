@@ -1,4 +1,4 @@
-import { apiRequest } from '@/lib/api-client';
+import { apiRequest, apiTextRequest } from '@/lib/api-client';
 import type { Group, GroupBalances, GroupMember, PaginatedResponse } from '@/types/api';
 
 type DataResponse<T> = { data: T };
@@ -82,4 +82,8 @@ export async function transferGroupOwnership(token: string, groupId: number, use
     body: { user_id: userId },
   });
   return response.data;
+}
+
+export function fetchGroupHistoryCsv(token: string, groupId: number) {
+  return apiTextRequest(`/groups/${groupId}/export`, token);
 }

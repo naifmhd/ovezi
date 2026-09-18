@@ -23,6 +23,7 @@ use App\Http\Controllers\Api\V1\GroupActivityController;
 use App\Http\Controllers\Api\V1\GroupBalanceController;
 use App\Http\Controllers\Api\V1\GroupController;
 use App\Http\Controllers\Api\V1\GroupCurrencyRateController;
+use App\Http\Controllers\Api\V1\GroupHistoryExportController;
 use App\Http\Controllers\Api\V1\GroupInviteController;
 use App\Http\Controllers\Api\V1\GroupMemberController;
 use App\Http\Controllers\Api\V1\PlaceholderClaimController;
@@ -98,6 +99,8 @@ Route::prefix('v1')->name('api.v1.')->group(function (): void {
             ->name('groups.balances.show');
         Route::get('groups/{group}/activity', GroupActivityController::class)
             ->name('groups.activity.index');
+        Route::get('groups/{group}/export', GroupHistoryExportController::class)
+            ->name('groups.export');
         Route::put('groups/{group}/owner', TransferGroupOwnershipController::class)
             ->name('groups.owner.update');
         Route::get('groups/{group}/currency-rates', [GroupCurrencyRateController::class, 'index'])

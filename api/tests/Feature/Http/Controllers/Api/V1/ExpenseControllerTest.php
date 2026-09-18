@@ -82,6 +82,71 @@ it('filters expenses by group and returns calculated splits', function () {
         ->assertJsonPath('data.0.splits.0.amount_owed_minor', 1200);
 });
 
+it('warns before creating an exact duplicate expense and accepts explicit confirmation', function () {
+    $currency = Currency::factory()->mvr()->create();
+    $user = User::factory()->create(['default_currency_code' => $currency->code]);
+    $token = $user->createToken('User phone')->plainTextToken;
+    $expense = [
+        'expense_type' => 'personal',
+        'payer_user_id' => $user->id,
+        'amount_minor' => 1200,
+        'currency_code' => $currency->code,
+        'description' => 'Lunch at Seagull',
+        'occurred_at' => '2026-09-18T12:00:00+05:00',
+    ];
+
+    $this->withToken($token)
+        ->postJson('/api/v1/expenses', $expense)
+        ->assertCreated();
+
+    $this->withToken($token)
+        ->postJson('/api/v1/expenses', [
+            ...$expense,
+            'description' => '  LUNCH   at seagull  ',
+        ])
+        ->assertConflict()
+        ->assertJsonValidationErrors('duplicate')
+        ->assertJsonPath('message', 'This looks like an expense you already added.');
+
+    expect(Expense::query()->count())->toBe(1);
+
+    $this->withToken($token)
+        ->postJson('/api/v1/expenses', [
+            ...$expense,
+            'confirmed_duplicate' => true,
+        ])
+        ->assertCreated();
+
+    expect(Expense::query()->count())->toBe(2);
+});
+
+it('does not warn when an otherwise matching expense occurred on a different date', function () {
+    $currency = Currency::factory()->mvr()->create();
+    $user = User::factory()->create(['default_currency_code' => $currency->code]);
+    $token = $user->createToken('User phone')->plainTextToken;
+    $expense = [
+        'expense_type' => 'personal',
+        'payer_user_id' => $user->id,
+        'amount_minor' => 1200,
+        'currency_code' => $currency->code,
+        'description' => 'Lunch',
+    ];
+
+    $this->withToken($token)
+        ->postJson('/api/v1/expenses', [
+            ...$expense,
+            'occurred_at' => '2026-09-18T12:00:00+05:00',
+        ])
+        ->assertCreated();
+
+    $this->withToken($token)
+        ->postJson('/api/v1/expenses', [
+            ...$expense,
+            'occurred_at' => '2026-09-19T12:00:00+05:00',
+        ])
+        ->assertCreated();
+});
+
 it('shows an expense visible to the authenticated user', function () {
     $currency = Currency::factory()->mvr()->create();
     $owner = User::factory()->create(['default_currency_code' => $currency->code]);

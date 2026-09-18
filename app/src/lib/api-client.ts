@@ -25,6 +25,22 @@ type ApiRequestOptions = Omit<RequestInit, 'body'> & {
   token?: string | null;
 };
 
+async function throwApiError(response: Response): Promise<never> {
+  let errorBody: ApiErrorBody = {};
+
+  try {
+    errorBody = (await response.json()) as ApiErrorBody;
+  } catch {
+    // Some server and proxy errors do not include JSON.
+  }
+
+  throw new ApiError(
+    errorBody.message ?? 'Something went wrong. Please try again.',
+    response.status,
+    errorBody.errors,
+  );
+}
+
 export async function apiRequest<T>(path: string, options: ApiRequestOptions = {}): Promise<T> {
   const { body, headers, token, ...requestOptions } = options;
   const response = await fetch(path.startsWith('http') ? path : `${apiBaseUrl}${path}`, {
@@ -39,19 +55,7 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions = {
   });
 
   if (!response.ok) {
-    let errorBody: ApiErrorBody = {};
-
-    try {
-      errorBody = (await response.json()) as ApiErrorBody;
-    } catch {
-      // Some server and proxy errors do not include JSON.
-    }
-
-    throw new ApiError(
-      errorBody.message ?? 'Something went wrong. Please try again.',
-      response.status,
-      errorBody.errors,
-    );
+    return throwApiError(response);
   }
 
   if (response.status === 204) {
@@ -59,6 +63,21 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions = {
   }
 
   return response.json() as Promise<T>;
+}
+
+export async function apiTextRequest(path: string, token: string): Promise<string> {
+  const response = await fetch(path.startsWith('http') ? path : `${apiBaseUrl}${path}`, {
+    headers: {
+      Accept: 'text/csv',
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  if (!response.ok) {
+    return throwApiError(response);
+  }
+
+  return response.text();
 }
 
 export function errorMessage(error: unknown) {

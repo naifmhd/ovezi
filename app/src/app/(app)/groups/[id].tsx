@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -12,7 +12,8 @@ import { fetchActivity } from '@/lib/activity-api';
 import { errorMessage } from '@/lib/api-client';
 import { fetchExpenses } from '@/lib/expenses-api';
 import { formatMoney, minorAmountInput } from '@/lib/format';
-import { fetchGroup, fetchGroupBalances } from '@/lib/groups-api';
+import { fetchGroup, fetchGroupBalances, fetchGroupHistoryCsv } from '@/lib/groups-api';
+import { shareCsv } from '@/lib/share-csv';
 import { useAuthStore } from '@/stores/auth-store';
 
 export default function GroupDetailScreen() {
@@ -43,6 +44,12 @@ export default function GroupDetailScreen() {
     enabled: validId,
   });
   const group = groupQuery.data;
+  const exportMutation = useMutation({
+    mutationFn: async () => {
+      const csv = await fetchGroupHistoryCsv(token, groupId);
+      await shareCsv(csv, group?.name ?? 'Ovezi group');
+    },
+  });
   const isOwner = group?.members?.some(
     (member) => member.user?.id === user.id && member.role === 'owner',
   ) ?? false;
@@ -53,7 +60,11 @@ export default function GroupDetailScreen() {
   const participantNames = new Map(
     (balances?.members ?? []).map((member) => [member.participant.key, member.participant.name]),
   );
-  const error = groupQuery.error ?? balancesQuery.error ?? activityQuery.error ?? expensesQuery.error;
+  const error = groupQuery.error
+    ?? balancesQuery.error
+    ?? activityQuery.error
+    ?? expensesQuery.error
+    ?? exportMutation.error;
   const refreshing =
     groupQuery.isRefetching || balancesQuery.isRefetching || activityQuery.isRefetching || expensesQuery.isRefetching;
 
@@ -103,6 +114,8 @@ export default function GroupDetailScreen() {
             participantNames={participantNames}
             refreshing={refreshing}
             settlements={balances?.suggested_settlements ?? []}
+            exporting={exportMutation.isPending}
+            onExport={() => exportMutation.mutate()}
             onRefresh={refresh}
           />
         </View>
@@ -122,6 +135,8 @@ type ContentProps = {
   expenses: Awaited<ReturnType<typeof fetchExpenses>>['data'];
   error: Error | null;
   refreshing: boolean;
+  exporting: boolean;
+  onExport: () => void;
   onRefresh: () => Promise<void>;
 };
 
@@ -136,6 +151,8 @@ function AppGroupContent({
   expenses,
   error,
   refreshing,
+  exporting,
+  onExport,
   onRefresh,
 }: ContentProps) {
   return (
@@ -183,6 +200,11 @@ function AppGroupContent({
               </Pressable>
             ) : null}
           </View>
+          <Pressable disabled={exporting} onPress={onExport} style={styles.exportAction}>
+            <ThemedText style={styles.exportLabel} themeColor="primary">
+              {exporting ? 'Preparing export…' : '↓ Export group history as CSV'}
+            </ThemedText>
+          </Pressable>
 
           <SectionTitle title="Expenses" />
           {expenses.map((expense) => {
@@ -327,6 +349,8 @@ const styles = StyleSheet.create({
   addExpenseLabel: { color: '#061A14', fontSize: 15, fontWeight: '900' },
   settleButton: { backgroundColor: '#DDFBF0' },
   settleLabel: { color: '#0A6B4E', fontSize: 15, fontWeight: '900' },
+  exportAction: { minHeight: 42, alignItems: 'center', justifyContent: 'center' },
+  exportLabel: { fontSize: 13, fontWeight: '800' },
   balanceAmount: { fontSize: 34, lineHeight: 43, fontWeight: '800', marginVertical: 3 },
   sectionTitle: { fontSize: 17, lineHeight: 24, fontWeight: '800', marginTop: 14 },
   listCard: { borderRadius: 20, paddingHorizontal: 16 },
