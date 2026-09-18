@@ -1,5 +1,5 @@
 import { useMutation } from '@tanstack/react-query';
-import { Link } from 'expo-router';
+import { Link, router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { Platform, Pressable, StyleSheet, View } from 'react-native';
 
@@ -14,13 +14,19 @@ import { errorMessage } from '@/lib/api-client';
 import { useAuthStore } from '@/stores/auth-store';
 
 export default function SignInScreen() {
+  const params = useLocalSearchParams<{ redirect?: string | string[] }>();
+  const rawRedirect = Array.isArray(params.redirect) ? params.redirect[0] : params.redirect;
+  const redirect = rawRedirect?.startsWith('/') ? rawRedirect : '/(app)';
   const setSession = useAuthStore((state) => state.setSession);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [socialError, setSocialError] = useState('');
   const mutation = useMutation({
     mutationFn: () => login(email, password),
-    onSuccess: (session) => setSession(session),
+    onSuccess: async (session) => {
+      await setSession(session);
+      router.replace(redirect as never);
+    },
   });
 
   return (
@@ -30,7 +36,7 @@ export default function SignInScreen() {
       footer={
         <ThemedText themeColor="textSecondary">
           New to Ovezi?{' '}
-          <Link href="/(auth)/sign-up" asChild>
+          <Link href={{ pathname: '/(auth)/sign-up', params: { redirect } }} asChild>
             <ThemedText style={styles.link} themeColor="primary">
               Create an account
             </ThemedText>
@@ -77,7 +83,7 @@ export default function SignInScreen() {
             </ThemedText>
             <View style={styles.line} />
           </View>
-          <SocialSignIn onError={setSocialError} />
+          <SocialSignIn onError={setSocialError} onSuccess={() => router.replace(redirect as never)} />
         </>
       ) : null}
     </AuthShell>

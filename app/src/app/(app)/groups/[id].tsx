@@ -43,6 +43,9 @@ export default function GroupDetailScreen() {
     enabled: validId,
   });
   const group = groupQuery.data;
+  const isOwner = group?.members?.some(
+    (member) => member.user?.id === user.id && member.role === 'owner',
+  ) ?? false;
   const balances = balancesQuery.data;
   const currentBalance = balances?.members.find(
     (member) => member.participant.user_id === user.id,
@@ -75,7 +78,17 @@ export default function GroupDetailScreen() {
           <ThemedText numberOfLines={1} style={styles.headerTitle}>
             {group?.name ?? 'Group'}
           </ThemedText>
-          <View style={styles.headerSpacer} />
+          {isOwner ? (
+            <Pressable
+              onPress={() => router.push({
+                pathname: '/(app)/groups/[id]/settings',
+                params: { id: groupId },
+              })}>
+              <ThemedText style={styles.settingsLink} themeColor="primary">Settings</ThemedText>
+            </Pressable>
+          ) : (
+            <View style={styles.headerSpacer} />
+          )}
         </View>
 
         <View style={styles.scrollFrame}>
@@ -181,6 +194,7 @@ function AppGroupContent({
                 currentUserId={currentUserId}
                 expense={expense}
                 key={expense.id}
+                onPress={() => router.push({ pathname: '/(app)/expenses/[id]', params: { id: expense.id } })}
                 payerName={participantNames.get(payerKey)}
               />
             );
@@ -298,6 +312,7 @@ const styles = StyleSheet.create({
   back: { fontSize: 14, fontWeight: '800' },
   headerTitle: { flex: 1, textAlign: 'center', fontSize: 16, fontWeight: '800' },
   headerSpacer: { width: 48 },
+  settingsLink: { fontSize: 13, fontWeight: '800' },
   content: { padding: Spacing.four, paddingBottom: 80, gap: 12 },
   balanceCard: { borderRadius: 24, padding: 22, alignItems: 'center', marginBottom: 10 },
   actionRow: { flexDirection: 'row', gap: 10 },

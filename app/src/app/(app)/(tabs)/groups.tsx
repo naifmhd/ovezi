@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { router } from 'expo-router';
-import { Pressable, RefreshControl, StyleSheet } from 'react-native';
+import { useState } from 'react';
+import { Pressable, RefreshControl, StyleSheet, View } from 'react-native';
 
 import { AppScreen } from '@/components/app-screen';
 import { GroupCard } from '@/components/group-card';
@@ -8,13 +9,16 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { errorMessage } from '@/lib/api-client';
 import { fetchGroups } from '@/lib/groups-api';
+import { useTheme } from '@/hooks/use-theme';
 import { useAuthStore } from '@/stores/auth-store';
 
 export default function GroupsScreen() {
   const token = useAuthStore((state) => state.token)!;
+  const theme = useTheme();
+  const [status, setStatus] = useState<'active' | 'archived'>('active');
   const query = useQuery({
-    queryKey: ['groups', 'active'],
-    queryFn: () => fetchGroups(token),
+    queryKey: ['groups', status],
+    queryFn: () => fetchGroups(token, status),
   });
   const groups = query.data?.data ?? [];
 
@@ -34,6 +38,27 @@ export default function GroupsScreen() {
         ),
       }}>
       {query.error ? <ThemedText themeColor="danger">{errorMessage(query.error)}</ThemedText> : null}
+      <View style={styles.filterRow}>
+        {(['active', 'archived'] as const).map((item) => {
+          const selected = status === item;
+          return (
+            <Pressable
+              key={item}
+              onPress={() => setStatus(item)}
+              style={[
+                styles.filter,
+                {
+                  backgroundColor: selected ? theme.primary : theme.backgroundElement,
+                  borderColor: selected ? theme.primary : theme.border,
+                },
+              ]}>
+              <ThemedText style={[styles.filterLabel, selected && { color: theme.primaryText }]}>
+                {item === 'active' ? 'Active' : 'Archived'}
+              </ThemedText>
+            </Pressable>
+          );
+        })}
+      </View>
       {query.isLoading ? (
         <ThemedText style={styles.loading} themeColor="textSecondary">
           Loading groups…
@@ -44,15 +69,21 @@ export default function GroupsScreen() {
       ))}
       {!query.isLoading && groups.length === 0 ? (
         <ThemedView type="backgroundElement" style={styles.empty}>
-          <ThemedText style={styles.emptyTitle}>No groups yet</ThemedText>
-          <ThemedText style={styles.copy} themeColor="textSecondary">
-            Start a group for a trip, household, event, or anything shared.
+          <ThemedText style={styles.emptyTitle}>
+            {status === 'active' ? 'No groups yet' : 'No archived groups'}
           </ThemedText>
-          <Pressable onPress={() => router.push('/(app)/groups/create')}>
-            <ThemedText style={styles.action} themeColor="primary">
-              Create a group
-            </ThemedText>
-          </Pressable>
+          <ThemedText style={styles.copy} themeColor="textSecondary">
+            {status === 'active'
+              ? 'Start a group for a trip, household, event, or anything shared.'
+              : 'Groups you archive will remain available here with their full history.'}
+          </ThemedText>
+          {status === 'active' ? (
+            <Pressable onPress={() => router.push('/(app)/groups/create')}>
+              <ThemedText style={styles.action} themeColor="primary">
+                Create a group
+              </ThemedText>
+            </Pressable>
+          ) : null}
         </ThemedView>
       ) : null}
     </AppScreen>
@@ -65,4 +96,7 @@ const styles = StyleSheet.create({
   emptyTitle: { fontSize: 20, lineHeight: 28, fontWeight: '800' },
   copy: { fontSize: 14, lineHeight: 21, marginBottom: 8 },
   loading: { textAlign: 'center', marginTop: 60 },
+  filterRow: { flexDirection: 'row', gap: 8 },
+  filter: { height: 40, paddingHorizontal: 16, borderRadius: 14, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+  filterLabel: { fontSize: 13, fontWeight: '800', textTransform: 'capitalize' },
 });

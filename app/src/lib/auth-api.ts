@@ -90,3 +90,62 @@ export function sendVerificationEmail(token: string) {
 export function logout(token: string) {
   return apiRequest<void>('/auth/session', { method: 'DELETE', token });
 }
+
+export async function updateProfile(
+  token: string,
+  input: { name: string; defaultCurrencyCode: string },
+) {
+  const response = await apiRequest<DataResponse<User>>('/me', {
+    method: 'PATCH',
+    token,
+    body: { name: input.name, default_currency_code: input.defaultCurrencyCode },
+  });
+  return response.data;
+}
+
+export function updatePassword(
+  token: string,
+  input: { currentPassword: string; password: string; passwordConfirmation: string },
+) {
+  return apiRequest<void>('/auth/password', {
+    method: 'PUT',
+    token,
+    body: {
+      current_password: input.currentPassword,
+      password: input.password,
+      password_confirmation: input.passwordConfirmation,
+    },
+  });
+}
+
+export async function updateEmail(
+  token: string,
+  input: { currentPassword: string; email: string; emailConfirmation: string },
+) {
+  const response = await apiRequest<DataResponse<User>>('/auth/email', {
+    method: 'PUT',
+    token,
+    body: {
+      current_password: input.currentPassword,
+      email: input.email,
+      email_confirmation: input.emailConfirmation,
+    },
+  });
+  return response.data;
+}
+
+export function logoutAllSessions(token: string) {
+  return apiRequest<void>('/auth/sessions', { method: 'DELETE', token });
+}
+
+export function disconnectSocialAccount(token: string, provider: 'google' | 'apple') {
+  return apiRequest<void>(`/auth/social-accounts/${provider}`, { method: 'DELETE', token });
+}
+
+export function deleteAccount(token: string, currentPassword: string) {
+  return apiRequest<void>('/me', {
+    method: 'DELETE',
+    token,
+    body: { current_password: currentPassword },
+  });
+}

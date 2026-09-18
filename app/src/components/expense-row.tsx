@@ -1,4 +1,4 @@
-import { StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -9,36 +9,40 @@ type ExpenseRowProps = {
   expense: Expense;
   payerName?: string;
   currentUserId?: number;
+  onPress?: () => void;
 };
 
-export function ExpenseRow({ expense, payerName, currentUserId }: ExpenseRowProps) {
+export function ExpenseRow({ expense, payerName, currentUserId, onPress }: ExpenseRowProps) {
   const initial = expense.description.trim().slice(0, 1).toUpperCase() || '$';
   const directSummary = directExpenseSummary(expense, currentUserId);
 
   return (
-    <ThemedView type="backgroundElement" style={styles.card}>
-      <ThemedView type="backgroundSelected" style={styles.icon}>
-        <ThemedText style={styles.initial} themeColor="primary">
-          {initial}
+    <Pressable disabled={!onPress} onPress={onPress}>
+      <ThemedView type="backgroundElement" style={styles.card}>
+        <ThemedView type="backgroundSelected" style={styles.icon}>
+          <ThemedText style={styles.initial} themeColor="primary">
+            {initial}
+          </ThemedText>
+        </ThemedView>
+        <View style={styles.copy}>
+          <ThemedText numberOfLines={1} style={styles.title}>
+            {expense.description}
+          </ThemedText>
+          <ThemedText style={styles.meta} themeColor="textSecondary">
+            {directSummary ?? (payerName || expense.payer.name ? `${payerName ?? expense.payer.name} paid · ` : '')}
+            {directSummary ? ' · ' : ''}
+            {new Date(expense.occurred_at).toLocaleDateString('en', {
+              month: 'short',
+              day: 'numeric',
+            })}
+          </ThemedText>
+        </View>
+        <ThemedText style={styles.amount}>
+          {formatMoney(expense.amount_minor, expense.currency_code)}
         </ThemedText>
+        {onPress ? <ThemedText style={styles.chevron} themeColor="textSecondary">›</ThemedText> : null}
       </ThemedView>
-      <View style={styles.copy}>
-        <ThemedText numberOfLines={1} style={styles.title}>
-          {expense.description}
-        </ThemedText>
-        <ThemedText style={styles.meta} themeColor="textSecondary">
-          {directSummary ?? (payerName || expense.payer.name ? `${payerName ?? expense.payer.name} paid · ` : '')}
-          {directSummary ? ' · ' : ''}
-          {new Date(expense.occurred_at).toLocaleDateString('en', {
-            month: 'short',
-            day: 'numeric',
-          })}
-        </ThemedText>
-      </View>
-      <ThemedText style={styles.amount}>
-        {formatMoney(expense.amount_minor, expense.currency_code)}
-      </ThemedText>
-    </ThemedView>
+    </Pressable>
   );
 }
 
@@ -71,4 +75,5 @@ const styles = StyleSheet.create({
   title: { fontSize: 14, lineHeight: 20, fontWeight: '800' },
   meta: { fontSize: 12, lineHeight: 17 },
   amount: { fontSize: 14, fontWeight: '800' },
+  chevron: { fontSize: 22, fontWeight: '500' },
 });

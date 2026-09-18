@@ -20,9 +20,10 @@ const googleIosClientId = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID;
 
 type SocialSignInProps = {
   onError: (message: string) => void;
+  onSuccess?: () => void;
 };
 
-function GoogleButton({ onError }: SocialSignInProps) {
+function GoogleButton({ onError, onSuccess }: SocialSignInProps) {
   const setSession = useAuthStore((state) => state.setSession);
   const [pending, setPending] = useState(false);
 
@@ -53,6 +54,7 @@ function GoogleButton({ onError }: SocialSignInProps) {
 
       if (isSuccessResponse(result)) {
         await setSession(await socialLogin('google', result.data.idToken));
+        onSuccess?.();
       }
     } catch (error) {
       if (!isErrorWithCode(error) || error.code !== statusCodes.SIGN_IN_CANCELLED) {
@@ -75,7 +77,7 @@ function GoogleButton({ onError }: SocialSignInProps) {
   );
 }
 
-function AppleButton({ onError }: SocialSignInProps) {
+function AppleButton({ onError, onSuccess }: SocialSignInProps) {
   const setSession = useAuthStore((state) => state.setSession);
   const [available, setAvailable] = useState(false);
 
@@ -116,6 +118,7 @@ function AppleButton({ onError }: SocialSignInProps) {
           ...(name ? { name } : {}),
         }),
       );
+      onSuccess?.();
     } catch (error) {
       if ((error as { code?: string }).code !== 'ERR_REQUEST_CANCELED') {
         onError(errorMessage(error));
@@ -134,11 +137,11 @@ function AppleButton({ onError }: SocialSignInProps) {
   );
 }
 
-export function SocialSignIn({ onError }: SocialSignInProps) {
+export function SocialSignIn({ onError, onSuccess }: SocialSignInProps) {
   return (
     <View style={styles.container}>
-      {googleWebClientId ? <GoogleButton onError={onError} /> : null}
-      {Platform.OS === 'ios' ? <AppleButton onError={onError} /> : null}
+      {googleWebClientId ? <GoogleButton onError={onError} onSuccess={onSuccess} /> : null}
+      {Platform.OS === 'ios' ? <AppleButton onError={onError} onSuccess={onSuccess} /> : null}
     </View>
   );
 }

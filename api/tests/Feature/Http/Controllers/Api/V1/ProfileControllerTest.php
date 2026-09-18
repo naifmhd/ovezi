@@ -18,6 +18,8 @@ it('returns the authenticated profile', function () {
         ->assertJsonPath('data.id', $user->id)
         ->assertJsonPath('data.name', 'Naif Ahmed')
         ->assertJsonPath('data.email', 'naif@example.com')
+        ->assertJsonPath('data.has_password', true)
+        ->assertJsonPath('data.connected_providers', [])
         ->assertJsonMissingPath('data.password');
 });
 

@@ -21,6 +21,11 @@ class UserResource extends JsonResource
             'email_verified_at' => $this->email_verified_at,
             'default_currency_code' => $this->default_currency_code,
             'avatar_url' => $this->avatar_path,
+            'has_password' => $this->password !== null,
+            'connected_providers' => $this->socialAccounts()
+                ->orderBy('provider')
+                ->pluck('provider')
+                ->all(),
             'created_at' => $this->created_at,
         ];
     }

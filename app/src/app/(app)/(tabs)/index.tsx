@@ -116,9 +116,9 @@ export default function HomeScreen() {
 
       <View style={styles.sectionHeading}>
         <ThemedText style={styles.sectionTitle}>Personal & 1-on-1</ThemedText>
-        <Pressable onPress={() => router.push('/(app)/expenses/create')}>
+        <Pressable onPress={() => router.push('/(app)/expenses')}>
           <ThemedText style={styles.seeAll} themeColor="primary">
-            Add
+            See all
           </ThemedText>
         </Pressable>
       </View>
@@ -128,7 +128,12 @@ export default function HomeScreen() {
         </ThemedText>
       ) : null}
       {recentPersonalExpenses.map((expense) => (
-        <ExpenseRow currentUserId={user.id} expense={expense} key={expense.id} />
+        <ExpenseRow
+          currentUserId={user.id}
+          expense={expense}
+          key={expense.id}
+          onPress={() => router.push({ pathname: '/(app)/expenses/[id]', params: { id: expense.id } })}
+        />
       ))}
       {!expensesQuery.isLoading && recentPersonalExpenses.length === 0 ? (
         <ThemedText style={styles.emptyActivity} themeColor="textSecondary">

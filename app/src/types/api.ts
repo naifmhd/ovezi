@@ -5,6 +5,8 @@ export type User = {
   email_verified_at: string | null;
   default_currency_code: string;
   avatar_url: string | null;
+  has_password: boolean;
+  connected_providers: ('google' | 'apple')[];
   created_at: string;
 };
 
@@ -45,6 +47,30 @@ export type Placeholder = {
   is_claimed: boolean;
   claimed_at: string | null;
   created_at: string;
+};
+
+export type GroupInvite = {
+  id: number;
+  group_id: number;
+  invited_by: number;
+  invited_email: string | null;
+  expires_at: string;
+  is_expired: boolean;
+  is_revoked: boolean;
+  accepted_by: number | null;
+  accepted_at: string | null;
+  created_at: string;
+};
+
+export type GroupCurrencyRate = {
+  id: number;
+  group_id: number;
+  base_currency_code: string;
+  quote_currency_code: string;
+  rate: string;
+  created_by: number;
+  created_at: string;
+  updated_at: string;
 };
 
 export type BalanceMember = {

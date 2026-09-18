@@ -1,4 +1,5 @@
 import { useMutation } from '@tanstack/react-query';
+import { router } from 'expo-router';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { AppScreen } from '@/components/app-screen';
@@ -62,6 +63,20 @@ export default function ProfileScreen() {
         <ThemedText themeColor="danger">{errorMessage(verificationMutation.error)}</ThemedText>
       ) : null}
 
+      <ThemedView type="backgroundElement" style={styles.menuCard}>
+        <ProfileLink
+          label="Edit profile"
+          onPress={() => router.push('/(app)/profile/edit')}
+          subtitle="Name and default currency"
+        />
+        <View style={styles.divider} />
+        <ProfileLink
+          label="Security & account"
+          onPress={() => router.push('/(app)/profile/security')}
+          subtitle="Password, email, sessions, and deletion"
+        />
+      </ThemedView>
+
       <Pressable onPress={() => void logout()}>
         {({ pressed }) => (
           <ThemedView type="backgroundElement" style={[styles.signOut, pressed && styles.pressed]}>
@@ -72,6 +87,18 @@ export default function ProfileScreen() {
         )}
       </Pressable>
     </AppScreen>
+  );
+}
+
+function ProfileLink({ label, onPress, subtitle }: { label: string; onPress: () => void; subtitle: string }) {
+  return (
+    <Pressable onPress={onPress} style={styles.menuRow}>
+      <View style={styles.profileCopy}>
+        <ThemedText style={styles.menuLabel}>{label}</ThemedText>
+        <ThemedText style={styles.menuSubtitle} themeColor="textSecondary">{subtitle}</ThemedText>
+      </View>
+      <ThemedText style={styles.chevron} themeColor="textSecondary">›</ThemedText>
+    </Pressable>
   );
 }
 
@@ -90,4 +117,9 @@ const styles = StyleSheet.create({
   signOut: { padding: 17, borderRadius: 18, alignItems: 'center', marginTop: 10 },
   signOutText: { fontWeight: '800' },
   pressed: { opacity: 0.65 },
+  menuCard: { borderRadius: 22, paddingHorizontal: 17 },
+  menuRow: { minHeight: 68, flexDirection: 'row', alignItems: 'center', gap: 12 },
+  menuLabel: { fontSize: 14, fontWeight: '800' },
+  menuSubtitle: { fontSize: 12, lineHeight: 17 },
+  chevron: { fontSize: 23, fontWeight: '500' },
 });

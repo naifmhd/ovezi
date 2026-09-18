@@ -6,8 +6,14 @@ export default function AppLayout() {
       <Stack.Screen name="(tabs)" />
       <Stack.Screen name="groups/create" options={{ presentation: 'modal' }} />
       <Stack.Screen name="groups/[id]" />
+      <Stack.Screen name="groups/[id]/settings" />
+      <Stack.Screen name="groups/[id]/members" />
       <Stack.Screen name="expenses/create" options={{ presentation: 'modal' }} />
+      <Stack.Screen name="expenses/index" />
+      <Stack.Screen name="expenses/[id]" />
       <Stack.Screen name="settlements/create" options={{ presentation: 'modal' }} />
+      <Stack.Screen name="profile/edit" />
+      <Stack.Screen name="profile/security" />
     </Stack>
   );
 }

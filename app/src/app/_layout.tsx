@@ -25,6 +25,7 @@ function RootNavigator() {
   return (
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="auth" />
+      <Stack.Screen name="group-invites/accept" />
       <Stack.Protected guard={!token}>
         <Stack.Screen name="(auth)" />
       </Stack.Protected>

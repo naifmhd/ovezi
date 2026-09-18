@@ -1,4 +1,5 @@
-import { StyleSheet, View } from 'react-native';
+import { router } from 'expo-router';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -6,20 +7,27 @@ import { activityDescription, formatRelativeDate } from '@/lib/format';
 import type { Activity } from '@/types/api';
 
 export function ActivityRow({ activity }: { activity: Activity }) {
+  const expenseId = activity.subject.type === 'expense' ? activity.subject.id : null;
+
   return (
-    <ThemedView type="backgroundElement" style={styles.row}>
-      <ThemedView type="backgroundSelected" style={styles.icon}>
-        <ThemedText style={styles.iconText} themeColor="primary">
-          {activity.event.startsWith('expense') ? '$' : activity.event.startsWith('member') ? '+' : '•'}
-        </ThemedText>
+    <Pressable
+      disabled={!expenseId}
+      onPress={() => expenseId && router.push({ pathname: '/(app)/expenses/[id]', params: { id: expenseId } })}>
+      <ThemedView type="backgroundElement" style={styles.row}>
+        <ThemedView type="backgroundSelected" style={styles.icon}>
+          <ThemedText style={styles.iconText} themeColor="primary">
+            {activity.event.startsWith('expense') ? '$' : activity.event.startsWith('member') ? '+' : '•'}
+          </ThemedText>
+        </ThemedView>
+        <View style={styles.copy}>
+          <ThemedText style={styles.description}>{activityDescription(activity)}</ThemedText>
+          <ThemedText style={styles.date} themeColor="textSecondary">
+            {formatRelativeDate(activity.created_at)}
+          </ThemedText>
+        </View>
+        {expenseId ? <ThemedText style={styles.chevron} themeColor="textSecondary">›</ThemedText> : null}
       </ThemedView>
-      <View style={styles.copy}>
-        <ThemedText style={styles.description}>{activityDescription(activity)}</ThemedText>
-        <ThemedText style={styles.date} themeColor="textSecondary">
-          {formatRelativeDate(activity.created_at)}
-        </ThemedText>
-      </View>
-    </ThemedView>
+    </Pressable>
   );
 }
 
@@ -30,4 +38,5 @@ const styles = StyleSheet.create({
   copy: { flex: 1 },
   description: { fontSize: 14, lineHeight: 20, fontWeight: '700' },
   date: { fontSize: 12, lineHeight: 17 },
+  chevron: { fontSize: 22, fontWeight: '500' },
 });

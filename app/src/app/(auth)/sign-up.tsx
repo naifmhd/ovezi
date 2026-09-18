@@ -1,5 +1,5 @@
 import { useMutation } from '@tanstack/react-query';
-import { Link } from 'expo-router';
+import { Link, router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { StyleSheet } from 'react-native';
 
@@ -13,6 +13,9 @@ import { errorMessage } from '@/lib/api-client';
 import { useAuthStore } from '@/stores/auth-store';
 
 export default function SignUpScreen() {
+  const params = useLocalSearchParams<{ redirect?: string | string[] }>();
+  const rawRedirect = Array.isArray(params.redirect) ? params.redirect[0] : params.redirect;
+  const redirect = rawRedirect?.startsWith('/') ? rawRedirect : '/(app)';
   const setSession = useAuthStore((state) => state.setSession);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -20,7 +23,10 @@ export default function SignUpScreen() {
   const [confirmation, setConfirmation] = useState('');
   const mutation = useMutation({
     mutationFn: () => register(name, email, password, confirmation),
-    onSuccess: (session) => setSession(session),
+    onSuccess: async (session) => {
+      await setSession(session);
+      router.replace(redirect as never);
+    },
   });
 
   return (
@@ -30,7 +36,7 @@ export default function SignUpScreen() {
       footer={
         <ThemedText themeColor="textSecondary">
           Already have an account?{' '}
-          <Link href="/(auth)/sign-in" asChild>
+          <Link href={{ pathname: '/(auth)/sign-in', params: { redirect } }} asChild>
             <ThemedText style={styles.link} themeColor="primary">
               Sign in
             </ThemedText>

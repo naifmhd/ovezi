@@ -1,5 +1,5 @@
 import { apiRequest } from '@/lib/api-client';
-import type { Expense, PaginatedResponse, SplitType } from '@/types/api';
+import type { Expense, ExpenseType, PaginatedResponse, SplitType } from '@/types/api';
 
 type DataResponse<T> = { data: T };
 
@@ -24,9 +24,13 @@ export type CreateExpenseInput = {
   expense_rate?: string;
 };
 
-export function fetchExpenses(token: string, options: { groupId?: number; perPage?: number } = {}) {
+export function fetchExpenses(
+  token: string,
+  options: { groupId?: number; expenseType?: ExpenseType; perPage?: number } = {},
+) {
   const params = new URLSearchParams();
   if (options.groupId) params.set('group_id', String(options.groupId));
+  if (options.expenseType) params.set('expense_type', options.expenseType);
   params.set('per_page', String(options.perPage ?? 20));
 
   return apiRequest<PaginatedResponse<Expense>>(`/expenses?${params.toString()}`, { token });
@@ -38,5 +42,10 @@ export async function createExpense(token: string, input: CreateExpenseInput) {
     token,
     body: input,
   });
+  return response.data;
+}
+
+export async function fetchExpense(token: string, expenseId: number) {
+  const response = await apiRequest<DataResponse<Expense>>(`/expenses/${expenseId}`, { token });
   return response.data;
 }
