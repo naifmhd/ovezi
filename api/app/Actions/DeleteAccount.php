@@ -4,6 +4,7 @@ namespace App\Actions;
 
 use App\GroupMemberRole;
 use App\Models\User;
+use App\Services\DirectBalanceCalculator;
 use App\Services\GroupBalanceCalculator;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -11,7 +12,10 @@ use Illuminate\Validation\ValidationException;
 
 class DeleteAccount
 {
-    public function __construct(private readonly GroupBalanceCalculator $balanceCalculator) {}
+    public function __construct(
+        private readonly GroupBalanceCalculator $groupBalanceCalculator,
+        private readonly DirectBalanceCalculator $directBalanceCalculator,
+    ) {}
 
     public function execute(User $user, string $currentPassword): void
     {
@@ -41,14 +45,20 @@ class DeleteAccount
                     return false;
                 }
 
-                $balance = $this->balanceCalculator->calculate($membership->group)["user:{$user->id}"] ?? 0;
+                $balance = $this->groupBalanceCalculator->calculate($membership->group)["user:{$user->id}"] ?? 0;
 
                 return $balance !== 0;
             });
 
         if ($openBalanceExists) {
             throw ValidationException::withMessages([
-                'account' => 'Settle every open group balance before deleting your account.',
+                'account' => 'Settle every open balance before deleting your account.',
+            ]);
+        }
+
+        if ($this->directBalanceCalculator->calculateFor($user) !== []) {
+            throw ValidationException::withMessages([
+                'account' => 'Settle every open balance before deleting your account.',
             ]);
         }
 

@@ -92,6 +92,42 @@ it('blocks deletion while the user has an open group balance', function () {
     $this->assertNotSoftDeleted('users', ['id' => $user->id]);
 });
 
+it('blocks deletion while the user has an open direct balance', function () {
+    $currency = Currency::factory()->mvr()->create();
+    $user = User::factory()->create([
+        'default_currency_code' => $currency->code,
+        'password' => 'current-password-value',
+    ]);
+    $friend = User::factory()->create(['default_currency_code' => $currency->code]);
+    $expense = Expense::factory()->create([
+        'expense_type' => ExpenseType::Direct,
+        'group_id' => null,
+        'payer_user_id' => $friend->id,
+        'amount_minor' => 1000,
+        'currency_code' => $currency->code,
+        'reporting_amount_minor' => 1000,
+        'reporting_currency_code' => $currency->code,
+        'created_by' => $user->id,
+    ]);
+    ExpenseSplit::factory()->for($expense)->for($friend)->create([
+        'amount_owed_minor' => 500,
+        'reporting_amount_owed_minor' => 500,
+    ]);
+    ExpenseSplit::factory()->for($expense)->for($user)->create([
+        'amount_owed_minor' => 500,
+        'reporting_amount_owed_minor' => 500,
+    ]);
+    $token = $user->createToken('User phone');
+
+    $this->withToken($token->plainTextToken)->deleteJson('/api/v1/me', [
+        'current_password' => 'current-password-value',
+    ])->assertUnprocessable()
+        ->assertJsonValidationErrors('account');
+
+    $this->assertNotSoftDeleted('users', ['id' => $user->id]);
+    $this->assertDatabaseHas('personal_access_tokens', ['id' => $token->accessToken->id]);
+});
+
 it('requires the current password', function () {
     $user = User::factory()->create(['password' => 'current-password-value']);
     $token = $user->createToken('User phone');
