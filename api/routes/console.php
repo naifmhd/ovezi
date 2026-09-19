@@ -1,5 +1,6 @@
 <?php
 
+use App\Jobs\GenerateDueRecurringExpenses;
 use App\Jobs\PurgeDeletedExpenses;
 use App\Jobs\SyncExchangeRates;
 use Illuminate\Foundation\Inspiring;
@@ -17,5 +18,10 @@ Schedule::job(new SyncExchangeRates)
 
 Schedule::job(new PurgeDeletedExpenses)
     ->dailyAt('18:45')
+    ->onOneServer()
+    ->withoutOverlapping(30);
+
+Schedule::job(new GenerateDueRecurringExpenses)
+    ->dailyAt('19:00')
     ->onOneServer()
     ->withoutOverlapping(30);

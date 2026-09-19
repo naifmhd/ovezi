@@ -63,6 +63,11 @@ class DeleteAccount
         }
 
         DB::transaction(function () use ($user): void {
+            $user->createdRecurringExpenses()->update([
+                'paused_at' => null,
+                'canceled_at' => now(),
+                'next_occurrence_on' => null,
+            ]);
             $user->tokens()->delete();
             $user->delete();
         });

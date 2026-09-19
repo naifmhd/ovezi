@@ -17,6 +17,8 @@ export default function AppLayout() {
       <Stack.Screen name="profile/security" />
       <Stack.Screen name="profile/notifications" />
       <Stack.Screen name="profile/placeholder-claims" />
+      <Stack.Screen name="profile/recurring-expenses" />
+      <Stack.Screen name="profile/recurring-expenses/[id]" />
       <Stack.Screen name="profile/about" />
       <Stack.Screen name="profile/privacy" />
       <Stack.Screen name="profile/terms" />

@@ -176,6 +176,7 @@ export type Activity = {
 
 export type ExpenseType = 'group' | 'direct' | 'personal';
 export type SplitType = 'equal' | 'exact' | 'percentage' | 'shares';
+export type RecurrenceFrequency = 'weekly' | 'monthly' | 'yearly';
 
 export type ExpenseSplit = {
   id: number;
@@ -191,6 +192,8 @@ export type ExpenseSplit = {
 
 export type Expense = {
   id: number;
+  recurring_expense_id: number | null;
+  recurring_occurrence_on: string | null;
   expense_type: ExpenseType;
   group_id: number | null;
   payer: {
@@ -213,6 +216,44 @@ export type Expense = {
   occurred_at: string;
   created_by: number;
   splits: ExpenseSplit[];
+  created_at: string;
+  updated_at: string;
+};
+
+export type RecurringExpenseSplit = {
+  id: number;
+  user_id: number | null;
+  placeholder_id: number | null;
+  claimed_user_id: number | null;
+  name: string | null;
+  split_value: string | null;
+};
+
+export type RecurringExpense = {
+  id: number;
+  expense_type: ExpenseType;
+  group_id: number | null;
+  payer: {
+    user_id: number | null;
+    placeholder_id: number | null;
+    claimed_user_id: number | null;
+    name: string | null;
+  };
+  amount_minor: number;
+  currency_code: string;
+  description: string;
+  category: string | null;
+  split_type: SplitType | null;
+  frequency: RecurrenceFrequency;
+  start_on: string;
+  next_occurrence_on: string | null;
+  ends_on: string | null;
+  status: 'active' | 'paused' | 'completed' | 'canceled';
+  can_manage: boolean;
+  splits: RecurringExpenseSplit[];
+  created_by: number;
+  paused_at: string | null;
+  canceled_at: string | null;
   created_at: string;
   updated_at: string;
 };

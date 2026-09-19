@@ -6,6 +6,7 @@ use App\Models\Group;
 use App\Models\GroupInvite;
 use App\Models\GroupMember;
 use App\Models\Placeholder;
+use App\Models\RecurringExpense;
 use App\Models\SocialAccount;
 use App\Models\User;
 
@@ -55,6 +56,12 @@ it('exports the authenticated users data without authentication secrets', functi
         'currency_code' => $currency->code,
         'reporting_currency_code' => $currency->code,
     ]);
+    $recurringExpense = RecurringExpense::factory()->create([
+        'payer_user_id' => $user->id,
+        'created_by' => $user->id,
+        'currency_code' => $currency->code,
+        'description' => 'Monthly subscription',
+    ]);
 
     $response = $this->withToken($user->createToken('User phone')->plainTextToken)
         ->get('/api/v1/me/export');
@@ -69,7 +76,9 @@ it('exports the authenticated users data without authentication secrets', functi
         ->assertJsonPath('created_placeholders.0.contact_value', 'sarah@example.com')
         ->assertJsonPath('group_memberships.0.group.name', 'Malé Weekend')
         ->assertJsonPath('created_group_invitations.0.invited_email', 'friend@example.com')
-        ->assertJsonPath('expenses.0.id', $expense->id);
+        ->assertJsonPath('expenses.0.id', $expense->id)
+        ->assertJsonPath('recurring_expenses.0.id', $recurringExpense->id)
+        ->assertJsonPath('recurring_expenses.0.description', 'Monthly subscription');
 
     expect($response->json('expenses'))->toHaveCount(1);
     expect($response->getContent())

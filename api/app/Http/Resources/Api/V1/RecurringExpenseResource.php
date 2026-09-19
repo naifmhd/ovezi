@@ -5,7 +5,7 @@ namespace App\Http\Resources\Api\V1;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
-class ExpenseResource extends JsonResource
+class RecurringExpenseResource extends JsonResource
 {
     /**
      * Transform the resource into an array.
@@ -16,8 +16,6 @@ class ExpenseResource extends JsonResource
     {
         return [
             'id' => $this->id,
-            'recurring_expense_id' => $this->recurring_expense_id,
-            'recurring_occurrence_on' => $this->recurring_occurrence_on,
             'expense_type' => $this->expense_type,
             'group_id' => $this->group_id,
             'payer' => [
@@ -28,30 +26,26 @@ class ExpenseResource extends JsonResource
             ],
             'amount_minor' => $this->amount_minor,
             'currency_code' => $this->currency_code,
-            'reporting_amount_minor' => $this->reporting_amount_minor,
-            'reporting_currency_code' => $this->reporting_currency_code,
-            'exchange_rate' => $this->exchange_rate,
-            'exchange_rate_source' => $this->exchange_rate_source,
-            'exchange_rate_effective_date' => $this->exchange_rate_effective_date,
             'description' => $this->description,
             'category' => $this->category,
-            'has_receipt' => $this->receipt_image_path !== null,
-            'receipt_url' => $this->receipt_image_path === null
-                ? null
-                : route('api.v1.expenses.receipt.show', $this->resource),
-            'occurred_at' => $this->occurred_at,
-            'created_by' => $this->created_by,
+            'split_type' => $this->split_type,
+            'frequency' => $this->frequency,
+            'start_on' => $this->start_on,
+            'next_occurrence_on' => $this->next_occurrence_on,
+            'ends_on' => $this->ends_on,
+            'status' => $this->status(),
+            'can_manage' => $request->user()?->can('update', $this->resource) ?? false,
             'splits' => $this->whenLoaded('splits', fn () => $this->splits->map(fn ($split): array => [
                 'id' => $split->id,
                 'user_id' => $split->user_id,
                 'placeholder_id' => $split->placeholder_id,
                 'claimed_user_id' => $split->placeholder?->claimed_by,
                 'name' => $split->user?->name ?? $split->placeholder?->name,
-                'amount_owed_minor' => $split->amount_owed_minor,
-                'reporting_amount_owed_minor' => $split->reporting_amount_owed_minor,
-                'split_type' => $split->split_type,
                 'split_value' => $split->split_value,
             ])),
+            'created_by' => $this->created_by,
+            'paused_at' => $this->paused_at,
+            'canceled_at' => $this->canceled_at,
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
         ];

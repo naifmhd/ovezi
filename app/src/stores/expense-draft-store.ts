@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 
 import { draftStorage } from '@/lib/draft-storage';
-import type { ExpenseType, SplitType } from '@/types/api';
+import type { ExpenseType, RecurrenceFrequency, SplitType } from '@/types/api';
 
 export type ExpenseDraftParticipant = {
   key: string;
@@ -29,6 +29,8 @@ export type ExpenseDraft = {
   payerKey: string;
   expenseRate: string;
   recalculateRate: boolean;
+  recurrenceFrequency: RecurrenceFrequency | null;
+  recurrenceEndsOn: string;
   savedAt: string;
 };
 

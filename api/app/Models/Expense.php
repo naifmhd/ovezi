@@ -15,7 +15,8 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 use InvalidArgumentException;
 
 #[Fillable([
-    'expense_type', 'group_id', 'payer_user_id', 'payer_placeholder_id', 'amount_minor',
+    'recurring_expense_id', 'recurring_occurrence_on', 'expense_type', 'group_id',
+    'payer_user_id', 'payer_placeholder_id', 'amount_minor',
     'currency_code', 'reporting_amount_minor', 'reporting_currency_code', 'exchange_rate',
     'exchange_rate_source', 'exchange_rate_effective_date', 'description', 'category',
     'receipt_image_path', 'occurred_at', 'created_by',
@@ -30,6 +31,11 @@ class Expense extends Model
     public function group(): BelongsTo
     {
         return $this->belongsTo(Group::class);
+    }
+
+    public function recurringExpense(): BelongsTo
+    {
+        return $this->belongsTo(RecurringExpense::class);
     }
 
     public function payerUser(): BelongsTo
@@ -93,6 +99,7 @@ class Expense extends Model
             'exchange_rate_source' => ExchangeRateSource::class,
             'exchange_rate_effective_date' => 'date',
             'occurred_at' => 'datetime',
+            'recurring_occurrence_on' => 'date',
         ];
     }
 }

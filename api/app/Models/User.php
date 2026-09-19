@@ -65,6 +65,11 @@ class User extends Authenticatable implements MustVerifyEmail
         return $this->hasMany(Expense::class, 'created_by');
     }
 
+    public function createdRecurringExpenses(): HasMany
+    {
+        return $this->hasMany(RecurringExpense::class, 'created_by');
+    }
+
     public function expenseSplits(): HasMany
     {
         return $this->hasMany(ExpenseSplit::class);

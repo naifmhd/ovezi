@@ -239,19 +239,38 @@ export default function ExpenseDetailScreen() {
             <ThemedText themeColor="danger">{errorMessage(mutationError)}</ThemedText>
           ) : null}
           {deletedAt === null && expense ? (
-            <ExpenseContent
-              currentUserId={user.id}
-              canManage={canManage}
-              expense={expense}
-              groupName={groupQuery.data?.name}
-              onDeleteReceipt={() => receiptDeleteMutation.mutate()}
-              onSelectReceipt={(source) => void selectReceipt(source)}
-              receiptError={receiptSelectionError}
-              receiptDeleting={receiptDeleteMutation.isPending}
-              receiptUploading={receiptUploadMutation.isPending}
-              receiptVersion={receiptVersion}
-              token={token}
-            />
+            <>
+              {expense.recurring_expense_id ? (
+                <Pressable
+                  onPress={() => router.push({
+                    pathname: '/(app)/profile/recurring-expenses/[id]',
+                    params: { id: expense.recurring_expense_id! },
+                  })}>
+                  <ThemedView type="backgroundSelected" style={styles.recurringCard}>
+                    <View style={styles.recurringCopy}>
+                      <ThemedText style={styles.recurringTitle}>Recurring expense</ThemedText>
+                      <ThemedText style={styles.recurringText} themeColor="textSecondary">
+                        This is one occurrence. Open the schedule to change future expenses.
+                      </ThemedText>
+                    </View>
+                    <ThemedText style={styles.recurringChevron} themeColor="primary">›</ThemedText>
+                  </ThemedView>
+                </Pressable>
+              ) : null}
+              <ExpenseContent
+                currentUserId={user.id}
+                canManage={canManage}
+                expense={expense}
+                groupName={groupQuery.data?.name}
+                onDeleteReceipt={() => receiptDeleteMutation.mutate()}
+                onSelectReceipt={(source) => void selectReceipt(source)}
+                receiptError={receiptSelectionError}
+                receiptDeleting={receiptDeleteMutation.isPending}
+                receiptUploading={receiptUploadMutation.isPending}
+                receiptVersion={receiptVersion}
+                token={token}
+              />
+            </>
           ) : null}
           {deletedAt === null && expense && canManage ? (
             <>
@@ -550,6 +569,11 @@ const styles = StyleSheet.create({
   headerSpacer: { width: 48 },
   content: { padding: Spacing.four, paddingBottom: 80, gap: 12, maxWidth: 680, width: '100%', alignSelf: 'center' },
   centered: { textAlign: 'center', paddingVertical: 50 },
+  recurringCard: { borderRadius: 20, padding: 16, flexDirection: 'row', alignItems: 'center', gap: 12 },
+  recurringCopy: { flex: 1, gap: 2 },
+  recurringTitle: { fontSize: 14, fontWeight: '900' },
+  recurringText: { fontSize: 12, lineHeight: 18 },
+  recurringChevron: { fontSize: 25, fontWeight: '600' },
   hero: { borderRadius: 24, padding: 22, alignItems: 'center', gap: 4 },
   eyebrow: { fontSize: 12, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.8 },
   description: { fontSize: 20, lineHeight: 28, fontWeight: '800', textAlign: 'center' },

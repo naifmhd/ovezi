@@ -7,6 +7,7 @@ use App\Models\Expense;
 use App\Models\Friendship;
 use App\Models\GroupInvite;
 use App\Models\GroupMember;
+use App\Models\RecurringExpense;
 use App\Models\Settlement;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
@@ -49,6 +50,7 @@ class PersonalDataExporter
                 'created_at' => $placeholder->created_at?->toIso8601String(),
             ])->all(),
             'expenses' => $this->expenses($user),
+            'recurring_expenses' => $this->recurringExpenses($user),
             'settlements' => $this->settlements($user),
             'created_group_invitations' => $this->groupInvitations($user),
             'activity' => ActivityLog::query()
@@ -139,6 +141,8 @@ class PersonalDataExporter
             ->get()
             ->map(fn (Expense $expense): array => [
                 'id' => $expense->id,
+                'recurring_expense_id' => $expense->recurring_expense_id,
+                'recurring_occurrence_on' => $expense->recurring_occurrence_on?->toDateString(),
                 'expense_type' => $expense->expense_type->value,
                 'group_id' => $expense->group_id,
                 'payer_user_id' => $expense->payer_user_id,
@@ -166,6 +170,63 @@ class PersonalDataExporter
                     'amount_owed_minor' => $split->amount_owed_minor,
                     'reporting_amount_owed_minor' => $split->reporting_amount_owed_minor,
                     'split_type' => $split->split_type->value,
+                    'split_value' => $split->split_value,
+                ])->all(),
+            ])->all();
+    }
+
+    /** @return list<array<string, mixed>> */
+    private function recurringExpenses(User $user): array
+    {
+        return RecurringExpense::query()
+            ->where(function (Builder $query) use ($user): void {
+                $query->where('created_by', $user->id)
+                    ->orWhere(function (Builder $groupQuery) use ($user): void {
+                        $groupQuery->where('expense_type', 'group')
+                            ->whereHas('group.members', fn (Builder $memberQuery): Builder => $memberQuery
+                                ->whereBelongsTo($user)
+                                ->whereNull('left_at'));
+                    })->orWhere(function (Builder $directQuery) use ($user): void {
+                        $directQuery->where('expense_type', 'direct')
+                            ->where(function (Builder $participantQuery) use ($user): void {
+                                $participantQuery->where('payer_user_id', $user->id)
+                                    ->orWhereHas('payerPlaceholder', fn (Builder $placeholderQuery): Builder => $placeholderQuery
+                                        ->where('claimed_by', $user->id))
+                                    ->orWhereHas('splits', fn (Builder $splitQuery): Builder => $splitQuery
+                                        ->where('user_id', $user->id)
+                                        ->orWhereHas('placeholder', fn (Builder $placeholderQuery): Builder => $placeholderQuery
+                                            ->where('claimed_by', $user->id)));
+                            });
+                    });
+            })
+            ->with(['splits.user:id,name', 'splits.placeholder:id,name'])
+            ->oldest('id')
+            ->get()
+            ->map(fn (RecurringExpense $recurringExpense): array => [
+                'id' => $recurringExpense->id,
+                'expense_type' => $recurringExpense->expense_type->value,
+                'group_id' => $recurringExpense->group_id,
+                'payer_user_id' => $recurringExpense->payer_user_id,
+                'payer_placeholder_id' => $recurringExpense->payer_placeholder_id,
+                'amount_minor' => $recurringExpense->amount_minor,
+                'currency_code' => $recurringExpense->currency_code,
+                'description' => $recurringExpense->description,
+                'category' => $recurringExpense->category,
+                'split_type' => $recurringExpense->split_type?->value,
+                'frequency' => $recurringExpense->frequency->value,
+                'start_on' => $recurringExpense->start_on->toDateString(),
+                'next_occurrence_on' => $recurringExpense->next_occurrence_on?->toDateString(),
+                'ends_on' => $recurringExpense->ends_on?->toDateString(),
+                'paused_at' => $recurringExpense->paused_at?->toIso8601String(),
+                'canceled_at' => $recurringExpense->canceled_at?->toIso8601String(),
+                'created_by' => $recurringExpense->created_by,
+                'created_at' => $recurringExpense->created_at?->toIso8601String(),
+                'updated_at' => $recurringExpense->updated_at?->toIso8601String(),
+                'splits' => $recurringExpense->splits->map(fn ($split): array => [
+                    'id' => $split->id,
+                    'user_id' => $split->user_id,
+                    'placeholder_id' => $split->placeholder_id,
+                    'participant_name' => $split->user?->name ?? $split->placeholder?->name,
                     'split_value' => $split->split_value,
                 ])->all(),
             ])->all();

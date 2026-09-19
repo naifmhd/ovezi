@@ -37,6 +37,7 @@ use App\Http\Controllers\Api\V1\PlaceholderClaimController;
 use App\Http\Controllers\Api\V1\PlaceholderController;
 use App\Http\Controllers\Api\V1\ProfileController;
 use App\Http\Controllers\Api\V1\PushTokenController;
+use App\Http\Controllers\Api\V1\RecurringExpenseController;
 use App\Http\Controllers\Api\V1\SearchController;
 use App\Http\Controllers\Api\V1\SettlementController;
 use App\Http\Controllers\Api\V1\TransferGroupOwnershipController;
@@ -105,6 +106,13 @@ Route::prefix('v1')->name('api.v1.')->group(function (): void {
             ->name('friends.accept');
         Route::apiResource('expenses', ExpenseController::class)
             ->only(['index', 'show', 'store', 'update', 'destroy']);
+        Route::apiResource('recurring-expenses', RecurringExpenseController::class)
+            ->parameters(['recurring-expenses' => 'recurringExpense'])
+            ->only(['index', 'store', 'show', 'update', 'destroy']);
+        Route::put('recurring-expenses/{recurringExpense}/pause', [RecurringExpenseController::class, 'pause'])
+            ->name('recurring-expenses.pause');
+        Route::delete('recurring-expenses/{recurringExpense}/pause', [RecurringExpenseController::class, 'resume'])
+            ->name('recurring-expenses.resume');
         Route::post('expenses/{expense}/restore', [ExpenseController::class, 'restore'])
             ->whereNumber('expense')
             ->name('expenses.restore');

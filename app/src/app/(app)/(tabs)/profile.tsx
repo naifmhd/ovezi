@@ -93,6 +93,12 @@ export default function ProfileScreen() {
         />
         <View style={styles.divider} />
         <ProfileLink
+          label="Recurring expenses"
+          onPress={() => router.push('/(app)/profile/recurring-expenses')}
+          subtitle="Edit, pause, or cancel future expenses"
+        />
+        <View style={styles.divider} />
+        <ProfileLink
           label="Export my data"
           onPress={() => {
             if (!exportMutation.isPending) exportMutation.mutate();

@@ -22,7 +22,6 @@ import { ApiError, errorMessage } from '@/lib/api-client';
 import {
   createExpense,
   fetchExpense,
-  type CreateExpenseInput,
   type ExpenseParticipantInput,
   type UpdateExpenseInput,
   updateExpense,
@@ -32,16 +31,25 @@ import { fetchFriends } from '@/lib/friends-api';
 import { fetchGroup, fetchGroups } from '@/lib/groups-api';
 import { useTheme } from '@/hooks/use-theme';
 import { createPlaceholder, fetchPlaceholders } from '@/lib/placeholders-api';
+import {
+  createRecurringExpense,
+  type RecurringExpenseInput,
+} from '@/lib/recurring-expenses-api';
 import { useAuthStore } from '@/stores/auth-store';
 import {
   type ExpenseDraftParticipant,
   useExpenseDraftStore,
 } from '@/stores/expense-draft-store';
-import type { GroupMember, SplitType } from '@/types/api';
+import type { GroupMember, RecurrenceFrequency, SplitType } from '@/types/api';
 
 type ParticipantDraft = ExpenseDraftParticipant;
 
 type Destination = 'personal' | 'direct' | 'group';
+
+type ExpenseSubmissionInput = UpdateExpenseInput & {
+  frequency?: RecurrenceFrequency;
+  ends_on?: string;
+};
 
 const splitOptions: { value: SplitType; label: string }[] = [
   { value: 'equal', label: 'Equal' },
@@ -192,8 +200,10 @@ export default function CreateExpenseScreen() {
   const [currencyTouched, setCurrencyTouched] = useState(false);
   const [expenseRate, setExpenseRate] = useState('');
   const [recalculateRate, setRecalculateRate] = useState(false);
+  const [recurrenceFrequency, setRecurrenceFrequency] = useState<RecurrenceFrequency | null>(null);
+  const [recurrenceEndsOn, setRecurrenceEndsOn] = useState('');
   const [formError, setFormError] = useState<string | null>(null);
-  const [duplicateInput, setDuplicateInput] = useState<CreateExpenseInput | null>(null);
+  const [duplicateInput, setDuplicateInput] = useState<ExpenseSubmissionInput | null>(null);
   const [draftDecisionMade, setDraftDecisionMade] = useState(false);
   const initializedExpenseId = useRef<number | null>(null);
 
@@ -357,7 +367,8 @@ export default function CreateExpenseScreen() {
         || selectedGroupId
         || selectedPlaceholderId
         || selectedFriendId
-        || participantOverrides,
+        || participantOverrides
+        || recurrenceFrequency,
     );
     const timer = setTimeout(() => {
       if (!meaningful) {
@@ -381,6 +392,8 @@ export default function CreateExpenseScreen() {
         payerKey,
         expenseRate,
         recalculateRate,
+        recurrenceFrequency,
+        recurrenceEndsOn,
         savedAt: new Date().toISOString(),
       });
     }, 400);
@@ -402,6 +415,8 @@ export default function CreateExpenseScreen() {
     participantOverrides,
     payerKey,
     recalculateRate,
+    recurrenceEndsOn,
+    recurrenceFrequency,
     saveDraft,
     selectedFriendId,
     selectedGroupId,
@@ -428,6 +443,8 @@ export default function CreateExpenseScreen() {
     setPayerKey(savedDraft.payerKey);
     setExpenseRate(savedDraft.expenseRate);
     setRecalculateRate(savedDraft.recalculateRate);
+    setRecurrenceFrequency(savedDraft.recurrenceFrequency ?? null);
+    setRecurrenceEndsOn(savedDraft.recurrenceEndsOn ?? '');
     setDraftDecisionMade(true);
   }
 
@@ -454,9 +471,14 @@ export default function CreateExpenseScreen() {
   });
 
   const mutation = useMutation({
-    mutationFn: (input: UpdateExpenseInput) => isEditing
-      ? updateExpense(token, expenseId, input)
-      : createExpense(token, input),
+    mutationFn: async (input: ExpenseSubmissionInput) => {
+      if (isEditing) return updateExpense(token, expenseId, input);
+      if (input.frequency) {
+        const created = await createRecurringExpense(token, input as RecurringExpenseInput);
+        return created.expense;
+      }
+      return createExpense(token, input);
+    },
     onSuccess: async (expense) => {
       if (!isEditing) clearDraft();
       await Promise.all([
@@ -464,6 +486,7 @@ export default function CreateExpenseScreen() {
         queryClient.invalidateQueries({ queryKey: ['activity'] }),
         queryClient.invalidateQueries({ queryKey: ['group-balances'] }),
         queryClient.invalidateQueries({ queryKey: ['dashboard-balances'] }),
+        queryClient.invalidateQueries({ queryKey: ['recurring-expenses'] }),
       ]);
       if (isEditing) {
         queryClient.setQueryData(['expense', expense.id], expense);
@@ -476,7 +499,7 @@ export default function CreateExpenseScreen() {
     },
     onError: (error, input) => {
       if (!isEditing && error instanceof ApiError && error.status === 409 && error.errors.duplicate) {
-        setDuplicateInput(input as CreateExpenseInput);
+        setDuplicateInput(input);
       }
     },
   });
@@ -492,6 +515,8 @@ export default function CreateExpenseScreen() {
     setCurrency(user.default_currency_code);
     setCurrencyTouched(false);
     setExpenseRate('');
+    setRecurrenceFrequency(null);
+    setRecurrenceEndsOn('');
     setShowGuestForm(false);
     setFormError(null);
   }
@@ -579,6 +604,20 @@ export default function CreateExpenseScreen() {
     if (currencyCode.length !== 3) return setFormError('Enter a valid three-letter currency code.');
     if (!amountMinor || amountMinor < 1) return setFormError('Enter a valid amount.');
     if (!occurredAt) return setFormError('Enter a valid date in YYYY-MM-DD format.');
+    if (!isEditing && recurrenceFrequency && recurrenceEndsOn) {
+      const endsOn = occurrenceISOString(recurrenceEndsOn);
+      if (!endsOn) return setFormError('Enter a valid repeat end date in YYYY-MM-DD format.');
+      if (endsOn <= occurredAt) {
+        return setFormError('The repeat end date must be after the first expense date.');
+      }
+    }
+
+    const recurrenceInput = !isEditing && recurrenceFrequency
+      ? {
+          frequency: recurrenceFrequency,
+          ...(recurrenceEndsOn ? { ends_on: recurrenceEndsOn } : {}),
+        }
+      : {};
 
     if (destination === 'personal') {
       mutation.mutate({
@@ -589,6 +628,7 @@ export default function CreateExpenseScreen() {
         description: description.trim(),
         ...(category ? { category: category.toLowerCase() } : {}),
         occurred_at: occurredAt,
+        ...recurrenceInput,
         ...(isEditing ? { recalculate_rate: recalculateRate } : {}),
       });
       return;
@@ -623,6 +663,7 @@ export default function CreateExpenseScreen() {
       occurred_at: occurredAt,
       split_type: splitType,
       participants: participantInput,
+      ...recurrenceInput,
       ...(rateNeeded && expenseRate.trim() ? { expense_rate: expenseRate.trim() } : {}),
       ...(isEditing ? {
         recalculate_rate: recalculateRate
@@ -792,6 +833,46 @@ export default function CreateExpenseScreen() {
               placeholder="YYYY-MM-DD"
               value={occurredOn}
             />
+
+            {!isEditing ? (
+              <>
+                <SectionLabel label="Repeat" />
+                <View style={styles.segmentRow}>
+                  <ChoiceChip
+                    active={recurrenceFrequency === null}
+                    label="One time"
+                    onPress={() => {
+                      setRecurrenceFrequency(null);
+                      setRecurrenceEndsOn('');
+                    }}
+                  />
+                  {(['weekly', 'monthly', 'yearly'] as RecurrenceFrequency[]).map((frequency) => (
+                    <ChoiceChip
+                      active={recurrenceFrequency === frequency}
+                      key={frequency}
+                      label={frequency.charAt(0).toUpperCase() + frequency.slice(1)}
+                      onPress={() => setRecurrenceFrequency(frequency)}
+                    />
+                  ))}
+                </View>
+                {recurrenceFrequency ? (
+                  <>
+                    <FormField
+                      autoCapitalize="none"
+                      keyboardType="numbers-and-punctuation"
+                      label="Repeat until (optional)"
+                      maxLength={10}
+                      onChangeText={setRecurrenceEndsOn}
+                      placeholder="YYYY-MM-DD"
+                      value={recurrenceEndsOn}
+                    />
+                    <ThemedText style={styles.helper} themeColor="textSecondary">
+                      The first expense is saved now. Future expenses use the conversion rate available on their occurrence date.
+                    </ThemedText>
+                  </>
+                ) : null}
+              </>
+            ) : null}
 
             {destination === 'direct' ? (
               <>
