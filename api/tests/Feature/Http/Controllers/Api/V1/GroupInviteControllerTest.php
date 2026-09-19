@@ -5,6 +5,9 @@ use App\Models\Group;
 use App\Models\GroupInvite;
 use App\Models\GroupMember;
 use App\Models\User;
+use App\Notifications\GroupInvitation;
+use Illuminate\Notifications\AnonymousNotifiable;
+use Illuminate\Support\Facades\Notification;
 
 function groupWithOwnerForInvite(User $owner, Currency $currency, array $attributes = []): Group
 {
@@ -56,6 +59,7 @@ describe('management', function () {
     });
 
     it('normalizes a targeted email and lets the owner revoke a pending invite', function () {
+        Notification::fake();
         $currency = Currency::factory()->mvr()->create();
         $owner = User::factory()->create(['default_currency_code' => $currency->code]);
         $group = groupWithOwnerForInvite($owner, $currency);
@@ -68,10 +72,38 @@ describe('management', function () {
         $inviteId = $response->json('data.id');
 
         $response->assertCreated()->assertJsonPath('data.invited_email', 'friend@example.com');
+        $rawToken = $response->json('meta.token');
+        Notification::assertSentOnDemand(
+            GroupInvitation::class,
+            function (GroupInvitation $notification, array $channels, AnonymousNotifiable $notifiable) use ($group, $owner, $rawToken): bool {
+                $mail = $notification->toMail($notifiable);
+
+                return $notifiable->routes['mail'] === 'friend@example.com'
+                    && $channels === ['mail']
+                    && $notification->invite->group_id === $group->id
+                    && $mail->subject === "Join {$group->name} on Ovezi"
+                    && $mail->actionUrl === "ovezi://group-invites/accept?token={$rawToken}"
+                    && str_contains(implode(' ', $mail->introLines), $owner->name);
+            },
+        );
         $this->withToken($token->plainTextToken)
             ->deleteJson("/api/v1/groups/{$group->id}/invites/{$inviteId}")
             ->assertOk()
             ->assertJsonPath('data.is_revoked', true);
+    });
+
+    it('does not send email for a reusable link invite', function () {
+        Notification::fake();
+        $currency = Currency::factory()->mvr()->create();
+        $owner = User::factory()->create(['default_currency_code' => $currency->code]);
+        $group = groupWithOwnerForInvite($owner, $currency);
+        $token = $owner->createToken('Owner phone');
+
+        $this->withToken($token->plainTextToken)
+            ->postJson("/api/v1/groups/{$group->id}/invites")
+            ->assertCreated();
+
+        Notification::assertNothingSent();
     });
 
     it('prevents members and outsiders from managing invites', function () {

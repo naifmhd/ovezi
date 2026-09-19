@@ -5,7 +5,9 @@ namespace App\Actions;
 use App\Models\Group;
 use App\Models\GroupInvite;
 use App\Models\User;
+use App\Notifications\GroupInvitation;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Validation\ValidationException;
 
 class CreateGroupInvite
@@ -15,7 +17,7 @@ class CreateGroupInvite
     /** @return array{invite: GroupInvite, token: string} */
     public function execute(User $inviter, Group $group, ?string $invitedEmail): array
     {
-        return DB::transaction(function () use ($inviter, $group, $invitedEmail): array {
+        $result = DB::transaction(function () use ($inviter, $group, $invitedEmail): array {
             $lockedGroup = Group::query()->lockForUpdate()->findOrFail($group->id);
 
             if ($lockedGroup->archived_at !== null) {
@@ -34,5 +36,12 @@ class CreateGroupInvite
 
             return ['invite' => $invite, 'token' => $token];
         });
+
+        if ($invitedEmail !== null) {
+            Notification::route('mail', $invitedEmail)
+                ->notify(new GroupInvitation($result['invite'], $result['token']));
+        }
+
+        return $result;
     }
 }

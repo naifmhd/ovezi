@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, Pressable, ScrollView, Share, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { FormField } from '@/components/auth/form-field';
@@ -11,6 +11,7 @@ import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
 import { errorMessage } from '@/lib/api-client';
 import { formatMoney } from '@/lib/format';
+import { createGroupInvite, fetchGroupInvites, revokeGroupInvite } from '@/lib/group-invites-api';
 import {
   addGroupPlaceholder,
   fetchGroup,
@@ -34,6 +35,7 @@ export default function GroupMembersScreen() {
   const theme = useTheme();
   const queryClient = useQueryClient();
   const [showGuestForm, setShowGuestForm] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState('');
   const [guestName, setGuestName] = useState('');
   const [contactType, setContactType] = useState<'email' | 'phone'>('email');
   const [contactValue, setContactValue] = useState('');
@@ -61,6 +63,11 @@ export default function GroupMembersScreen() {
   const isOwner = group?.members?.some(
     (member) => member.user?.id === user.id && member.role === 'owner',
   ) ?? false;
+  const invitesQuery = useQuery({
+    queryKey: ['group-invites', groupId],
+    queryFn: () => fetchGroupInvites(token, groupId),
+    enabled: validGroupId && isOwner,
+  });
   const memberPlaceholderIds = new Set(
     (group?.members ?? []).flatMap((member) => member.placeholder ? [member.placeholder.id] : []),
   );
@@ -121,6 +128,26 @@ export default function GroupMembersScreen() {
       router.replace({ pathname: '/(app)/groups/[id]', params: { id: groupId } });
     },
   });
+  const linkInviteMutation = useMutation({
+    mutationFn: () => createGroupInvite(token, groupId),
+    onSuccess: async (response) => {
+      await queryClient.invalidateQueries({ queryKey: ['group-invites', groupId] });
+      await Share.share({
+        message: `Join ${group?.name ?? 'my group'} on Ovezi: ovezi://group-invites/accept?token=${response.meta.token}`,
+      });
+    },
+  });
+  const emailInviteMutation = useMutation({
+    mutationFn: () => createGroupInvite(token, groupId, inviteEmail.trim()),
+    onSuccess: async () => {
+      setInviteEmail('');
+      await queryClient.invalidateQueries({ queryKey: ['group-invites', groupId] });
+    },
+  });
+  const revokeInviteMutation = useMutation({
+    mutationFn: (inviteId: number) => revokeGroupInvite(token, groupId, inviteId),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['group-invites', groupId] }),
+  });
 
   function saveGuest() {
     setFormError(null);
@@ -138,7 +165,11 @@ export default function GroupMembersScreen() {
     ?? (addMutation.error ? errorMessage(addMutation.error) : null)
     ?? (createMutation.error ? errorMessage(createMutation.error) : null)
     ?? (removeMutation.error ? errorMessage(removeMutation.error) : null)
-    ?? (transferMutation.error ? errorMessage(transferMutation.error) : null);
+    ?? (transferMutation.error ? errorMessage(transferMutation.error) : null)
+    ?? (invitesQuery.error ? errorMessage(invitesQuery.error) : null)
+    ?? (linkInviteMutation.error ? errorMessage(linkInviteMutation.error) : null)
+    ?? (emailInviteMutation.error ? errorMessage(emailInviteMutation.error) : null)
+    ?? (revokeInviteMutation.error ? errorMessage(revokeInviteMutation.error) : null);
 
   return (
     <ThemedView style={styles.screen}>
@@ -234,6 +265,63 @@ export default function GroupMembersScreen() {
 
                 {!group.is_archived ? (
                   <>
+                    <SectionTitle title="Invite people" />
+                    <ThemedText style={styles.copy} themeColor="textSecondary">
+                      Send a private email invitation or share a reusable link yourself.
+                    </ThemedText>
+                    <ThemedView type="backgroundElement" style={styles.inviteCard}>
+                      <FormField
+                        autoCapitalize="none"
+                        keyboardType="email-address"
+                        label="Email address"
+                        onChangeText={setInviteEmail}
+                        placeholder="friend@example.com"
+                        value={inviteEmail}
+                      />
+                      <PrimaryButton
+                        disabled={!inviteEmail.trim()}
+                        label="Send email invite"
+                        loading={emailInviteMutation.isPending}
+                        onPress={() => emailInviteMutation.mutate()}
+                      />
+                      <Pressable
+                        disabled={linkInviteMutation.isPending}
+                        onPress={() => linkInviteMutation.mutate()}
+                        style={[styles.shareButton, { borderColor: theme.border }]}>
+                        <ThemedText style={styles.shareLabel} themeColor="primary">
+                          {linkInviteMutation.isPending ? 'Creating link…' : 'Share invite link'}
+                        </ThemedText>
+                      </Pressable>
+                    </ThemedView>
+                    {(invitesQuery.data?.data ?? []).some(
+                      (invite) => !invite.is_expired && !invite.is_revoked && !invite.accepted_at,
+                    ) ? (
+                      <ThemedView type="backgroundElement" style={styles.inviteList}>
+                        {(invitesQuery.data?.data ?? [])
+                          .filter((invite) => !invite.is_expired && !invite.is_revoked && !invite.accepted_at)
+                          .map((invite, index) => (
+                            <View key={invite.id}>
+                              {index > 0 ? <View style={[styles.divider, { backgroundColor: theme.border }]} /> : null}
+                              <View style={styles.inviteRow}>
+                                <View style={styles.memberCopy}>
+                                  <ThemedText style={styles.memberName}>
+                                    {invite.invited_email ?? 'Shareable link'}
+                                  </ThemedText>
+                                  <ThemedText style={styles.memberMeta} themeColor="textSecondary">
+                                    Pending invitation
+                                  </ThemedText>
+                                </View>
+                                <Pressable
+                                  disabled={revokeInviteMutation.isPending}
+                                  onPress={() => revokeInviteMutation.mutate(invite.id)}>
+                                  <ThemedText style={styles.smallAction} themeColor="danger">Revoke</ThemedText>
+                                </Pressable>
+                              </View>
+                            </View>
+                          ))}
+                      </ThemedView>
+                    ) : null}
+
                     <SectionTitle title="Add a placeholder" />
                     <ThemedText style={styles.copy} themeColor="textSecondary">
                       Placeholders can join expenses without an account and claim their history later.
@@ -380,6 +468,11 @@ const styles = StyleSheet.create({
   placeholderName: { fontSize: 13, fontWeight: '800' },
   createGuestLink: { fontSize: 14, fontWeight: '800', paddingVertical: 4 },
   guestCard: { borderRadius: 20, padding: 16, gap: 14 },
+  inviteCard: { borderRadius: 20, padding: 16, gap: 12 },
+  shareButton: { minHeight: 48, borderWidth: 1, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
+  shareLabel: { fontSize: 14, fontWeight: '800' },
+  inviteList: { borderRadius: 20, paddingHorizontal: 15 },
+  inviteRow: { minHeight: 66, flexDirection: 'row', alignItems: 'center', gap: 12 },
   typeRow: { flexDirection: 'row', gap: 8 },
   typeChip: { height: 40, paddingHorizontal: 16, borderRadius: 14, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
   typeLabel: { fontSize: 13, fontWeight: '800', textTransform: 'capitalize' },
