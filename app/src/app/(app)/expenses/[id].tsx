@@ -1,4 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Image } from 'expo-image';
+import * as ImagePicker from 'expo-image-picker';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
@@ -9,7 +11,13 @@ import { ThemedView } from '@/components/themed-view';
 import { QueryErrorCard } from '@/components/query-error-card';
 import { Spacing } from '@/constants/theme';
 import { errorMessage } from '@/lib/api-client';
-import { deleteExpense, fetchExpense, restoreExpense } from '@/lib/expenses-api';
+import {
+  deleteExpense,
+  deleteExpenseReceipt,
+  fetchExpense,
+  restoreExpense,
+  uploadExpenseReceipt,
+} from '@/lib/expenses-api';
 import { formatMoney } from '@/lib/format';
 import { fetchGroup } from '@/lib/groups-api';
 import { useAuthStore } from '@/stores/auth-store';
@@ -28,6 +36,8 @@ export default function ExpenseDetailScreen() {
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [deletedAt, setDeletedAt] = useState<number | null>(null);
   const [undoSeconds, setUndoSeconds] = useState(30);
+  const [receiptSelectionError, setReceiptSelectionError] = useState<string | null>(null);
+  const [receiptVersion, setReceiptVersion] = useState(0);
   const validExpenseId = Number.isInteger(expenseId) && expenseId > 0;
   const expenseQuery = useQuery({
     queryKey: ['expense', expenseId],
@@ -73,6 +83,77 @@ export default function ExpenseDetailScreen() {
       ]);
     },
   });
+  const receiptDeleteMutation = useMutation({
+    mutationFn: () => deleteExpenseReceipt(token, expenseId),
+    onSuccess: async () => {
+      setReceiptVersion(Date.now());
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['expense', expenseId] }),
+        queryClient.invalidateQueries({ queryKey: ['expenses'] }),
+        queryClient.invalidateQueries({ queryKey: ['activity'] }),
+      ]);
+    },
+  });
+  const receiptUploadMutation = useMutation({
+    mutationFn: (receipt: ImagePicker.ImagePickerAsset) => uploadExpenseReceipt(
+      token,
+      expenseId,
+      receipt,
+    ),
+    onSuccess: async (updatedExpense) => {
+      setReceiptSelectionError(null);
+      setReceiptVersion(Date.now());
+      queryClient.setQueryData(['expense', expenseId], updatedExpense);
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['expenses'] }),
+        queryClient.invalidateQueries({ queryKey: ['activity'] }),
+      ]);
+    },
+  });
+
+  async function selectReceipt(source: 'camera' | 'library') {
+    setReceiptSelectionError(null);
+    receiptUploadMutation.reset();
+
+    try {
+      const permission = source === 'camera'
+        ? await ImagePicker.requestCameraPermissionsAsync()
+        : await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+      if (!permission.granted) {
+        setReceiptSelectionError(
+          source === 'camera'
+            ? 'Camera access is needed to photograph a receipt. You can enable it in device settings.'
+            : 'Photo access is needed to choose a receipt. You can enable it in device settings.',
+        );
+        return;
+      }
+
+      const result = source === 'camera'
+        ? await ImagePicker.launchCameraAsync({
+            allowsEditing: false,
+            mediaTypes: ['images'],
+            quality: 0.85,
+          })
+        : await ImagePicker.launchImageLibraryAsync({
+            allowsEditing: false,
+            mediaTypes: ['images'],
+            quality: 0.85,
+          });
+
+      if (result.canceled) return;
+
+      const receipt = result.assets[0];
+      if (receipt.fileSize !== undefined && receipt.fileSize > 10 * 1024 * 1024) {
+        setReceiptSelectionError('Receipt images must be 10 MB or smaller.');
+        return;
+      }
+
+      receiptUploadMutation.mutate(receipt);
+    } catch {
+      setReceiptSelectionError('Ovezi couldn’t open the image picker. Please try again.');
+    }
+  }
 
   useEffect(() => {
     if (deletedAt === null) return;
@@ -89,7 +170,10 @@ export default function ExpenseDetailScreen() {
     return () => clearInterval(timer);
   }, [deletedAt]);
 
-  const mutationError = deleteMutation.error ?? restoreMutation.error;
+  const mutationError = deleteMutation.error
+    ?? restoreMutation.error
+    ?? receiptDeleteMutation.error
+    ?? receiptUploadMutation.error;
 
   return (
     <ThemedView style={styles.screen}>
@@ -157,8 +241,16 @@ export default function ExpenseDetailScreen() {
           {deletedAt === null && expense ? (
             <ExpenseContent
               currentUserId={user.id}
+              canManage={canManage}
               expense={expense}
               groupName={groupQuery.data?.name}
+              onDeleteReceipt={() => receiptDeleteMutation.mutate()}
+              onSelectReceipt={(source) => void selectReceipt(source)}
+              receiptError={receiptSelectionError}
+              receiptDeleting={receiptDeleteMutation.isPending}
+              receiptUploading={receiptUploadMutation.isPending}
+              receiptVersion={receiptVersion}
+              token={token}
             />
           ) : null}
           {deletedAt === null && expense && canManage ? (
@@ -197,13 +289,29 @@ export default function ExpenseDetailScreen() {
 }
 
 function ExpenseContent({
+  canManage,
   currentUserId,
   expense,
   groupName,
+  onDeleteReceipt,
+  onSelectReceipt,
+  receiptError,
+  receiptDeleting,
+  receiptUploading,
+  receiptVersion,
+  token,
 }: {
+  canManage: boolean;
   currentUserId: number;
   expense: Expense;
   groupName?: string;
+  onDeleteReceipt: () => void;
+  onSelectReceipt: (source: 'camera' | 'library') => void;
+  receiptError: string | null;
+  receiptDeleting: boolean;
+  receiptUploading: boolean;
+  receiptVersion: number;
+  token: string;
 }) {
   const ownSplit = expense.splits.find(
     (split) => (split.user_id ?? split.claimed_user_id) === currentUserId,
@@ -233,6 +341,69 @@ function ExpenseContent({
           </ThemedView>
         ) : null}
       </ThemedView>
+
+      {expense.receipt_url || canManage ? (
+        <>
+          <SectionTitle title="Receipt" />
+          <ThemedView type="backgroundElement" style={styles.receiptCard}>
+            {expense.receipt_url ? (
+              <Image
+                accessibilityLabel={`Receipt for ${expense.description}`}
+                cachePolicy="memory"
+                contentFit="contain"
+                source={{
+                  uri: `${expense.receipt_url}?v=${encodeURIComponent(`${expense.updated_at}-${receiptVersion}`)}`,
+                  headers: { Authorization: `Bearer ${token}` },
+                }}
+                style={styles.receiptImage}
+                transition={180}
+              />
+            ) : (
+              <View style={styles.receiptEmpty}>
+                <ThemedText style={styles.receiptEmptyTitle}>No receipt attached</ThemedText>
+                <ThemedText style={styles.receiptEmptyCopy} themeColor="textSecondary">
+                  Add a photo for your records. Ovezi won’t scan or process it.
+                </ThemedText>
+              </View>
+            )}
+            {canManage ? (
+              <View style={styles.receiptControls}>
+                {receiptError ? (
+                  <ThemedText style={styles.receiptError} themeColor="danger">{receiptError}</ThemedText>
+                ) : null}
+                <View style={styles.receiptActions}>
+                  <Pressable
+                    disabled={receiptUploading || receiptDeleting}
+                    onPress={() => onSelectReceipt('camera')}
+                    style={styles.receiptAction}>
+                    <ThemedText style={styles.receiptActionText} themeColor="primary">
+                      {receiptUploading ? 'Uploading…' : expense.receipt_url ? 'Retake photo' : 'Take photo'}
+                    </ThemedText>
+                  </Pressable>
+                  <Pressable
+                    disabled={receiptUploading || receiptDeleting}
+                    onPress={() => onSelectReceipt('library')}
+                    style={styles.receiptAction}>
+                    <ThemedText style={styles.receiptActionText} themeColor="primary">
+                      {expense.receipt_url ? 'Replace from photos' : 'Choose photo'}
+                    </ThemedText>
+                  </Pressable>
+                </View>
+                {expense.receipt_url ? (
+                  <Pressable
+                    disabled={receiptDeleting || receiptUploading}
+                    onPress={onDeleteReceipt}
+                    style={styles.receiptRemoveAction}>
+                    <ThemedText style={styles.receiptActionText} themeColor="danger">
+                      {receiptDeleting ? 'Removing…' : 'Remove receipt'}
+                    </ThemedText>
+                  </Pressable>
+                ) : null}
+              </View>
+            ) : null}
+          </ThemedView>
+        </>
+      ) : null}
 
       <SectionTitle title="Details" />
       <ThemedView type="backgroundElement" style={styles.detailCard}>
@@ -385,6 +556,17 @@ const styles = StyleSheet.create({
   amount: { fontSize: 36, lineHeight: 44, fontWeight: '900', marginVertical: 4 },
   impactPill: { borderRadius: 14, paddingHorizontal: 13, paddingVertical: 8, marginTop: 4 },
   impactText: { fontSize: 13, fontWeight: '800' },
+  receiptCard: { borderRadius: 20, overflow: 'hidden' },
+  receiptImage: { width: '100%', aspectRatio: 4 / 3 },
+  receiptEmpty: { minHeight: 146, alignItems: 'center', justifyContent: 'center', gap: 5, padding: 20 },
+  receiptEmptyTitle: { fontSize: 15, fontWeight: '800' },
+  receiptEmptyCopy: { fontSize: 13, lineHeight: 18, textAlign: 'center' },
+  receiptControls: { padding: 10, gap: 4 },
+  receiptActions: { flexDirection: 'row', gap: 8 },
+  receiptAction: { flex: 1, minHeight: 48, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 6 },
+  receiptRemoveAction: { minHeight: 44, alignItems: 'center', justifyContent: 'center' },
+  receiptActionText: { fontSize: 14, fontWeight: '800' },
+  receiptError: { fontSize: 13, lineHeight: 18, textAlign: 'center', padding: 6 },
   sectionTitle: { fontSize: 17, lineHeight: 24, fontWeight: '800', marginTop: 10 },
   detailCard: { borderRadius: 20, paddingHorizontal: 16 },
   detailRow: { minHeight: 58, flexDirection: 'row', alignItems: 'center', gap: 16 },

@@ -1,4 +1,4 @@
-import { apiRequest } from '@/lib/api-client';
+import { apiMultipartRequest, apiRequest } from '@/lib/api-client';
 import type { Expense, ExpenseType, PaginatedResponse, SplitType } from '@/types/api';
 
 type DataResponse<T> = { data: T };
@@ -77,4 +77,52 @@ export async function restoreExpense(token: string, expenseId: number) {
     token,
   });
   return response.data;
+}
+
+export function deleteExpenseReceipt(token: string, expenseId: number) {
+  return apiRequest<void>(`/expenses/${expenseId}/receipt`, {
+    method: 'DELETE',
+    token,
+  });
+}
+
+export type ReceiptUpload = {
+  uri: string;
+  fileName?: string | null;
+  mimeType?: string | null;
+  file?: File;
+};
+
+export async function uploadExpenseReceipt(
+  token: string,
+  expenseId: number,
+  receipt: ReceiptUpload,
+) {
+  const body = new FormData();
+
+  if (receipt.file) {
+    body.append('receipt', receipt.file, receipt.fileName ?? receipt.file.name);
+  } else {
+    body.append('receipt', {
+      uri: receipt.uri,
+      name: receipt.fileName ?? receiptName(receipt),
+      type: receipt.mimeType ?? 'image/jpeg',
+    } as unknown as Blob);
+  }
+
+  const response = await apiMultipartRequest<DataResponse<Expense>>(
+    `/expenses/${expenseId}/receipt`,
+    token,
+    body,
+  );
+
+  return response.data;
+}
+
+function receiptName(receipt: ReceiptUpload) {
+  const uriName = receipt.uri.split('/').pop()?.split('?')[0];
+  if (uriName?.includes('.')) return uriName;
+
+  const extension = receipt.mimeType?.split('/')[1]?.replace('jpeg', 'jpg') ?? 'jpg';
+  return `receipt.${extension}`;
 }

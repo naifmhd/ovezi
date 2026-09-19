@@ -65,6 +65,32 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions = {
   return response.json() as Promise<T>;
 }
 
+export async function apiMultipartRequest<T>(
+  path: string,
+  token: string,
+  body: FormData,
+  method = 'POST',
+): Promise<T> {
+  const response = await fetch(path.startsWith('http') ? path : `${apiBaseUrl}${path}`, {
+    method,
+    headers: {
+      Accept: 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body,
+  });
+
+  if (!response.ok) {
+    return throwApiError(response);
+  }
+
+  if (response.status === 204) {
+    return undefined as T;
+  }
+
+  return response.json() as Promise<T>;
+}
+
 export async function apiTextRequest(
   path: string,
   token: string,

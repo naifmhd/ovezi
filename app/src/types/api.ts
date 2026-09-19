@@ -206,6 +206,8 @@ export type Expense = {
   exchange_rate_effective_date: string | null;
   description: string;
   category: string | null;
+  has_receipt: boolean;
+  receipt_url: string | null;
   occurred_at: string;
   created_by: number;
   splits: ExpenseSplit[];

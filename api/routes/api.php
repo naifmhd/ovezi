@@ -19,6 +19,7 @@ use App\Http\Controllers\Api\V1\CurrencyController;
 use App\Http\Controllers\Api\V1\DeleteAccountController;
 use App\Http\Controllers\Api\V1\DirectSettlementController;
 use App\Http\Controllers\Api\V1\ExpenseController;
+use App\Http\Controllers\Api\V1\ExpenseReceiptController;
 use App\Http\Controllers\Api\V1\FriendshipController;
 use App\Http\Controllers\Api\V1\GroupActivityController;
 use App\Http\Controllers\Api\V1\GroupBalanceController;
@@ -106,6 +107,12 @@ Route::prefix('v1')->name('api.v1.')->group(function (): void {
         Route::post('expenses/{expense}/restore', [ExpenseController::class, 'restore'])
             ->whereNumber('expense')
             ->name('expenses.restore');
+        Route::get('expenses/{expense}/receipt', [ExpenseReceiptController::class, 'show'])
+            ->name('expenses.receipt.show');
+        Route::post('expenses/{expense}/receipt', [ExpenseReceiptController::class, 'store'])
+            ->name('expenses.receipt.store');
+        Route::delete('expenses/{expense}/receipt', [ExpenseReceiptController::class, 'destroy'])
+            ->name('expenses.receipt.destroy');
         Route::apiResource('groups', GroupController::class)
             ->only(['index', 'store', 'show', 'update']);
         Route::post('groups/{group}/members', [GroupMemberController::class, 'store'])

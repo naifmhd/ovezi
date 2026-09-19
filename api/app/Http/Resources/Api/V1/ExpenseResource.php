@@ -33,6 +33,10 @@ class ExpenseResource extends JsonResource
             'exchange_rate_effective_date' => $this->exchange_rate_effective_date,
             'description' => $this->description,
             'category' => $this->category,
+            'has_receipt' => $this->receipt_image_path !== null,
+            'receipt_url' => $this->receipt_image_path === null
+                ? null
+                : route('api.v1.expenses.receipt.show', $this->resource),
             'occurred_at' => $this->occurred_at,
             'created_by' => $this->created_by,
             'splits' => $this->whenLoaded('splits', fn () => $this->splits->map(fn ($split): array => [
