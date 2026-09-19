@@ -27,7 +27,7 @@ import {
   type UpdateExpenseInput,
   updateExpense,
 } from '@/lib/expenses-api';
-import { currencyFractionDigits, minorAmountInput, parseDecimalToInteger } from '@/lib/format';
+import { currencyFractionDigits, formatMoney, minorAmountInput, parseDecimalToInteger } from '@/lib/format';
 import { fetchFriends } from '@/lib/friends-api';
 import { fetchGroup, fetchGroups } from '@/lib/groups-api';
 import { useTheme } from '@/hooks/use-theme';
@@ -92,6 +92,56 @@ function memberDraft(member: GroupMember): ParticipantDraft {
     selected: true,
     value: '',
   };
+}
+
+function splitAllocationPreview(
+  amountMinor: number | null,
+  splitType: SplitType,
+  participants: ParticipantDraft[],
+  payerKey: string,
+  fractionDigits: number,
+) {
+  if (!amountMinor || amountMinor < 1 || participants.length === 0) return new Map<string, number>();
+  if (!participants.some((participant) => participant.key === payerKey)) return new Map<string, number>();
+
+  if (splitType === 'equal') {
+    const share = Math.floor(amountMinor / participants.length);
+    const allocations = new Map(participants.map((participant) => [participant.key, share]));
+    allocations.set(payerKey, share + (amountMinor % participants.length));
+    return allocations;
+  }
+
+  const values = participants.map((participant) => {
+    if (splitType === 'exact') return parseDecimalToInteger(participant.value, fractionDigits);
+    if (splitType === 'percentage') return parseDecimalToInteger(participant.value, 2);
+
+    const shares = Number(participant.value);
+    return Number.isInteger(shares) && shares > 0 ? shares : null;
+  });
+  if (values.some((value) => value === null)) return new Map<string, number>();
+
+  const integerValues = values as number[];
+  if (splitType !== 'exact' && integerValues.some((value) => value <= 0)) {
+    return new Map<string, number>();
+  }
+  const total = integerValues.reduce((sum, value) => sum + value, 0);
+  if (splitType === 'exact') {
+    if (total !== amountMinor) return new Map<string, number>();
+    return new Map(participants.map((participant, index) => [participant.key, integerValues[index]]));
+  }
+  if (total < 1 || (splitType === 'percentage' && total !== 10_000)) {
+    return new Map<string, number>();
+  }
+
+  let allocated = 0;
+  const allocations = new Map(participants.map((participant, index) => {
+    const value = Math.floor((amountMinor * integerValues[index]) / total);
+    allocated += value;
+    return [participant.key, value] as const;
+  }));
+  allocations.set(payerKey, (allocations.get(payerKey) ?? 0) + amountMinor - allocated);
+
+  return allocations;
 }
 
 export default function CreateExpenseScreen() {
@@ -222,6 +272,18 @@ export default function CreateExpenseScreen() {
     destination !== 'personal'
       && effectiveCurrency.trim().toUpperCase() !== reportingCurrency,
   );
+  const previewCurrency = effectiveCurrency.trim().toUpperCase();
+  const previewFractionDigits = currencyFractionDigits(previewCurrency);
+  const previewAllocations = splitAllocationPreview(
+    parseDecimalToInteger(amount, previewFractionDigits),
+    splitType,
+    selectedParticipants,
+    effectivePayerKey,
+    previewFractionDigits,
+  );
+  const payerName = selectedParticipants.find(
+    (participant) => participant.key === effectivePayerKey,
+  )?.name;
 
   useEffect(() => {
     if (!editingExpense || initializedExpenseId.current === editingExpense.id) return;
@@ -482,7 +544,10 @@ export default function CreateExpenseScreen() {
     for (const participant of selectedParticipants) {
       let value: number | undefined;
       if (splitType === 'exact') value = parseDecimalToInteger(participant.value, fractionDigits) ?? undefined;
-      if (splitType === 'percentage') value = parseDecimalToInteger(participant.value, 2) ?? undefined;
+      if (splitType === 'percentage') {
+        const percentage = parseDecimalToInteger(participant.value, 2);
+        value = percentage !== null && percentage > 0 ? percentage : undefined;
+      }
       if (splitType === 'shares') {
         const parsed = Number(participant.value);
         value = Number.isInteger(parsed) && parsed > 0 ? parsed : undefined;
@@ -854,7 +919,14 @@ export default function CreateExpenseScreen() {
                             <ThemedText style={styles.check}>✓</ThemedText>
                           </View>
                         )}
-                        <ThemedText style={styles.participantName}>{participant.name}</ThemedText>
+                        <View style={styles.participantCopy}>
+                          <ThemedText style={styles.participantName}>{participant.name}</ThemedText>
+                          {participant.selected && previewAllocations.has(participant.key) ? (
+                            <ThemedText style={styles.previewAmount} themeColor="textSecondary">
+                              {formatMoney(previewAllocations.get(participant.key)!, previewCurrency)} owed
+                            </ThemedText>
+                          ) : null}
+                        </View>
                         {participant.selected && splitType !== 'equal' ? (
                           <View style={styles.valueWrap}>
                             <TextInput
@@ -878,6 +950,11 @@ export default function CreateExpenseScreen() {
                     </View>
                   ))}
                 </ThemedView>
+                {payerName && splitType !== 'exact' ? (
+                  <ThemedText style={styles.helper} themeColor="textSecondary">
+                    Any smallest-unit rounding remainder is assigned to {payerName}, the payer.
+                  </ThemedText>
+                ) : null}
 
                 {rateNeeded ? (
                   <>
@@ -965,7 +1042,9 @@ const styles = StyleSheet.create({
   chipLabel: { fontSize: 13, fontWeight: '800' },
   participantCard: { borderRadius: 20, paddingHorizontal: 15 },
   participantRow: { minHeight: 64, flexDirection: 'row', alignItems: 'center', gap: 11 },
-  participantName: { flex: 1, fontSize: 14, fontWeight: '700' },
+  participantCopy: { flex: 1, gap: 1 },
+  participantName: { fontSize: 14, fontWeight: '700' },
+  previewAmount: { fontSize: 11, lineHeight: 15 },
   checkbox: { width: 24, height: 24, borderRadius: 8, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
   check: { color: '#061A14', fontSize: 14, fontWeight: '900' },
   divider: { height: StyleSheet.hairlineWidth },

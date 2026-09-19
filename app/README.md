@@ -1,56 +1,37 @@
-# Welcome to your Expo app 👋
+# Ovezi mobile app
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+Expo 57 / React Native client for Ovezi.
 
-## Get started
+## Local setup
 
-1. Install dependencies
+1. Install dependencies with `npm install`.
+2. Copy `.env.example` to `.env` and set `EXPO_PUBLIC_API_URL`.
+3. Start the app with `npx expo start`.
 
-   ```bash
-   npm install
-   ```
+Google sign-in uses native code and does not work in Expo Go. Use an Expo development build or an EAS build when testing Google authentication.
 
-2. Start the app
+## Google OAuth
 
-   ```bash
-   npx expo start
-   ```
+Create separate OAuth clients in Google Cloud for Web, iOS, and Android.
 
-In the output, you'll find options to open the app in a
+- `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID` is the Web client ID. The app sends its Google ID token to the Laravel API, and the same client ID must be included in the API's `GOOGLE_CLIENT_IDS` setting.
+- `EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID` is the iOS client ID ending in `.apps.googleusercontent.com`. The dynamic Expo config derives and registers its reversed callback URL scheme.
+- Configure the Android OAuth client with the final Android package name and the signing certificate SHA-1. Android uses the explicit Web client ID at runtime, so Firebase configuration files are not required.
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+After changing OAuth configuration, rebuild the native app. Restarting Metro is not sufficient for native config-plugin changes.
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+## Apple sign-in
 
-## Get a fresh project
+Sign in with Apple is enabled for iOS through `expo-apple-authentication`. The API's `APPLE_CLIENT_IDS` setting must include the app's final Apple client or bundle identifier before release builds are tested.
 
-When you're ready, run:
+## Reverb
+
+Set the `EXPO_PUBLIC_REVERB_*` variables to the Laravel Cloud Reverb application. Shared group, expense, settlement, and balance queries reconnect through private channels after authentication.
+
+## Checks
 
 ```bash
-npm run reset-project
+npx expo lint
+npx tsc --noEmit
+npx expo export --platform all
 ```
-
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
-
-### Other setup steps
-
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
-
-## Learn more
-
-To learn more about developing your project with Expo, look at the following resources:
-
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
-
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.

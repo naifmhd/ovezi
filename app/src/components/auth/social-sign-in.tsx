@@ -138,9 +138,13 @@ function AppleButton({ onError, onSuccess }: SocialSignInProps) {
 }
 
 export function SocialSignIn({ onError, onSuccess }: SocialSignInProps) {
+  const googleConfigured = Boolean(
+    googleWebClientId && (Platform.OS !== 'ios' || googleIosClientId),
+  );
+
   return (
     <View style={styles.container}>
-      {googleWebClientId ? <GoogleButton onError={onError} onSuccess={onSuccess} /> : null}
+      {googleConfigured ? <GoogleButton onError={onError} onSuccess={onSuccess} /> : null}
       {Platform.OS === 'ios' ? <AppleButton onError={onError} onSuccess={onSuccess} /> : null}
     </View>
   );

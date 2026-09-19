@@ -1,25 +1,27 @@
-const appJson = require('./app.json');
+const staticConfig = require('./app.json');
 
 function googleIosUrlScheme(clientId) {
-  const suffix = '.apps.googleusercontent.com';
-
-  if (!clientId?.endsWith(suffix)) {
-    return null;
+  if (!clientId) return null;
+  if (!clientId.endsWith('.apps.googleusercontent.com')) {
+    throw new Error('EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID must be a Google iOS OAuth client ID.');
   }
 
-  return `com.googleusercontent.apps.${clientId.slice(0, -suffix.length)}`;
+  return clientId.split('.').reverse().join('.');
 }
 
 module.exports = () => {
   const iosUrlScheme = googleIosUrlScheme(process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID);
-  const plugins = [...appJson.expo.plugins];
+  const plugins = [...staticConfig.expo.plugins];
 
   if (iosUrlScheme) {
-    plugins.push(['react-native-nitro-google-signin', { iosUrlScheme }]);
+    plugins.push([
+      'react-native-nitro-google-signin',
+      { iosUrlScheme },
+    ]);
   }
 
   return {
-    ...appJson.expo,
+    ...staticConfig.expo,
     plugins,
   };
 };
