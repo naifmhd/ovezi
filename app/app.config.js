@@ -57,6 +57,21 @@ module.exports = () => {
     process.env.EXPO_PUBLIC_REVERB_HOST,
     buildProfile,
   );
+  requiredBuildValue(
+    'EXPO_PUBLIC_SENTRY_DSN',
+    process.env.EXPO_PUBLIC_SENTRY_DSN,
+    buildProfile,
+  );
+  const sentryOrganization = requiredBuildValue(
+    'SENTRY_ORG',
+    process.env.SENTRY_ORG,
+    buildProfile,
+  );
+  const sentryProject = requiredBuildValue(
+    'SENTRY_PROJECT',
+    process.env.SENTRY_PROJECT,
+    buildProfile,
+  );
 
   if (buildProfile === 'production' && apiUrl && !apiUrl.startsWith('https://')) {
     throw new Error('EXPO_PUBLIC_API_URL must use HTTPS for production builds.');
@@ -71,6 +86,14 @@ module.exports = () => {
       { iosUrlScheme },
     ]);
   }
+
+  plugins.push([
+    '@sentry/react-native',
+    {
+      ...(sentryOrganization ? { organization: sentryOrganization } : {}),
+      ...(sentryProject ? { project: sentryProject } : {}),
+    },
+  ]);
 
   return {
     ...staticConfig.expo,

@@ -4,10 +4,12 @@ import { useEffect } from 'react';
 import { useColorScheme } from 'react-native';
 
 import { AppProvider } from '@/providers/app-provider';
+import { initializeSentry, withSentry } from '@/lib/sentry';
 import { useAuthStore } from '@/stores/auth-store';
 import { useOnboardingStore } from '@/stores/onboarding-store';
 
 void SplashScreen.preventAutoHideAsync();
+initializeSentry();
 
 function RootNavigator() {
   const authStatus = useAuthStore((state) => state.status);
@@ -39,7 +41,7 @@ function RootNavigator() {
   );
 }
 
-export default function RootLayout() {
+function RootLayout() {
   const colorScheme = useColorScheme();
 
   return (
@@ -50,3 +52,5 @@ export default function RootLayout() {
     </ThemeProvider>
   );
 }
+
+export default withSentry(RootLayout);
