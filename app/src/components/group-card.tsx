@@ -1,6 +1,7 @@
 import { router } from 'expo-router';
 import { Pressable, StyleSheet, View } from 'react-native';
 
+import { GroupAvatar } from '@/components/group-avatar';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { formatMoney } from '@/lib/format';
@@ -21,11 +22,7 @@ export function GroupCard({ group, balanceMinor }: GroupCardProps) {
       }>
       {({ pressed }) => (
         <ThemedView type="backgroundElement" style={[styles.card, pressed && styles.pressed]}>
-          <ThemedView type="backgroundSelected" style={styles.avatar}>
-            <ThemedText style={styles.initial} themeColor="primary">
-              {group.name.slice(0, 1).toUpperCase()}
-            </ThemedText>
-          </ThemedView>
+          <GroupAvatar group={group} />
           <View style={styles.copy}>
             <ThemedText numberOfLines={1} style={styles.name}>
               {group.name}
@@ -55,8 +52,6 @@ export function GroupCard({ group, balanceMinor }: GroupCardProps) {
 const styles = StyleSheet.create({
   card: { flexDirection: 'row', alignItems: 'center', padding: 15, borderRadius: 20, gap: 12 },
   pressed: { opacity: 0.7 },
-  avatar: { width: 46, height: 46, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
-  initial: { fontSize: 20, lineHeight: 25, fontWeight: '800' },
   copy: { flex: 1 },
   name: { fontSize: 16, lineHeight: 22, fontWeight: '800' },
   meta: { fontSize: 12, lineHeight: 18 },

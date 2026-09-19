@@ -29,6 +29,7 @@ use App\Http\Controllers\Api\V1\GroupHistoryExportController;
 use App\Http\Controllers\Api\V1\GroupInviteController;
 use App\Http\Controllers\Api\V1\GroupMemberController;
 use App\Http\Controllers\Api\V1\GroupNotificationMuteController;
+use App\Http\Controllers\Api\V1\GroupPhotoController;
 use App\Http\Controllers\Api\V1\NotificationPreferenceController;
 use App\Http\Controllers\Api\V1\OverallBalanceController;
 use App\Http\Controllers\Api\V1\PersonalDataExportController;
@@ -115,6 +116,12 @@ Route::prefix('v1')->name('api.v1.')->group(function (): void {
             ->name('expenses.receipt.destroy');
         Route::apiResource('groups', GroupController::class)
             ->only(['index', 'store', 'show', 'update']);
+        Route::get('groups/{group}/photo', [GroupPhotoController::class, 'show'])
+            ->name('groups.photo.show');
+        Route::post('groups/{group}/photo', [GroupPhotoController::class, 'store'])
+            ->name('groups.photo.store');
+        Route::delete('groups/{group}/photo', [GroupPhotoController::class, 'destroy'])
+            ->name('groups.photo.destroy');
         Route::post('groups/{group}/members', [GroupMemberController::class, 'store'])
             ->name('groups.members.store');
         Route::delete('groups/{group}/members/{member}', [GroupMemberController::class, 'destroy'])

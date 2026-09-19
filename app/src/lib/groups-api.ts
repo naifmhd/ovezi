@@ -1,4 +1,4 @@
-import { apiRequest, apiTextRequest } from '@/lib/api-client';
+import { apiMultipartRequest, apiRequest, apiTextRequest } from '@/lib/api-client';
 import type { Group, GroupBalances, GroupMember, PaginatedResponse } from '@/types/api';
 
 type DataResponse<T> = { data: T };
@@ -50,6 +50,45 @@ export async function updateGroup(
   return response.data;
 }
 
+export type GroupPhotoUpload = {
+  uri: string;
+  fileName?: string | null;
+  mimeType?: string | null;
+  file?: File;
+};
+
+export async function uploadGroupPhoto(
+  token: string,
+  groupId: number,
+  photo: GroupPhotoUpload,
+) {
+  const body = new FormData();
+
+  if (photo.file) {
+    body.append('photo', photo.file, photo.fileName ?? photo.file.name);
+  } else {
+    body.append('photo', {
+      uri: photo.uri,
+      name: photo.fileName ?? groupPhotoName(photo),
+      type: photo.mimeType ?? 'image/jpeg',
+    } as unknown as Blob);
+  }
+
+  const response = await apiMultipartRequest<DataResponse<Group>>(
+    `/groups/${groupId}/photo`,
+    token,
+    body,
+  );
+  return response.data;
+}
+
+export function deleteGroupPhoto(token: string, groupId: number) {
+  return apiRequest<void>(`/groups/${groupId}/photo`, {
+    method: 'DELETE',
+    token,
+  });
+}
+
 export async function setGroupArchived(token: string, groupId: number, archived: boolean) {
   const response = await apiRequest<DataResponse<Group>>(`/groups/${groupId}/archive`, {
     method: archived ? 'PUT' : 'DELETE',
@@ -86,4 +125,12 @@ export async function transferGroupOwnership(token: string, groupId: number, use
 
 export function fetchGroupHistoryCsv(token: string, groupId: number) {
   return apiTextRequest(`/groups/${groupId}/export`, token, 'text/csv');
+}
+
+function groupPhotoName(photo: GroupPhotoUpload) {
+  const uriName = photo.uri.split('/').pop()?.split('?')[0];
+  if (uriName?.includes('.')) return uriName;
+
+  const extension = photo.mimeType?.split('/')[1]?.replace('jpeg', 'jpg') ?? 'jpg';
+  return `group-photo.${extension}`;
 }

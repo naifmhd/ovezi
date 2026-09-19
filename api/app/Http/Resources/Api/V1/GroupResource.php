@@ -18,6 +18,11 @@ class GroupResource extends JsonResource
             'id' => $this->id,
             'name' => $this->name,
             'reporting_currency_code' => $this->reporting_currency_code,
+            'has_photo' => $this->photo_path !== null,
+            'photo_url' => $this->photo_path === null
+                ? null
+                : route('api.v1.groups.photo.show', $this->resource)
+                    .'?v='.substr(hash('sha256', $this->photo_path), 0, 12),
             'created_by' => $this->created_by,
             'active_member_count' => $this->whenCounted('activeMembers'),
             'is_archived' => $this->archived_at !== null,

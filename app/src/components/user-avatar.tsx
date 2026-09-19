@@ -1,14 +1,16 @@
 import { Image } from 'expo-image';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { StyleSheet } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 
 export function UserAvatar({ imageUrl, name, size = 48 }: { imageUrl?: string | null; name: string; size?: number }) {
-  const [imageFailed, setImageFailed] = useState(false);
+  return <AvatarContent imageUrl={imageUrl} key={imageUrl ?? 'initials'} name={name} size={size} />;
+}
 
-  useEffect(() => setImageFailed(false), [imageUrl]);
+function AvatarContent({ imageUrl, name, size }: { imageUrl?: string | null; name: string; size: number }) {
+  const [imageFailed, setImageFailed] = useState(false);
 
   return (
     <ThemedView

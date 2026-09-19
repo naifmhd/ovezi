@@ -44,8 +44,8 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "Allow Ovezi to access your photos so you can attach receipt images.",
-          "cameraPermission": "Allow Ovezi to use your camera so you can photograph receipts.",
+          "photosPermission": "Allow Ovezi to access your photos so you can attach images to expenses and groups.",
+          "cameraPermission": "Allow Ovezi to use your camera so you can photograph receipts and group images.",
           "microphonePermission": false
         }
       ],

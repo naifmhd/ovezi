@@ -1,5 +1,6 @@
 import * as Linking from 'expo-linking';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import * as ImagePicker from 'expo-image-picker';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, Share, StyleSheet, View } from 'react-native';
@@ -8,13 +9,20 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { FormField } from '@/components/auth/form-field';
 import { PrimaryButton } from '@/components/auth/primary-button';
 import { CurrencyPicker } from '@/components/currency-picker';
+import { GroupAvatar } from '@/components/group-avatar';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
 import { errorMessage } from '@/lib/api-client';
 import { createGroupInvite, fetchGroupInvites, revokeGroupInvite } from '@/lib/group-invites-api';
 import { deleteGroupRate, fetchGroupRates, saveGroupRate } from '@/lib/group-rates-api';
-import { fetchGroup, setGroupArchived, updateGroup } from '@/lib/groups-api';
+import {
+  deleteGroupPhoto,
+  fetchGroup,
+  setGroupArchived,
+  updateGroup,
+  uploadGroupPhoto,
+} from '@/lib/groups-api';
 import { useAuthStore } from '@/stores/auth-store';
 
 function firstParam(value: string | string[] | undefined) {
@@ -34,6 +42,7 @@ export default function GroupSettingsScreen() {
   const [rate, setRate] = useState('');
   const [formError, setFormError] = useState<string | null>(null);
   const [confirmingArchive, setConfirmingArchive] = useState(false);
+  const [photoSelectionError, setPhotoSelectionError] = useState<string | null>(null);
   const validGroupId = Number.isInteger(groupId) && groupId > 0;
 
   const groupQuery = useQuery({
@@ -123,6 +132,28 @@ export default function GroupSettingsScreen() {
     mutationFn: (currencyCode: string) => deleteGroupRate(token, groupId, currencyCode),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['group-rates', groupId] }),
   });
+  const photoUploadMutation = useMutation({
+    mutationFn: (photo: ImagePicker.ImagePickerAsset) => uploadGroupPhoto(token, groupId, photo),
+    onSuccess: async (updatedGroup) => {
+      setPhotoSelectionError(null);
+      queryClient.setQueryData(['group', groupId], updatedGroup);
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['groups'] }),
+        queryClient.invalidateQueries({ queryKey: ['activity'] }),
+      ]);
+    },
+  });
+  const photoDeleteMutation = useMutation({
+    mutationFn: () => deleteGroupPhoto(token, groupId),
+    onSuccess: async () => {
+      setPhotoSelectionError(null);
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['group', groupId] }),
+        queryClient.invalidateQueries({ queryKey: ['groups'] }),
+        queryClient.invalidateQueries({ queryKey: ['activity'] }),
+      ]);
+    },
+  });
 
   const visibleError = formError
     ?? (groupQuery.error ? errorMessage(groupQuery.error) : null)
@@ -134,6 +165,53 @@ export default function GroupSettingsScreen() {
     ?? (ratesQuery.error ? errorMessage(ratesQuery.error) : null)
     ?? (rateMutation.error ? errorMessage(rateMutation.error) : null)
     ?? (deleteRateMutation.error ? errorMessage(deleteRateMutation.error) : null);
+  const photoError = photoSelectionError
+    ?? (photoUploadMutation.error ? errorMessage(photoUploadMutation.error) : null)
+    ?? (photoDeleteMutation.error ? errorMessage(photoDeleteMutation.error) : null);
+
+  async function selectPhoto(source: 'camera' | 'library') {
+    setPhotoSelectionError(null);
+    photoUploadMutation.reset();
+
+    try {
+      const permission = source === 'camera'
+        ? await ImagePicker.requestCameraPermissionsAsync()
+        : await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+      if (!permission.granted) {
+        setPhotoSelectionError(
+          source === 'camera'
+            ? 'Camera access is needed to photograph a group image. Enable it in device settings.'
+            : 'Photo access is needed to choose a group image. Enable it in device settings.',
+        );
+        return;
+      }
+
+      const result = source === 'camera'
+        ? await ImagePicker.launchCameraAsync({
+            allowsEditing: false,
+            mediaTypes: ['images'],
+            quality: 0.85,
+          })
+        : await ImagePicker.launchImageLibraryAsync({
+            allowsEditing: false,
+            mediaTypes: ['images'],
+            quality: 0.85,
+          });
+
+      if (result.canceled) return;
+
+      const photo = result.assets[0];
+      if (photo.fileSize !== undefined && photo.fileSize > 10 * 1024 * 1024) {
+        setPhotoSelectionError('Group photos must be 10 MB or smaller.');
+        return;
+      }
+
+      photoUploadMutation.mutate(photo);
+    } catch {
+      setPhotoSelectionError('Ovezi couldn’t open the image picker. Please try again.');
+    }
+  }
 
   function saveSettings() {
     setFormError(null);
@@ -185,6 +263,47 @@ export default function GroupSettingsScreen() {
             ) : null}
             {group && isOwner ? (
               <>
+                <SectionTitle title="Group photo" />
+                <ThemedView type="backgroundElement" style={styles.photoCard}>
+                  <GroupAvatar group={group} size={104} />
+                  <ThemedText style={styles.copy} themeColor="textSecondary">
+                    Visible only to active members of this group.
+                  </ThemedText>
+                  {photoError ? <ThemedText themeColor="danger">{photoError}</ThemedText> : null}
+                  {!group.is_archived ? (
+                    <>
+                      <View style={styles.photoActions}>
+                        <Pressable
+                          disabled={photoUploadMutation.isPending || photoDeleteMutation.isPending}
+                          onPress={() => void selectPhoto('camera')}
+                          style={styles.photoAction}>
+                          <ThemedText style={styles.photoActionLabel} themeColor="primary">
+                            {photoUploadMutation.isPending ? 'Uploading…' : 'Take photo'}
+                          </ThemedText>
+                        </Pressable>
+                        <Pressable
+                          disabled={photoUploadMutation.isPending || photoDeleteMutation.isPending}
+                          onPress={() => void selectPhoto('library')}
+                          style={styles.photoAction}>
+                          <ThemedText style={styles.photoActionLabel} themeColor="primary">
+                            Choose photo
+                          </ThemedText>
+                        </Pressable>
+                      </View>
+                      {group.photo_url ? (
+                        <Pressable
+                          disabled={photoDeleteMutation.isPending || photoUploadMutation.isPending}
+                          onPress={() => photoDeleteMutation.mutate()}
+                          style={styles.removePhotoAction}>
+                          <ThemedText style={styles.photoActionLabel} themeColor="danger">
+                            {photoDeleteMutation.isPending ? 'Removing…' : 'Remove photo'}
+                          </ThemedText>
+                        </Pressable>
+                      ) : null}
+                    </>
+                  ) : null}
+                </ThemedView>
+
                 <SectionTitle title="Details" />
                 <FormField
                   autoCapitalize="words"
@@ -382,6 +501,11 @@ const styles = StyleSheet.create({
   sectionTitle: { fontSize: 18, lineHeight: 25, fontWeight: '800', marginTop: 8 },
   copy: { fontSize: 13, lineHeight: 19 },
   card: { borderRadius: 20, padding: 17, gap: 10 },
+  photoCard: { borderRadius: 20, padding: 18, alignItems: 'center', gap: 12 },
+  photoActions: { width: '100%', flexDirection: 'row', gap: 8 },
+  photoAction: { flex: 1, minHeight: 46, alignItems: 'center', justifyContent: 'center' },
+  removePhotoAction: { minHeight: 42, alignItems: 'center', justifyContent: 'center' },
+  photoActionLabel: { fontSize: 14, fontWeight: '800' },
   cardTitle: { fontSize: 15, fontWeight: '800' },
   inviteList: { borderRadius: 20, paddingHorizontal: 16 },
   inviteRow: { minHeight: 67, flexDirection: 'row', alignItems: 'center', gap: 12 },

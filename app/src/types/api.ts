@@ -38,6 +38,8 @@ export type Group = {
   id: number;
   name: string;
   reporting_currency_code: string;
+  has_photo: boolean;
+  photo_url: string | null;
   created_by: number;
   active_member_count?: number;
   is_archived: boolean;

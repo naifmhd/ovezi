@@ -5,6 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ActivityRow } from '@/components/activity-row';
 import { ExpenseRow } from '@/components/expense-row';
+import { GroupAvatar } from '@/components/group-avatar';
 import { QueryErrorCard } from '@/components/query-error-card';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -181,6 +182,7 @@ function AppGroupContent({
       {group && currency ? (
         <>
           <ThemedView type="backgroundElement" style={styles.balanceCard}>
+            <GroupAvatar group={group} size={72} />
             <ThemedText themeColor="textSecondary">Your group balance</ThemedText>
             <ThemedText
               style={styles.balanceAmount}

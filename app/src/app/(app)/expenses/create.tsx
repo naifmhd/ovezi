@@ -284,68 +284,71 @@ export default function CreateExpenseScreen() {
   const payerName = selectedParticipants.find(
     (participant) => participant.key === effectivePayerKey,
   )?.name;
+  const draftBelongsToAnotherUser = Boolean(
+    draftHydrated && savedDraft && savedDraft.userId !== user.id,
+  );
+  const draftRequiresDecision = Boolean(
+    !isEditing
+      && draftHydrated
+      && savedDraft?.userId === user.id
+      && !draftDecisionMade,
+  );
 
   useEffect(() => {
     if (!editingExpense || initializedExpenseId.current === editingExpense.id) return;
 
-    initializedExpenseId.current = editingExpense.id;
-    setDestination(editingExpense.expense_type);
-    setSelectedGroupId(editingExpense.group_id);
-    setDescription(editingExpense.description);
-    setAmount(minorAmountInput(editingExpense.amount_minor, editingExpense.currency_code));
-    setCurrency(editingExpense.currency_code);
-    setCurrencyTouched(true);
-    setCategory(
-      categories.find((item) => item.toLowerCase() === editingExpense.category) ?? '',
-    );
-    setOccurredOn(dateInputValue(new Date(editingExpense.occurred_at)));
-    const existingSplitType = editingExpense.splits[0]?.split_type ?? 'equal';
-    setSplitType(existingSplitType);
-    setParticipantOverrides(editingExpense.splits.map((split) => ({
-      key: split.user_id ? `user:${split.user_id}` : `placeholder:${split.placeholder_id}`,
-      name: split.name ?? 'Unknown',
-      ...(split.user_id ? { userId: split.user_id } : {}),
-      ...(split.placeholder_id ? { placeholderId: split.placeholder_id } : {}),
-      selected: true,
-      value: split.split_value === null
-        ? ''
-        : existingSplitType === 'exact'
-          ? minorAmountInput(Number(split.split_value), editingExpense.currency_code)
-          : existingSplitType === 'percentage'
-            ? String(Number(split.split_value) / 100)
-            : String(Number(split.split_value)),
-    })));
-    setPayerKey(
-      editingExpense.payer.user_id
-        ? `user:${editingExpense.payer.user_id}`
-        : `placeholder:${editingExpense.payer.placeholder_id}`,
-    );
-    if (editingExpense.expense_type === 'direct') {
-      const otherUser = editingExpense.splits.find(
-        (split) => split.user_id !== null && split.user_id !== user.id,
+    const initializationTimer = setTimeout(() => {
+      initializedExpenseId.current = editingExpense.id;
+      setDestination(editingExpense.expense_type);
+      setSelectedGroupId(editingExpense.group_id);
+      setDescription(editingExpense.description);
+      setAmount(minorAmountInput(editingExpense.amount_minor, editingExpense.currency_code));
+      setCurrency(editingExpense.currency_code);
+      setCurrencyTouched(true);
+      setCategory(
+        categories.find((item) => item.toLowerCase() === editingExpense.category) ?? '',
       );
-      const otherPlaceholder = editingExpense.splits.find((split) => split.placeholder_id !== null);
-      setSelectedFriendId(otherUser?.user_id ?? null);
-      setSelectedPlaceholderId(otherPlaceholder?.placeholder_id ?? null);
-    }
-  }, [editingExpense]);
+      setOccurredOn(dateInputValue(new Date(editingExpense.occurred_at)));
+      const existingSplitType = editingExpense.splits[0]?.split_type ?? 'equal';
+      setSplitType(existingSplitType);
+      setParticipantOverrides(editingExpense.splits.map((split) => ({
+        key: split.user_id ? `user:${split.user_id}` : `placeholder:${split.placeholder_id}`,
+        name: split.name ?? 'Unknown',
+        ...(split.user_id ? { userId: split.user_id } : {}),
+        ...(split.placeholder_id ? { placeholderId: split.placeholder_id } : {}),
+        selected: true,
+        value: split.split_value === null
+          ? ''
+          : existingSplitType === 'exact'
+            ? minorAmountInput(Number(split.split_value), editingExpense.currency_code)
+            : existingSplitType === 'percentage'
+              ? String(Number(split.split_value) / 100)
+              : String(Number(split.split_value)),
+      })));
+      setPayerKey(
+        editingExpense.payer.user_id
+          ? `user:${editingExpense.payer.user_id}`
+          : `placeholder:${editingExpense.payer.placeholder_id}`,
+      );
+      if (editingExpense.expense_type === 'direct') {
+        const otherUser = editingExpense.splits.find(
+          (split) => split.user_id !== null && split.user_id !== user.id,
+        );
+        const otherPlaceholder = editingExpense.splits.find((split) => split.placeholder_id !== null);
+        setSelectedFriendId(otherUser?.user_id ?? null);
+        setSelectedPlaceholderId(otherPlaceholder?.placeholder_id ?? null);
+      }
+    }, 0);
+
+    return () => clearTimeout(initializationTimer);
+  }, [editingExpense, user.id]);
 
   useEffect(() => {
-    if (!draftHydrated || draftDecisionMade) return;
-
-    if (isEditing || !savedDraft) {
-      setDraftDecisionMade(true);
-      return;
-    }
-
-    if (savedDraft.userId !== user.id) {
-      clearDraft();
-      setDraftDecisionMade(true);
-    }
-  }, [clearDraft, draftDecisionMade, draftHydrated, isEditing, savedDraft, user.id]);
+    if (draftBelongsToAnotherUser) clearDraft();
+  }, [clearDraft, draftBelongsToAnotherUser]);
 
   useEffect(() => {
-    if (isEditing || !draftHydrated || !draftDecisionMade) return;
+    if (isEditing || !draftHydrated || draftRequiresDecision || draftBelongsToAnotherUser) return;
 
     const meaningful = Boolean(
       description.trim()
@@ -389,8 +392,9 @@ export default function CreateExpenseScreen() {
     clearDraft,
     description,
     destination,
-    draftDecisionMade,
+    draftBelongsToAnotherUser,
     draftHydrated,
+    draftRequiresDecision,
     effectiveCurrency,
     expenseRate,
     isEditing,
@@ -649,7 +653,7 @@ export default function CreateExpenseScreen() {
             contentContainerStyle={styles.content}
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}>
-            {!isEditing && draftHydrated && savedDraft?.userId === user.id && !draftDecisionMade ? (
+            {draftRequiresDecision && savedDraft ? (
               <ThemedView type="backgroundSelected" style={styles.draftCard}>
                 <View style={styles.draftCopy}>
                   <ThemedText style={styles.infoTitle}>Resume saved expense?</ThemedText>

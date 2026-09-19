@@ -17,6 +17,8 @@ return [
 
     'receipts_disk' => env('RECEIPTS_DISK', env('FILESYSTEM_DISK', 'local')),
 
+    'group_photos_disk' => env('GROUP_PHOTOS_DISK', env('FILESYSTEM_DISK', 'local')),
+
     /*
     |--------------------------------------------------------------------------
     | Filesystem Disks
