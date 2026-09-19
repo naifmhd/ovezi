@@ -84,3 +84,40 @@ it('does not export a group to a non-member', function () {
         ->get("/api/v1/groups/{$group->id}/export")
         ->assertNotFound();
 });
+
+it('exports group history as a branded pdf', function () {
+    $currency = Currency::factory()->mvr()->create();
+    $owner = User::factory()->create(['name' => 'Naif', 'default_currency_code' => $currency->code]);
+    $group = groupWithOwnerForExport($owner, $currency, 'Island Weekend');
+    Expense::factory()->for($group)->create([
+        'expense_type' => 'group',
+        'payer_user_id' => $owner->id,
+        'created_by' => $owner->id,
+        'amount_minor' => 4250,
+        'currency_code' => $currency->code,
+        'reporting_amount_minor' => 4250,
+        'reporting_currency_code' => $currency->code,
+        'description' => 'Ferry tickets',
+    ]);
+
+    $response = $this->withToken($owner->createToken('Owner phone')->plainTextToken)
+        ->get("/api/v1/groups/{$group->id}/export?format=pdf");
+
+    $response
+        ->assertOk()
+        ->assertHeader('content-type', 'application/pdf')
+        ->assertHeader('content-disposition', 'attachment; filename="island-weekend-history.pdf"');
+
+    expect($response->getContent())->toStartWith('%PDF-');
+});
+
+function groupWithOwnerForExport(User $owner, Currency $currency, string $name): Group
+{
+    $group = Group::factory()->for($owner, 'creator')->create([
+        'name' => $name,
+        'reporting_currency_code' => $currency->code,
+    ]);
+    GroupMember::factory()->owner()->for($group)->for($owner)->create();
+
+    return $group;
+}

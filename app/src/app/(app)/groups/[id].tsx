@@ -13,7 +13,7 @@ import { fetchActivity } from '@/lib/activity-api';
 import { fetchExpenses } from '@/lib/expenses-api';
 import { formatMoney, minorAmountInput } from '@/lib/format';
 import { fetchGroup, fetchGroupBalances, fetchGroupHistoryCsv } from '@/lib/groups-api';
-import { shareCsv } from '@/lib/share-text-file';
+import { shareCsv, shareGroupHistoryPdf } from '@/lib/share-text-file';
 import { useAuthStore } from '@/stores/auth-store';
 
 export default function GroupDetailScreen() {
@@ -45,9 +45,14 @@ export default function GroupDetailScreen() {
   });
   const group = groupQuery.data;
   const exportMutation = useMutation({
-    mutationFn: async () => {
-      const csv = await fetchGroupHistoryCsv(token, groupId);
-      await shareCsv(csv, group?.name ?? 'Ovezi group');
+    mutationFn: async (format: 'csv' | 'pdf') => {
+      const groupName = group?.name ?? 'Ovezi group';
+      if (format === 'pdf') {
+        await shareGroupHistoryPdf(token, groupId, groupName);
+        return;
+      }
+
+      await shareCsv(await fetchGroupHistoryCsv(token, groupId), groupName);
     },
   });
   const isOwner = group?.members?.some(
@@ -114,8 +119,8 @@ export default function GroupDetailScreen() {
             participantNames={participantNames}
             refreshing={refreshing}
             settlements={balances?.suggested_settlements ?? []}
-            exporting={exportMutation.isPending}
-            onExport={() => exportMutation.mutate()}
+            exporting={exportMutation.isPending ? (exportMutation.variables ?? 'csv') : null}
+            onExport={(format) => exportMutation.mutate(format)}
             onRefresh={refresh}
           />
         </View>
@@ -135,8 +140,8 @@ type ContentProps = {
   expenses: Awaited<ReturnType<typeof fetchExpenses>>['data'];
   error: Error | null;
   refreshing: boolean;
-  exporting: boolean;
-  onExport: () => void;
+  exporting: 'csv' | 'pdf' | null;
+  onExport: (format: 'csv' | 'pdf') => void;
   onRefresh: () => Promise<void>;
 };
 
@@ -207,11 +212,24 @@ function AppGroupContent({
               </Pressable>
             ) : null}
           </View>
-          <Pressable disabled={exporting} onPress={onExport} style={styles.exportAction}>
-            <ThemedText style={styles.exportLabel} themeColor="primary">
-              {exporting ? 'Preparing export…' : '↓ Export group history as CSV'}
-            </ThemedText>
-          </Pressable>
+          <View style={styles.exportRow}>
+            <Pressable
+              disabled={exporting !== null}
+              onPress={() => onExport('csv')}
+              style={styles.exportAction}>
+              <ThemedText style={styles.exportLabel} themeColor="primary">
+                {exporting === 'csv' ? 'Preparing CSV…' : '↓ Export CSV'}
+              </ThemedText>
+            </Pressable>
+            <Pressable
+              disabled={exporting !== null}
+              onPress={() => onExport('pdf')}
+              style={styles.exportAction}>
+              <ThemedText style={styles.exportLabel} themeColor="primary">
+                {exporting === 'pdf' ? 'Preparing PDF…' : '↓ Export PDF'}
+              </ThemedText>
+            </Pressable>
+          </View>
 
           <SectionTitle title="Expenses" />
           {expenses.map((expense) => {
@@ -356,6 +374,7 @@ const styles = StyleSheet.create({
   addExpenseLabel: { color: '#061A14', fontSize: 15, fontWeight: '900' },
   settleButton: { backgroundColor: '#DDFBF0' },
   settleLabel: { color: '#0A6B4E', fontSize: 15, fontWeight: '900' },
+  exportRow: { flexDirection: 'row', justifyContent: 'center', gap: 20 },
   exportAction: { minHeight: 42, alignItems: 'center', justifyContent: 'center' },
   exportLabel: { fontSize: 13, fontWeight: '800' },
   balanceAmount: { fontSize: 34, lineHeight: 43, fontWeight: '800', marginVertical: 3 },

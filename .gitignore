@@ -5,3 +5,6 @@ Thumbs.db
 # Root-level editor settings
 /.idea/
 /.vscode/
+
+# Generated review artifacts
+/output/

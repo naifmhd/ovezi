@@ -2,6 +2,8 @@ import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import { Platform } from 'react-native';
 
+import { apiBaseUrl } from '@/lib/api-client';
+
 type TextFileOptions = {
   contents: string;
   filename: string;
@@ -55,5 +57,43 @@ export function sharePersonalData(json: string) {
     mimeType: 'application/json;charset=utf-8',
     dialogTitle: 'Export Ovezi personal data',
     uti: 'public.json',
+  });
+}
+
+export async function shareGroupHistoryPdf(token: string, groupId: number, groupName: string) {
+  const filename = `${safeSlug(groupName) || 'ovezi-group'}-history.pdf`;
+  const url = `${apiBaseUrl}/groups/${groupId}/export?format=pdf`;
+
+  if (Platform.OS === 'web') {
+    const response = await fetch(url, {
+      headers: { Accept: 'application/pdf', Authorization: `Bearer ${token}` },
+    });
+    if (!response.ok) throw new Error('Ovezi could not prepare the PDF export.');
+
+    const objectUrl = URL.createObjectURL(await response.blob());
+    const anchor = document.createElement('a');
+    anchor.href = objectUrl;
+    anchor.download = filename;
+    anchor.click();
+    URL.revokeObjectURL(objectUrl);
+    return;
+  }
+
+  if (!FileSystem.cacheDirectory || !(await Sharing.isAvailableAsync())) {
+    throw new Error('File sharing is not available on this device.');
+  }
+
+  const file = `${FileSystem.cacheDirectory}${filename}`;
+  const result = await FileSystem.downloadAsync(url, file, {
+    headers: { Accept: 'application/pdf', Authorization: `Bearer ${token}` },
+  });
+  if (result.status < 200 || result.status >= 300) {
+    throw new Error('Ovezi could not prepare the PDF export.');
+  }
+
+  await Sharing.shareAsync(result.uri, {
+    dialogTitle: `Export ${groupName}`,
+    mimeType: 'application/pdf',
+    UTI: 'com.adobe.pdf',
   });
 }
