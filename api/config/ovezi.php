@@ -2,6 +2,7 @@
 
 return [
     'deep_link_scheme' => env('APP_DEEP_LINK_SCHEME', 'ovezi'),
+    'support_email' => env('OVEZI_SUPPORT_EMAIL', 'naifmhd@gmail.com'),
     'social' => [
         'google_client_ids' => array_values(array_filter(array_map(
             'trim',
