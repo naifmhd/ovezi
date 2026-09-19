@@ -5,25 +5,28 @@ import { useColorScheme } from 'react-native';
 
 import { AppProvider } from '@/providers/app-provider';
 import { useAuthStore } from '@/stores/auth-store';
+import { useOnboardingStore } from '@/stores/onboarding-store';
 
 void SplashScreen.preventAutoHideAsync();
 
 function RootNavigator() {
-  const status = useAuthStore((state) => state.status);
+  const authStatus = useAuthStore((state) => state.status);
+  const onboardingStatus = useOnboardingStore((state) => state.status);
   const token = useAuthStore((state) => state.token);
 
   useEffect(() => {
-    if (status !== 'hydrating') {
+    if (authStatus !== 'hydrating' && onboardingStatus !== 'hydrating') {
       void SplashScreen.hideAsync();
     }
-  }, [status]);
+  }, [authStatus, onboardingStatus]);
 
-  if (status === 'hydrating') {
+  if (authStatus === 'hydrating' || onboardingStatus === 'hydrating') {
     return null;
   }
 
   return (
     <Stack screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="onboarding" />
       <Stack.Screen name="auth" />
       <Stack.Screen name="group-invites/accept" />
       <Stack.Protected guard={!token}>

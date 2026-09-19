@@ -2,11 +2,14 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { PropsWithChildren, useEffect, useState } from 'react';
 
 import { ApiError } from '@/lib/api-client';
+import { ConnectivitySync } from '@/providers/connectivity-sync';
 import { RealtimeSync } from '@/providers/realtime-sync';
 import { useAuthStore } from '@/stores/auth-store';
+import { useOnboardingStore } from '@/stores/onboarding-store';
 
 export function AppProvider({ children }: PropsWithChildren) {
-  const hydrate = useAuthStore((state) => state.hydrate);
+  const hydrateAuth = useAuthStore((state) => state.hydrate);
+  const hydrateOnboarding = useOnboardingStore((state) => state.hydrate);
   const [queryClient] = useState(
     () =>
       new QueryClient({
@@ -24,13 +27,14 @@ export function AppProvider({ children }: PropsWithChildren) {
   );
 
   useEffect(() => {
-    void hydrate();
-  }, [hydrate]);
+    void Promise.all([hydrateAuth(), hydrateOnboarding()]);
+  }, [hydrateAuth, hydrateOnboarding]);
 
   return (
     <QueryClientProvider client={queryClient}>
       <RealtimeSync />
       {children}
+      <ConnectivitySync />
     </QueryClientProvider>
   );
 }
