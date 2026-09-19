@@ -9,6 +9,7 @@ import { PrimaryButton } from '@/components/auth/primary-button';
 import { CurrencyPicker } from '@/components/currency-picker';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { DEFAULT_CURRENCY_CODE } from '@/constants/currencies';
 import { Spacing } from '@/constants/theme';
 import { updateProfile } from '@/lib/auth-api';
 import { errorMessage } from '@/lib/api-client';
@@ -19,12 +20,13 @@ export default function EditProfileScreen() {
   const token = useAuthStore((state) => state.token)!;
   const refreshUser = useAuthStore((state) => state.refreshUser);
   const [name, setName] = useState(user.name);
-  const [currency, setCurrency] = useState(user.default_currency_code);
+  const [currency, setCurrency] = useState(user.default_currency_code ?? DEFAULT_CURRENCY_CODE);
+  const currencyValue = currency ?? DEFAULT_CURRENCY_CODE;
   const [formError, setFormError] = useState<string | null>(null);
   const mutation = useMutation({
     mutationFn: () => updateProfile(token, {
       name: name.trim(),
-      defaultCurrencyCode: currency.trim().toUpperCase(),
+      defaultCurrencyCode: currencyValue.trim().toUpperCase(),
     }),
     onSuccess: async () => {
       await refreshUser();
@@ -35,7 +37,7 @@ export default function EditProfileScreen() {
   function submit() {
     setFormError(null);
     if (!name.trim()) return setFormError('Enter your name.');
-    if (currency.trim().length !== 3) return setFormError('Enter a valid three-letter currency code.');
+    if (currencyValue.trim().length !== 3) return setFormError('Enter a valid three-letter currency code.');
     mutation.mutate();
   }
 
@@ -59,7 +61,7 @@ export default function EditProfileScreen() {
           <CurrencyPicker
             label="Default currency"
             onChange={setCurrency}
-            value={currency}
+            value={currencyValue}
           />
           <ThemedText style={styles.hint} themeColor="textSecondary">
             Your default currency is used for personal and 1-on-1 expense reporting. Group currencies are managed separately.

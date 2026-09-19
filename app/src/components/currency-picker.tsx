@@ -18,16 +18,17 @@ export function CurrencyPicker({
   excludeCode?: string;
   label: string;
   onChange: (currencyCode: string) => void;
-  value: string;
+  value: string | null;
 }) {
   const token = useAuthStore((state) => state.token)!;
   const theme = useTheme();
+  const normalizedValue = value?.trim().toUpperCase() ?? '';
   const query = useQuery({
     queryKey: ['currencies'],
     queryFn: () => fetchCurrencies(token),
   });
   const currencies = (query.data ?? []).filter((currency) => currency.code !== excludeCode);
-  const selected = currencies.find((currency) => currency.code === value.toUpperCase());
+  const selected = currencies.find((currency) => currency.code === normalizedValue);
 
   if (!query.isLoading && currencies.length === 0) {
     return (
@@ -37,7 +38,7 @@ export function CurrencyPicker({
         label={label}
         maxLength={3}
         onChangeText={onChange}
-        value={value}
+        value={value ?? ''}
       />
     );
   }
@@ -58,7 +59,7 @@ export function CurrencyPicker({
         <ScrollView horizontal showsHorizontalScrollIndicator={false}>
           <View style={styles.row}>
             {currencies.map((currency) => {
-              const active = currency.code === value.toUpperCase();
+              const active = currency.code === normalizedValue;
               return (
                 <Pressable
                   accessibilityRole="radio"

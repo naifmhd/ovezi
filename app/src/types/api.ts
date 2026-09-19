@@ -3,7 +3,7 @@ export type User = {
   name: string;
   email: string;
   email_verified_at: string | null;
-  default_currency_code: string;
+  default_currency_code: string | null;
   avatar_url: string | null;
   has_password: boolean;
   connected_providers: ('google' | 'apple')[];

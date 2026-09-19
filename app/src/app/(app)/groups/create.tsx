@@ -10,6 +10,7 @@ import { PrimaryButton } from '@/components/auth/primary-button';
 import { CurrencyPicker } from '@/components/currency-picker';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { DEFAULT_CURRENCY_CODE } from '@/constants/currencies';
 import { Spacing } from '@/constants/theme';
 import { errorMessage } from '@/lib/api-client';
 import { createGroup } from '@/lib/groups-api';
@@ -20,10 +21,11 @@ export default function CreateGroupScreen() {
   const token = useAuthStore((state) => state.token)!;
   const user = useAuthStore((state) => state.user)!;
   const [name, setName] = useState('');
-  const [currency, setCurrency] = useState(user.default_currency_code);
+  const [currency, setCurrency] = useState(user.default_currency_code ?? DEFAULT_CURRENCY_CODE);
+  const currencyValue = currency ?? DEFAULT_CURRENCY_CODE;
   const mutation = useMutation({
     mutationFn: () =>
-      createGroup(token, { name, reportingCurrencyCode: currency.trim().toUpperCase() }),
+      createGroup(token, { name, reportingCurrencyCode: currencyValue.trim().toUpperCase() }),
     onSuccess: async (group) => {
       await queryClient.invalidateQueries({ queryKey: ['groups'] });
       router.replace({ pathname: '/(app)/groups/[id]', params: { id: group.id.toString() } });
@@ -64,14 +66,14 @@ export default function CreateGroupScreen() {
             <CurrencyPicker
               label="Group currency"
               onChange={setCurrency}
-              value={currency}
+              value={currencyValue}
             />
             <ThemedText style={styles.hint} themeColor="textSecondary">
               Balances are reported in this currency. The group owner can configure conversion rates.
             </ThemedText>
             {mutation.error ? <FormMessage>{errorMessage(mutation.error)}</FormMessage> : null}
             <PrimaryButton
-              disabled={!name.trim() || currency.trim().length !== 3}
+              disabled={!name.trim() || currencyValue.trim().length !== 3}
               label="Create group"
               loading={mutation.isPending}
               onPress={() => mutation.mutate()}

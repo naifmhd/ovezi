@@ -17,6 +17,7 @@ import { PrimaryButton } from '@/components/auth/primary-button';
 import { CurrencyPicker } from '@/components/currency-picker';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { DEFAULT_CURRENCY_CODE } from '@/constants/currencies';
 import { Spacing } from '@/constants/theme';
 import { ApiError, errorMessage } from '@/lib/api-client';
 import {
@@ -169,6 +170,7 @@ export default function CreateExpenseScreen() {
   const hasInitialFriend = Number.isInteger(initialFriendId) && initialFriendId > 0;
   const token = useAuthStore((state) => state.token)!;
   const user = useAuthStore((state) => state.user)!;
+  const defaultCurrencyCode = user.default_currency_code ?? DEFAULT_CURRENCY_CODE;
   const savedDraft = useExpenseDraftStore((state) => state.draft);
   const draftHydrated = useExpenseDraftStore((state) => state.hydrated);
   const saveDraft = useExpenseDraftStore((state) => state.saveDraft);
@@ -191,7 +193,7 @@ export default function CreateExpenseScreen() {
   const [guestContactValue, setGuestContactValue] = useState('');
   const [description, setDescription] = useState('');
   const [amount, setAmount] = useState('');
-  const [currency, setCurrency] = useState(user.default_currency_code);
+  const [currency, setCurrency] = useState(defaultCurrencyCode);
   const [category, setCategory] = useState('');
   const [occurredOn, setOccurredOn] = useState(dateInputValue(new Date()));
   const [splitType, setSplitType] = useState<SplitType>('equal');
@@ -272,12 +274,13 @@ export default function CreateExpenseScreen() {
       ?? participants[0]?.key
       ?? ''
   );
-  const effectiveCurrency = !currencyTouched && destination === 'group' && group
+  const selectedCurrency = !currencyTouched && destination === 'group' && group
     ? group.reporting_currency_code
     : currency;
+  const effectiveCurrency = selectedCurrency ?? defaultCurrencyCode;
   const reportingCurrency = editingExpense?.reporting_currency_code
     ?? group?.reporting_currency_code
-    ?? user.default_currency_code;
+    ?? defaultCurrencyCode;
   const rateNeeded = Boolean(
     destination !== 'personal'
       && effectiveCurrency.trim().toUpperCase() !== reportingCurrency,
@@ -512,7 +515,7 @@ export default function CreateExpenseScreen() {
     setParticipantOverrides(null);
     setSplitType('equal');
     setPayerKey('');
-    setCurrency(user.default_currency_code);
+    setCurrency(defaultCurrencyCode);
     setCurrencyTouched(false);
     setExpenseRate('');
     setRecurrenceFrequency(null);

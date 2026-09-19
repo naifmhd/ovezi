@@ -6,6 +6,7 @@ import { AppScreen } from '@/components/app-screen';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { UserAvatar } from '@/components/user-avatar';
+import { DEFAULT_CURRENCY_CODE } from '@/constants/currencies';
 import { exportPersonalData, sendVerificationEmail } from '@/lib/auth-api';
 import { errorMessage } from '@/lib/api-client';
 import { sharePersonalData } from '@/lib/share-text-file';
@@ -37,7 +38,9 @@ export default function ProfileScreen() {
       <ThemedView type="backgroundElement" style={styles.detailsCard}>
         <View style={styles.detailRow}>
           <ThemedText themeColor="textSecondary">Default currency</ThemedText>
-          <ThemedText style={styles.detailValue}>{user.default_currency_code}</ThemedText>
+          <ThemedText style={styles.detailValue}>
+            {user.default_currency_code ?? DEFAULT_CURRENCY_CODE}
+          </ThemedText>
         </View>
         <View style={styles.divider} />
         <View style={styles.detailRow}>
