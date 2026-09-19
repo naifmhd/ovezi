@@ -4,10 +4,12 @@
     "slug": "ovezi",
     "version": "1.0.0",
     "orientation": "portrait",
+    "owner": "naifmhd",
     "icon": "./assets/images/icon.png",
     "scheme": "ovezi",
     "userInterfaceStyle": "automatic",
     "ios": {
+        "bundleIdentifier": "com.ovezi.app",
       "icon": {
         "light": "./assets/images/icon-light.png",
         "dark": "./assets/images/icon-dark.png"
@@ -18,6 +20,7 @@
       }
     },
     "android": {
+        "package": "com.ovezi.app",
       "adaptiveIcon": {
         "backgroundColor": "#0A1128",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -60,6 +63,12 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "ad5cfb5c-4d41-4542-9226-0aa1be1209f3"
+      }
     }
   }
 }
