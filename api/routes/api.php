@@ -26,10 +26,13 @@ use App\Http\Controllers\Api\V1\GroupCurrencyRateController;
 use App\Http\Controllers\Api\V1\GroupHistoryExportController;
 use App\Http\Controllers\Api\V1\GroupInviteController;
 use App\Http\Controllers\Api\V1\GroupMemberController;
+use App\Http\Controllers\Api\V1\GroupNotificationMuteController;
+use App\Http\Controllers\Api\V1\NotificationPreferenceController;
 use App\Http\Controllers\Api\V1\PersonalDataExportController;
 use App\Http\Controllers\Api\V1\PlaceholderClaimController;
 use App\Http\Controllers\Api\V1\PlaceholderController;
 use App\Http\Controllers\Api\V1\ProfileController;
+use App\Http\Controllers\Api\V1\PushTokenController;
 use App\Http\Controllers\Api\V1\SearchController;
 use App\Http\Controllers\Api\V1\SettlementController;
 use App\Http\Controllers\Api\V1\TransferGroupOwnershipController;
@@ -79,6 +82,14 @@ Route::prefix('v1')->name('api.v1.')->group(function (): void {
             ->name('me.update');
         Route::delete('me', DeleteAccountController::class)
             ->name('me.destroy');
+        Route::get('notification-preferences', [NotificationPreferenceController::class, 'show'])
+            ->name('notification-preferences.show');
+        Route::patch('notification-preferences', [NotificationPreferenceController::class, 'update'])
+            ->name('notification-preferences.update');
+        Route::post('push-tokens', [PushTokenController::class, 'store'])
+            ->name('push-tokens.store');
+        Route::delete('push-tokens', [PushTokenController::class, 'destroy'])
+            ->name('push-tokens.destroy');
         Route::get('activity', [ActivityController::class, 'index'])
             ->name('activity.index');
         Route::get('search', SearchController::class)->name('search');
@@ -97,6 +108,10 @@ Route::prefix('v1')->name('api.v1.')->group(function (): void {
             ->name('groups.members.store');
         Route::delete('groups/{group}/members/{member}', [GroupMemberController::class, 'destroy'])
             ->name('groups.members.destroy');
+        Route::put('groups/{group}/notification-mute', [GroupNotificationMuteController::class, 'store'])
+            ->name('groups.notification-mute.store');
+        Route::delete('groups/{group}/notification-mute', [GroupNotificationMuteController::class, 'destroy'])
+            ->name('groups.notification-mute.destroy');
         Route::get('groups/{group}/balances', GroupBalanceController::class)
             ->name('groups.balances.show');
         Route::get('groups/{group}/activity', GroupActivityController::class)

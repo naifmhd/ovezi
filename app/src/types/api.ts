@@ -47,6 +47,19 @@ export type Group = {
   updated_at: string;
 };
 
+export type GroupNotificationPreference = {
+  id: number;
+  name: string;
+  muted: boolean;
+};
+
+export type NotificationPreferences = {
+  expense_created: boolean;
+  payment_received: boolean;
+  settle_up_reminders: boolean;
+  groups: GroupNotificationPreference[];
+};
+
 export type Placeholder = {
   id: number;
   name: string;

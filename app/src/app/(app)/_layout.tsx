@@ -14,6 +14,7 @@ export default function AppLayout() {
       <Stack.Screen name="settlements/create" options={{ presentation: 'modal' }} />
       <Stack.Screen name="profile/edit" />
       <Stack.Screen name="profile/security" />
+      <Stack.Screen name="profile/notifications" />
       <Stack.Screen name="profile/placeholder-claims" />
       <Stack.Screen name="profile/about" />
       <Stack.Screen name="profile/privacy" />

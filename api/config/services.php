@@ -39,4 +39,9 @@ return [
         'url' => env('FRANKFURTER_BASE_URL', 'https://api.frankfurter.dev/v2'),
     ],
 
+    'expo' => [
+        'push_url' => env('EXPO_PUSH_URL', 'https://exp.host/--/api/v2'),
+        'access_token' => env('EXPO_ACCESS_TOKEN'),
+    ],
+
 ];

@@ -11,6 +11,7 @@ function googleIosUrlScheme(clientId) {
 
 module.exports = () => {
   const iosUrlScheme = googleIosUrlScheme(process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID);
+  const easProjectId = process.env.EXPO_PUBLIC_EAS_PROJECT_ID?.trim();
   const plugins = [...staticConfig.expo.plugins];
 
   if (iosUrlScheme) {
@@ -23,5 +24,16 @@ module.exports = () => {
   return {
     ...staticConfig.expo,
     plugins,
+    extra: {
+      ...staticConfig.expo.extra,
+      ...(easProjectId
+        ? {
+            eas: {
+              ...staticConfig.expo.extra?.eas,
+              projectId: easProjectId,
+            },
+          }
+        : {}),
+    },
   };
 };

@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 
 import { fetchMe, logout as requestLogout } from '@/lib/auth-api';
+import { unregisterPushDevice } from '@/lib/push-notifications';
 import { deleteToken, readToken, writeToken } from '@/lib/session-storage';
 import type { AuthSession, User } from '@/types/api';
 
@@ -60,6 +61,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     await deleteToken();
 
     if (token) {
+      try {
+        await unregisterPushDevice(token);
+      } catch {
+        // Token cleanup is best-effort when the device is offline.
+      }
+
       try {
         await requestLogout(token);
       } catch {

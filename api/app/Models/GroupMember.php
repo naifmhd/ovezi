@@ -10,7 +10,10 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use InvalidArgumentException;
 
-#[Fillable(['group_id', 'user_id', 'placeholder_id', 'role', 'joined_at', 'left_at'])]
+#[Fillable([
+    'group_id', 'user_id', 'placeholder_id', 'role', 'joined_at', 'left_at',
+    'notifications_muted_at',
+])]
 class GroupMember extends Model
 {
     /** @use HasFactory<GroupMemberFactory> */
@@ -46,6 +49,7 @@ class GroupMember extends Model
             'role' => GroupMemberRole::class,
             'joined_at' => 'datetime',
             'left_at' => 'datetime',
+            'notifications_muted_at' => 'datetime',
         ];
     }
 }

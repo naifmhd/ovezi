@@ -3,6 +3,7 @@
 namespace App\Actions;
 
 use App\GroupMemberRole;
+use App\Jobs\SendSettlementReceivedPushNotification;
 use App\Models\ActivityLog;
 use App\Models\Currency;
 use App\Models\Group;
@@ -88,7 +89,7 @@ class CreateSettlement
             ]);
         }
 
-        return DB::transaction(function () use (
+        $settlement = DB::transaction(function () use (
             $actor,
             $group,
             $data,
@@ -129,5 +130,9 @@ class CreateSettlement
 
             return $settlement;
         });
+
+        SendSettlementReceivedPushNotification::dispatch($settlement->id)->afterCommit();
+
+        return $settlement;
     }
 }

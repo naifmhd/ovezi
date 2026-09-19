@@ -3,6 +3,7 @@
 use App\Actions\CreateExpense;
 use App\Exceptions\InvalidSplit;
 use App\ExpenseType;
+use App\Jobs\SendExpenseCreatedPushNotifications;
 use App\Models\ActivityLog;
 use App\Models\Currency;
 use App\Models\Expense;
@@ -12,6 +13,7 @@ use App\Models\GroupMember;
 use App\Models\User;
 use App\SplitType;
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Facades\Queue;
 
 beforeEach(function () {
     Currency::factory()->mvr()->create();
@@ -32,6 +34,7 @@ it('creates a group expense with balanced splits and activity atomically', funct
             'user_id' => $member->id,
         ]);
     }
+    Queue::fake([SendExpenseCreatedPushNotifications::class]);
 
     $expense = app(CreateExpense::class)->execute($creator, [
         'expense_type' => ExpenseType::Group,
@@ -57,6 +60,10 @@ it('creates a group expense with balanced splits and activity atomically', funct
         ])
         ->and(ActivityLog::query()->whereMorphedTo('subject', $expense)->where('event', 'expense.created')->exists())
         ->toBeTrue();
+    Queue::assertPushed(
+        SendExpenseCreatedPushNotifications::class,
+        fn (SendExpenseCreatedPushNotifications $job): bool => $job->expenseId === $expense->id,
+    );
 });
 
 it('captures an expense-specific conversion rate', function () {
@@ -96,6 +103,7 @@ it('captures an expense-specific conversion rate', function () {
 
 it('creates a personal tracking expense without balance splits', function () {
     $creator = User::factory()->create(['default_currency_code' => 'MVR']);
+    Queue::fake([SendExpenseCreatedPushNotifications::class]);
 
     $expense = app(CreateExpense::class)->execute($creator, [
         'expense_type' => ExpenseType::Personal,
@@ -108,6 +116,7 @@ it('creates a personal tracking expense without balance splits', function () {
 
     expect($expense->splits)->toBeEmpty()
         ->and($expense->group_id)->toBeNull();
+    Queue::assertNotPushed(SendExpenseCreatedPushNotifications::class);
 });
 
 it('does not persist anything when split validation fails', function () {

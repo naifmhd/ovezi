@@ -27,6 +27,7 @@ class GroupMemberFactory extends Factory
             'role' => GroupMemberRole::Member,
             'joined_at' => now(),
             'left_at' => null,
+            'notifications_muted_at' => null,
         ];
     }
 

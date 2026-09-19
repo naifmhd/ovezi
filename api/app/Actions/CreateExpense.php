@@ -4,6 +4,7 @@ namespace App\Actions;
 
 use App\Exceptions\InvalidSplit;
 use App\ExpenseType;
+use App\Jobs\SendExpenseCreatedPushNotifications;
 use App\Models\ActivityLog;
 use App\Models\Currency;
 use App\Models\Expense;
@@ -111,7 +112,7 @@ class CreateExpense
             );
         }
 
-        return DB::transaction(function () use (
+        $expense = DB::transaction(function () use (
             $creator,
             $data,
             $expenseType,
@@ -175,6 +176,12 @@ class CreateExpense
 
             return $expense->load('splits');
         });
+
+        if ($expenseType !== ExpenseType::Personal) {
+            SendExpenseCreatedPushNotifications::dispatch($expense->id)->afterCommit();
+        }
+
+        return $expense;
     }
 
     /**

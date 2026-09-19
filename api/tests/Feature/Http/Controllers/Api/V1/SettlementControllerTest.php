@@ -1,12 +1,14 @@
 <?php
 
 use App\ExpenseType;
+use App\Jobs\SendSettlementReceivedPushNotification;
 use App\Models\Currency;
 use App\Models\Expense;
 use App\Models\ExpenseSplit;
 use App\Models\Group;
 use App\Models\GroupMember;
 use App\Models\User;
+use Illuminate\Support\Facades\Queue;
 
 /** @return array{currency: Currency, group: Group, creditor: User, debtor: User} */
 function settlementTestScenario(array $groupAttributes = []): array
@@ -45,6 +47,7 @@ function settlementTestScenario(array $groupAttributes = []): array
 it('records an external payment and updates group balances', function () {
     ['currency' => $currency, 'group' => $group, 'creditor' => $creditor, 'debtor' => $debtor] = settlementTestScenario();
     $token = $debtor->createToken('Debtor phone');
+    Queue::fake([SendSettlementReceivedPushNotification::class]);
 
     $response = $this->withToken($token->plainTextToken)
         ->postJson("/api/v1/groups/{$group->id}/settlements", [
@@ -69,6 +72,11 @@ it('records an external payment and updates group balances', function () {
         'actor_id' => $debtor->id,
         'event' => 'settlement.created',
     ]);
+    $settlementId = $response->json('data.id');
+    Queue::assertPushed(
+        SendSettlementReceivedPushNotification::class,
+        fn (SendSettlementReceivedPushNotification $job): bool => $job->settlementId === $settlementId,
+    );
 
     $balances = $this->withToken($token->plainTextToken)
         ->getJson("/api/v1/groups/{$group->id}/balances")

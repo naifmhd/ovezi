@@ -90,6 +90,12 @@ export default function ProfileScreen() {
         />
         <View style={styles.divider} />
         <ProfileLink
+          label="Notifications"
+          onPress={() => router.push('/(app)/profile/notifications')}
+          subtitle="Device, event, and group preferences"
+        />
+        <View style={styles.divider} />
+        <ProfileLink
           label="Export my data"
           onPress={() => {
             if (!exportMutation.isPending) exportMutation.mutate();

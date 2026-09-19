@@ -3,6 +3,7 @@ import { PropsWithChildren, useEffect, useState } from 'react';
 
 import { ApiError } from '@/lib/api-client';
 import { ConnectivitySync } from '@/providers/connectivity-sync';
+import { PushNotificationSync } from '@/providers/push-notification-sync';
 import { RealtimeSync } from '@/providers/realtime-sync';
 import { useAuthStore } from '@/stores/auth-store';
 import { useOnboardingStore } from '@/stores/onboarding-store';
@@ -33,6 +34,7 @@ export function AppProvider({ children }: PropsWithChildren) {
   return (
     <QueryClientProvider client={queryClient}>
       <RealtimeSync />
+      <PushNotificationSync />
       {children}
       <ConnectivitySync />
     </QueryClientProvider>
