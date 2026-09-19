@@ -104,6 +104,26 @@ export default function ProfileScreen() {
         />
       </ThemedView>
 
+      <ThemedView type="backgroundElement" style={styles.menuCard}>
+        <ProfileLink
+          label="About Ovezi"
+          onPress={() => router.push('/(app)/profile/about')}
+          subtitle="Version and product information"
+        />
+        <View style={styles.divider} />
+        <ProfileLink
+          label="Privacy"
+          onPress={() => router.push('/(app)/profile/privacy')}
+          subtitle="How Ovezi handles information"
+        />
+        <View style={styles.divider} />
+        <ProfileLink
+          label="Terms"
+          onPress={() => router.push('/(app)/profile/terms')}
+          subtitle="Rules for using Ovezi"
+        />
+      </ThemedView>
+
       <Pressable onPress={() => void logout()}>
         {({ pressed }) => (
           <ThemedView type="backgroundElement" style={[styles.signOut, pressed && styles.pressed]}>

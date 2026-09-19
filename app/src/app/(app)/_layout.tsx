@@ -15,6 +15,9 @@ export default function AppLayout() {
       <Stack.Screen name="profile/edit" />
       <Stack.Screen name="profile/security" />
       <Stack.Screen name="profile/placeholder-claims" />
+      <Stack.Screen name="profile/about" />
+      <Stack.Screen name="profile/privacy" />
+      <Stack.Screen name="profile/terms" />
       <Stack.Screen name="friends/index" />
       <Stack.Screen name="search/index" />
     </Stack>
