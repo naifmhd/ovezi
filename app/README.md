@@ -8,6 +8,10 @@ Expo 57 / React Native client for Ovezi.
 2. Copy `.env.example` to `.env` and set `EXPO_PUBLIC_API_URL`.
 3. Start the app with `npx expo start`.
 
+Native EAS builds also require `EXPO_PUBLIC_EAS_PROJECT_ID`, `EXPO_IOS_BUNDLE_IDENTIFIER`,
+and `EXPO_ANDROID_PACKAGE`. Preview and production builds read their values from the matching
+EAS environment and stop before compilation when required native configuration is missing.
+
 Google sign-in uses native code and does not work in Expo Go. Use an Expo development build or an EAS build when testing Google authentication.
 
 ## Google OAuth
@@ -19,6 +23,17 @@ Create separate OAuth clients in Google Cloud for Web, iOS, and Android.
 - Configure the Android OAuth client with the final Android package name and the signing certificate SHA-1. Android uses the explicit Web client ID at runtime, so Firebase configuration files are not required.
 
 After changing OAuth configuration, rebuild the native app. Restarting Metro is not sufficient for native config-plugin changes.
+
+## EAS builds
+
+The checked-in `eas.json` provides internal preview and App Store/Play Store production profiles.
+Configure the `preview` and `production` EAS environments before starting a build. Production API
+URLs must use HTTPS.
+
+```bash
+eas build --profile preview --platform all
+eas build --profile production --platform all
+```
 
 ## Apple sign-in
 

@@ -1,5 +1,15 @@
 const staticConfig = require('./app.json');
 
+function requiredBuildValue(name, value, buildProfile) {
+  const normalized = value?.trim();
+
+  if (buildProfile && !normalized) {
+    throw new Error(`${name} is required for the ${buildProfile} EAS build profile.`);
+  }
+
+  return normalized;
+}
+
 function googleIosUrlScheme(clientId) {
   if (!clientId) return null;
   if (!clientId.endsWith('.apps.googleusercontent.com')) {
@@ -10,8 +20,49 @@ function googleIosUrlScheme(clientId) {
 }
 
 module.exports = () => {
-  const iosUrlScheme = googleIosUrlScheme(process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID);
-  const easProjectId = process.env.EXPO_PUBLIC_EAS_PROJECT_ID?.trim();
+  const buildProfile = process.env.EAS_BUILD_PROFILE?.trim();
+  const apiUrl = requiredBuildValue('EXPO_PUBLIC_API_URL', process.env.EXPO_PUBLIC_API_URL, buildProfile);
+  const easProjectId = requiredBuildValue(
+    'EXPO_PUBLIC_EAS_PROJECT_ID',
+    process.env.EXPO_PUBLIC_EAS_PROJECT_ID,
+    buildProfile,
+  );
+  const iosBundleIdentifier = requiredBuildValue(
+    'EXPO_IOS_BUNDLE_IDENTIFIER',
+    process.env.EXPO_IOS_BUNDLE_IDENTIFIER,
+    buildProfile,
+  );
+  const androidPackage = requiredBuildValue(
+    'EXPO_ANDROID_PACKAGE',
+    process.env.EXPO_ANDROID_PACKAGE,
+    buildProfile,
+  );
+  const googleIosClientId = requiredBuildValue(
+    'EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID',
+    process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
+    buildProfile,
+  );
+  requiredBuildValue(
+    'EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID',
+    process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
+    buildProfile,
+  );
+  requiredBuildValue(
+    'EXPO_PUBLIC_REVERB_APP_KEY',
+    process.env.EXPO_PUBLIC_REVERB_APP_KEY,
+    buildProfile,
+  );
+  requiredBuildValue(
+    'EXPO_PUBLIC_REVERB_HOST',
+    process.env.EXPO_PUBLIC_REVERB_HOST,
+    buildProfile,
+  );
+
+  if (buildProfile === 'production' && apiUrl && !apiUrl.startsWith('https://')) {
+    throw new Error('EXPO_PUBLIC_API_URL must use HTTPS for production builds.');
+  }
+
+  const iosUrlScheme = googleIosUrlScheme(googleIosClientId);
   const plugins = [...staticConfig.expo.plugins];
 
   if (iosUrlScheme) {
@@ -23,6 +74,14 @@ module.exports = () => {
 
   return {
     ...staticConfig.expo,
+    ios: {
+      ...staticConfig.expo.ios,
+      ...(iosBundleIdentifier ? { bundleIdentifier: iosBundleIdentifier } : {}),
+    },
+    android: {
+      ...staticConfig.expo.android,
+      ...(androidPackage ? { package: androidPackage } : {}),
+    },
     plugins,
     extra: {
       ...staticConfig.expo.extra,
