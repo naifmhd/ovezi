@@ -8,6 +8,10 @@
     "scheme": "ovezi",
     "userInterfaceStyle": "automatic",
     "ios": {
+      "icon": {
+        "light": "./assets/images/icon-light.png",
+        "dark": "./assets/images/icon-dark.png"
+      },
       "usesAppleSignIn": true,
       "config": {
         "usesNonExemptEncryption": false
