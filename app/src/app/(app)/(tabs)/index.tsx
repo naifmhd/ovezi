@@ -10,8 +10,10 @@ import { QueryErrorCard } from '@/components/query-error-card';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { fetchActivity } from '@/lib/activity-api';
+import { fetchOverallBalances } from '@/lib/balances-api';
 import { fetchExpenses } from '@/lib/expenses-api';
-import { fetchGroupBalances, fetchGroups } from '@/lib/groups-api';
+import { formatMoney } from '@/lib/format';
+import { fetchGroups } from '@/lib/groups-api';
 import { useAuthStore } from '@/stores/auth-store';
 
 export default function HomeScreen() {
@@ -31,17 +33,16 @@ export default function HomeScreen() {
   });
   const groups = groupsQuery.data?.data ?? [];
   const balancesQuery = useQuery({
-    queryKey: ['dashboard-balances', groups.map((group) => group.id)],
-    enabled: groups.length > 0,
-    queryFn: async () =>
-      Promise.all(groups.map((group) => fetchGroupBalances(token, group.id))),
+    queryKey: ['dashboard-balances'],
+    queryFn: () => fetchOverallBalances(token),
   });
   const balanceByGroup = new Map(
-    (balancesQuery.data ?? []).map((balances) => [
-      balances.group_id,
-      balances.members.find((member) => member.participant.user_id === user.id)?.balance_minor ?? 0,
+    (balancesQuery.data?.groups ?? []).map((balance) => [
+      balance.group_id,
+      balance.balance_minor,
     ]),
   );
+  const directBalances = balancesQuery.data?.direct ?? [];
   const recentPersonalExpenses = (expensesQuery.data?.data ?? [])
     .filter((expense) => expense.expense_type !== 'group')
     .slice(0, 5);
@@ -92,6 +93,23 @@ export default function HomeScreen() {
         />
       ) : null}
 
+      {(balancesQuery.data?.totals_by_currency ?? []).length > 0 ? (
+        <View style={styles.totalGrid}>
+          {balancesQuery.data?.totals_by_currency.map((total) => (
+            <ThemedView key={total.currency_code} type="backgroundSelected" style={styles.totalCard}>
+              <ThemedText style={styles.totalLabel} themeColor="textSecondary">
+                {total.balance_minor >= 0 ? 'You are owed' : 'You owe'} · {total.currency_code}
+              </ThemedText>
+              <ThemedText
+                style={styles.totalAmount}
+                themeColor={total.balance_minor >= 0 ? 'primary' : 'danger'}>
+                {formatMoney(Math.abs(total.balance_minor), total.currency_code)}
+              </ThemedText>
+            </ThemedView>
+          ))}
+        </View>
+      ) : null}
+
       <View style={styles.sectionHeading}>
         <ThemedText style={styles.sectionTitle}>Groups</ThemedText>
         <Pressable onPress={() => router.push('/(app)/(tabs)/groups')}>
@@ -120,6 +138,48 @@ export default function HomeScreen() {
             </ThemedText>
           </Pressable>
         </ThemedView>
+      ) : null}
+
+      <View style={styles.sectionHeading}>
+        <ThemedText style={styles.sectionTitle}>1-on-1 balances</ThemedText>
+      </View>
+      {balancesQuery.isLoading ? (
+        <ThemedText style={styles.emptyActivity} themeColor="textSecondary">
+          Loading balances…
+        </ThemedText>
+      ) : null}
+      {directBalances.map((balance) => (
+        <Pressable
+          key={`${balance.currency_code}:${balance.participant.key}`}
+          onPress={() => router.push({
+            pathname: '/(app)/settlements/direct',
+            params: {
+              participant: balance.participant.key,
+              currency: balance.currency_code,
+            },
+          })}>
+          <ThemedView type="backgroundElement" style={styles.directCard}>
+            <View style={styles.directCopy}>
+              <ThemedText style={styles.directName}>{balance.participant.name}</ThemedText>
+              <ThemedText style={styles.smallCopy} themeColor="textSecondary">
+                {balance.balance_minor >= 0 ? 'owes you' : 'you owe'}
+              </ThemedText>
+            </View>
+            <View style={styles.directAmountWrap}>
+              <ThemedText
+                style={styles.directAmount}
+                themeColor={balance.balance_minor >= 0 ? 'primary' : 'danger'}>
+                {formatMoney(Math.abs(balance.balance_minor), balance.currency_code)}
+              </ThemedText>
+              <ThemedText style={styles.settleLabel} themeColor="primary">Settle</ThemedText>
+            </View>
+          </ThemedView>
+        </Pressable>
+      ))}
+      {!balancesQuery.isLoading && !balancesQuery.error && directBalances.length === 0 ? (
+        <ThemedText style={styles.emptyActivity} themeColor="textSecondary">
+          No open 1-on-1 balances.
+        </ThemedText>
       ) : null}
 
       <View style={styles.sectionHeading}>
@@ -179,6 +239,10 @@ const styles = StyleSheet.create({
   headerActions: { flexDirection: 'row', alignItems: 'center', gap: 14 },
   verificationCard: { padding: 16, borderRadius: 18, gap: 3 },
   verificationTitle: { fontWeight: '800' },
+  totalGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  totalCard: { minWidth: 150, flexGrow: 1, borderRadius: 18, padding: 16, gap: 4 },
+  totalLabel: { fontSize: 12, lineHeight: 17, fontWeight: '700' },
+  totalAmount: { fontSize: 21, lineHeight: 28, fontWeight: '900' },
   smallCopy: { fontSize: 14, lineHeight: 20 },
   sectionHeading: {
     flexDirection: 'row',
@@ -192,4 +256,19 @@ const styles = StyleSheet.create({
   emptyTitle: { fontSize: 17, lineHeight: 24, fontWeight: '800' },
   createLink: { marginTop: 8, fontWeight: '800' },
   emptyActivity: { textAlign: 'center', paddingVertical: 28 },
+  directCard: {
+    minHeight: 76,
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 13,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  directCopy: { flex: 1, gap: 2 },
+  directName: { fontSize: 16, lineHeight: 22, fontWeight: '800' },
+  directAmountWrap: { alignItems: 'flex-end', gap: 2 },
+  directAmount: { fontSize: 15, lineHeight: 21, fontWeight: '900' },
+  settleLabel: { fontSize: 12, lineHeight: 17, fontWeight: '800' },
 });

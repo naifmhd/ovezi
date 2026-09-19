@@ -12,6 +12,7 @@ export default function AppLayout() {
       <Stack.Screen name="expenses/index" />
       <Stack.Screen name="expenses/[id]" />
       <Stack.Screen name="settlements/create" options={{ presentation: 'modal' }} />
+      <Stack.Screen name="settlements/direct" options={{ presentation: 'modal' }} />
       <Stack.Screen name="profile/edit" />
       <Stack.Screen name="profile/security" />
       <Stack.Screen name="profile/notifications" />

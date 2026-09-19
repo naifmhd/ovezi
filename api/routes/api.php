@@ -17,6 +17,7 @@ use App\Http\Controllers\Api\V1\Auth\UpdatePasswordController;
 use App\Http\Controllers\Api\V1\Auth\VerifyEmailController;
 use App\Http\Controllers\Api\V1\CurrencyController;
 use App\Http\Controllers\Api\V1\DeleteAccountController;
+use App\Http\Controllers\Api\V1\DirectSettlementController;
 use App\Http\Controllers\Api\V1\ExpenseController;
 use App\Http\Controllers\Api\V1\FriendshipController;
 use App\Http\Controllers\Api\V1\GroupActivityController;
@@ -28,6 +29,7 @@ use App\Http\Controllers\Api\V1\GroupInviteController;
 use App\Http\Controllers\Api\V1\GroupMemberController;
 use App\Http\Controllers\Api\V1\GroupNotificationMuteController;
 use App\Http\Controllers\Api\V1\NotificationPreferenceController;
+use App\Http\Controllers\Api\V1\OverallBalanceController;
 use App\Http\Controllers\Api\V1\PersonalDataExportController;
 use App\Http\Controllers\Api\V1\PlaceholderClaimController;
 use App\Http\Controllers\Api\V1\PlaceholderController;
@@ -92,6 +94,8 @@ Route::prefix('v1')->name('api.v1.')->group(function (): void {
             ->name('push-tokens.destroy');
         Route::get('activity', [ActivityController::class, 'index'])
             ->name('activity.index');
+        Route::get('balances', OverallBalanceController::class)
+            ->name('balances.show');
         Route::get('search', SearchController::class)->name('search');
         Route::apiResource('friends', FriendshipController::class)
             ->only(['index', 'store', 'destroy']);
@@ -128,6 +132,8 @@ Route::prefix('v1')->name('api.v1.')->group(function (): void {
             ->name('groups.currency-rates.destroy');
         Route::post('groups/{group}/settlements', [SettlementController::class, 'store'])
             ->name('groups.settlements.store');
+        Route::post('settlements', DirectSettlementController::class)
+            ->name('settlements.store');
         Route::apiResource('groups.invites', GroupInviteController::class)
             ->only(['index', 'store', 'destroy']);
         Route::put('groups/{group}/archive', [ArchivedGroupController::class, 'store'])

@@ -6,6 +6,7 @@ use App\Models\Expense;
 use App\Models\ExpenseSplit;
 use App\Models\Group;
 use App\Models\GroupMember;
+use App\Models\Settlement;
 use App\Models\User;
 
 it('returns personal and active-group activity without leaking other groups', function () {
@@ -111,6 +112,34 @@ it('includes direct expense activity for a registered split participant', functi
         ->assertJsonCount(1, 'data')
         ->assertJsonPath('data.0.subject.id', $expense->id)
         ->assertJsonPath('data.0.actor.id', $creator->id);
+});
+
+it('includes direct settlement activity for the other participant', function () {
+    $currency = Currency::factory()->mvr()->create();
+    $sender = User::factory()->create(['default_currency_code' => $currency->code]);
+    $recipient = User::factory()->create(['default_currency_code' => $currency->code]);
+    $settlement = Settlement::factory()->create([
+        'group_id' => null,
+        'from_user_id' => $sender->id,
+        'to_user_id' => $recipient->id,
+        'currency_code' => $currency->code,
+        'reporting_currency_code' => $currency->code,
+        'created_by' => $sender->id,
+    ]);
+    ActivityLog::factory()->create([
+        'group_id' => null,
+        'actor_id' => $sender->id,
+        'subject_type' => $settlement->getMorphClass(),
+        'subject_id' => $settlement->id,
+        'event' => 'settlement.created',
+    ]);
+
+    $this->actingAs($recipient)
+        ->getJson('/api/v1/activity')
+        ->assertOk()
+        ->assertJsonCount(1, 'data')
+        ->assertJsonPath('data.0.subject.type', 'settlement')
+        ->assertJsonPath('data.0.subject.id', $settlement->id);
 });
 
 it('returns a group-specific feed to members and hides it from outsiders', function () {

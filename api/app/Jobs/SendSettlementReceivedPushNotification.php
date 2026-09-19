@@ -42,18 +42,24 @@ class SendSettlementReceivedPushNotification implements ShouldQueue
         }
 
         $senderName = $settlement->fromUser?->name ?? $settlement->fromPlaceholder?->name ?? 'Someone';
+        $body = $settlement->group === null
+            ? "{$senderName} recorded a payment to you."
+            : "{$senderName} recorded a settlement in {$settlement->group->name}.";
+        $path = $settlement->group_id === null
+            ? '/(app)/(tabs)'
+            : "/(app)/groups/{$settlement->group_id}";
 
         $pushService->sendToUsers(
             [$recipientId],
             NotificationType::PaymentReceived,
             $settlement->group_id,
             'Payment received',
-            "{$senderName} recorded a settlement in {$settlement->group->name}.",
+            $body,
             [
                 'type' => NotificationType::PaymentReceived->value,
                 'settlement_id' => $settlement->id,
                 'group_id' => $settlement->group_id,
-                'path' => "/(app)/groups/{$settlement->group_id}",
+                'path' => $path,
             ],
         );
     }

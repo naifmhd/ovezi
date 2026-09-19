@@ -10,11 +10,21 @@ export function ActivityRow({ activity }: { activity: Activity }) {
   const expenseId = activity.subject.type === 'expense' && activity.event !== 'expense.deleted'
     ? activity.subject.id
     : null;
+  const groupId = expenseId === null ? activity.group_id : null;
+  const canOpen = expenseId !== null || groupId !== null;
+
+  function openActivity() {
+    if (expenseId !== null) {
+      router.push({ pathname: '/(app)/expenses/[id]', params: { id: expenseId } });
+    } else if (groupId !== null) {
+      router.push({ pathname: '/(app)/groups/[id]', params: { id: groupId } });
+    }
+  }
 
   return (
     <Pressable
-      disabled={!expenseId}
-      onPress={() => expenseId && router.push({ pathname: '/(app)/expenses/[id]', params: { id: expenseId } })}>
+      disabled={!canOpen}
+      onPress={openActivity}>
       <ThemedView type="backgroundElement" style={styles.row}>
         <ThemedView type="backgroundSelected" style={styles.icon}>
           <ThemedText style={styles.iconText} themeColor="primary">
@@ -27,7 +37,7 @@ export function ActivityRow({ activity }: { activity: Activity }) {
             {formatRelativeDate(activity.created_at)}
           </ThemedText>
         </View>
-        {expenseId ? <ThemedText style={styles.chevron} themeColor="textSecondary">›</ThemedText> : null}
+        {canOpen ? <ThemedText style={styles.chevron} themeColor="textSecondary">›</ThemedText> : null}
       </ThemedView>
     </Pressable>
   );

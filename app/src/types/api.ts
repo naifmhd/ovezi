@@ -139,6 +139,29 @@ export type GroupBalances = {
   suggested_settlements: { from: string; to: string; amount_minor: number }[];
 };
 
+export type DirectBalance = {
+  participant: {
+    key: string;
+    user_id: number | null;
+    placeholder_id: number | null;
+    name: string;
+  };
+  currency_code: string;
+  balance_minor: number;
+};
+
+export type OverallBalances = {
+  groups: {
+    group_id: number;
+    name: string;
+    currency_code: string;
+    balance_minor: number;
+    archived_at: string | null;
+  }[];
+  direct: DirectBalance[];
+  totals_by_currency: { currency_code: string; balance_minor: number }[];
+};
+
 export type Activity = {
   id: number;
   group_id: number | null;

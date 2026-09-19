@@ -5,6 +5,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { AppScreen } from '@/components/app-screen';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { UserAvatar } from '@/components/user-avatar';
 import { exportPersonalData, sendVerificationEmail } from '@/lib/auth-api';
 import { errorMessage } from '@/lib/api-client';
 import { sharePersonalData } from '@/lib/share-text-file';
@@ -24,11 +25,7 @@ export default function ProfileScreen() {
   return (
     <AppScreen title="Profile">
       <ThemedView type="backgroundElement" style={styles.profileCard}>
-        <ThemedView type="backgroundSelected" style={styles.avatar}>
-          <ThemedText style={styles.initial} themeColor="primary">
-            {user.name.slice(0, 1).toUpperCase()}
-          </ThemedText>
-        </ThemedView>
+        <UserAvatar imageUrl={user.avatar_url} name={user.name} size={58} />
         <View style={styles.profileCopy}>
           <ThemedText style={styles.name}>{user.name}</ThemedText>
           <ThemedText style={styles.email} themeColor="textSecondary">
@@ -157,8 +154,6 @@ function ProfileLink({ label, onPress, subtitle }: { label: string; onPress: () 
 
 const styles = StyleSheet.create({
   profileCard: { flexDirection: 'row', alignItems: 'center', gap: 14, padding: 18, borderRadius: 22 },
-  avatar: { width: 58, height: 58, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
-  initial: { fontSize: 25, lineHeight: 31, fontWeight: '800' },
   profileCopy: { flex: 1 },
   name: { fontSize: 19, lineHeight: 26, fontWeight: '800' },
   email: { fontSize: 14, lineHeight: 20 },

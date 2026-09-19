@@ -7,6 +7,7 @@ use App\Http\Requests\Api\V1\IndexActivityRequest;
 use App\Http\Resources\Api\V1\ActivityResource;
 use App\Models\ActivityLog;
 use App\Models\Expense;
+use App\Models\Settlement;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 
@@ -31,6 +32,16 @@ class ActivityController extends Controller
                                             ->orWhereHas('placeholder', fn (Builder $placeholderQuery): Builder => $placeholderQuery
                                                 ->where('claimed_by', $user->id)),
                                     ),
+                                )->orWhereHasMorph(
+                                    'subject',
+                                    [Settlement::class],
+                                    fn (Builder $settlementQuery): Builder => $settlementQuery
+                                        ->where('from_user_id', $user->id)
+                                        ->orWhere('to_user_id', $user->id)
+                                        ->orWhereHas('fromPlaceholder', fn (Builder $placeholderQuery): Builder => $placeholderQuery
+                                            ->where('claimed_by', $user->id))
+                                        ->orWhereHas('toPlaceholder', fn (Builder $placeholderQuery): Builder => $placeholderQuery
+                                            ->where('claimed_by', $user->id)),
                                 );
                         });
                 })->orWhereHas('group.members', fn (Builder $memberQuery): Builder => $memberQuery
