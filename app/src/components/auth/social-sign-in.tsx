@@ -1,13 +1,6 @@
 import * as AppleAuthentication from 'expo-apple-authentication';
+import Constants from 'expo-constants';
 import * as Crypto from 'expo-crypto';
-import {
-  GoogleOneTapSignIn,
-  isCancelledResponse,
-  isErrorWithCode,
-  isNoSavedCredentialFoundResponse,
-  isSuccessResponse,
-  statusCodes,
-} from 'react-native-nitro-google-signin';
 import { useEffect, useState } from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 
@@ -17,6 +10,33 @@ import { useAuthStore } from '@/stores/auth-store';
 
 const googleWebClientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID;
 const googleIosClientId = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID;
+const isExpoGo = Constants.expoGoConfig !== null;
+
+type GoogleSignInModule = typeof import('react-native-nitro-google-signin');
+
+let googleSignInModule: Promise<GoogleSignInModule> | undefined;
+let googleSignInConfigured = false;
+
+async function configuredGoogleSignIn(): Promise<GoogleSignInModule> {
+  if (!googleWebClientId) {
+    throw new Error('Google sign-in is not configured.');
+  }
+
+  googleSignInModule ??= import('react-native-nitro-google-signin');
+  const googleSignIn = await googleSignInModule;
+
+  if (!googleSignInConfigured) {
+    googleSignIn.GoogleOneTapSignIn.configure({
+      webClientId: googleWebClientId,
+      iosClientId: googleIosClientId,
+      offlineAccess: false,
+      autoSelectOnSignIn: false,
+    });
+    googleSignInConfigured = true;
+  }
+
+  return googleSignIn;
+}
 
 type SocialSignInProps = {
   onError: (message: string) => void;
@@ -27,20 +47,19 @@ function GoogleButton({ onError, onSuccess }: SocialSignInProps) {
   const setSession = useAuthStore((state) => state.setSession);
   const [pending, setPending] = useState(false);
 
-  useEffect(() => {
-    if (googleWebClientId) {
-      GoogleOneTapSignIn.configure({
-        webClientId: googleWebClientId,
-        iosClientId: googleIosClientId,
-        offlineAccess: false,
-        autoSelectOnSignIn: false,
-      });
-    }
-  }, []);
-
   async function handlePress() {
+    let googleSignIn: GoogleSignInModule | undefined;
+
     try {
       setPending(true);
+      googleSignIn = await configuredGoogleSignIn();
+      const {
+        GoogleOneTapSignIn,
+        isCancelledResponse,
+        isNoSavedCredentialFoundResponse,
+        isSuccessResponse,
+      } = googleSignIn;
+
       await GoogleOneTapSignIn.checkPlayServices();
       let result = await GoogleOneTapSignIn.signIn();
 
@@ -57,7 +76,8 @@ function GoogleButton({ onError, onSuccess }: SocialSignInProps) {
         onSuccess?.();
       }
     } catch (error) {
-      if (!isErrorWithCode(error) || error.code !== statusCodes.SIGN_IN_CANCELLED) {
+      if (!googleSignIn?.isErrorWithCode(error)
+        || error.code !== googleSignIn.statusCodes.SIGN_IN_CANCELLED) {
         onError(errorMessage(error));
       }
     } finally {
@@ -141,11 +161,17 @@ export function SocialSignIn({ onError, onSuccess }: SocialSignInProps) {
   const googleConfigured = Boolean(
     googleWebClientId && (Platform.OS !== 'ios' || googleIosClientId),
   );
+  const googleAvailable = googleConfigured && !isExpoGo;
 
   return (
     <View style={styles.container}>
-      {googleConfigured ? <GoogleButton onError={onError} onSuccess={onSuccess} /> : null}
+      {googleAvailable ? <GoogleButton onError={onError} onSuccess={onSuccess} /> : null}
       {Platform.OS === 'ios' ? <AppleButton onError={onError} onSuccess={onSuccess} /> : null}
+      {googleConfigured && isExpoGo ? (
+        <Text style={styles.developmentBuildHint}>
+          Google sign-in is available in Ovezi development and release builds.
+        </Text>
+      ) : null}
     </View>
   );
 }
@@ -166,5 +192,6 @@ const styles = StyleSheet.create({
   googleGlyph: { position: 'absolute', left: 20, color: '#4285F4', fontSize: 20, fontWeight: '800' },
   googleLabel: { color: '#182033', fontSize: 16, fontWeight: '700' },
   appleButton: { width: '100%', height: 52 },
+  developmentBuildHint: { color: '#9AA3B5', fontSize: 12, lineHeight: 17, textAlign: 'center' },
   pressed: { opacity: 0.65 },
 });
