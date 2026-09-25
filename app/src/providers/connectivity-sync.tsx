@@ -62,7 +62,9 @@ export function ConnectivitySync() {
       <Text style={[styles.copy, { color: theme.warning }]}>
         {isOffline
           ? 'You’re offline. New changes need a connection.'
-          : 'Live updates are reconnecting. Your saved data is safe.'}
+          : realtimeStatus === 'error'
+            ? 'Live updates are unavailable. Your saved data is safe.'
+            : 'Live updates are reconnecting. Your saved data is safe.'}
       </Text>
     </View>
   );

@@ -2,9 +2,10 @@ import NetInfo from '@react-native-community/netinfo';
 import { useQueryClient } from '@tanstack/react-query';
 import type Echo from 'laravel-echo';
 import { useEffect } from 'react';
-import { AppState } from 'react-native';
+import { AppState, Platform } from 'react-native';
 
 import { apiBaseUrl } from '@/lib/api-client';
+import { configureNativePusherOrigin, resolvePusherConstructor } from '@/lib/pusher-client';
 import { addRealtimeBreadcrumb } from '@/lib/sentry';
 import { useAuthStore } from '@/stores/auth-store';
 import { useRealtimeStore, type RealtimeStatus } from '@/stores/realtime-store';
@@ -183,9 +184,11 @@ export function RealtimeSync() {
       if (cancelled) return;
 
       const EchoClient = echoModule.default;
+      const PusherClient = resolvePusherConstructor(pusherModule);
+      if (Platform.OS !== 'web') configureNativePusherOrigin(PusherClient, apiBaseUrl);
       echo = new EchoClient<'reverb'>({
         broadcaster: 'reverb',
-        Pusher: pusherModule.default,
+        Pusher: PusherClient,
         key: reverbKey,
         wsHost: reverbHost,
         wsPort: reverbPort,

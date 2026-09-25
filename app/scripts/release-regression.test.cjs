@@ -18,6 +18,107 @@ function load(name, mocks = {}, globals = {}) {
   return module.exports;
 }
 
+test('appearance Auto follows the device and explicit choices override it', () => {
+  const applied = [];
+  const appearance = load('appearance', {
+    'expo-secure-store': {},
+    'react-native': { Platform: { OS: 'ios' }, Appearance: { setColorScheme: (value) => applied.push(value) } },
+  });
+  assert.equal(appearance.resolveColorScheme('auto', 'dark'), 'dark');
+  assert.equal(appearance.resolveColorScheme('auto', 'light'), 'light');
+  assert.equal(appearance.resolveColorScheme('auto', 'unspecified'), 'light');
+  assert.equal(appearance.resolveColorScheme('light', 'dark'), 'light');
+  assert.equal(appearance.resolveColorScheme('dark', 'light'), 'dark');
+  ['dark', 'light', 'auto'].forEach(appearance.applyNativeAppearance);
+  assert.deepEqual(applied, ['dark', 'light', 'unspecified']);
+});
+
+test('appearance preference restores from storage and rejects invalid saved values', async () => {
+  let saved = null;
+  const appearance = load('appearance', {
+    'expo-secure-store': { getItemAsync: async () => saved, setItemAsync: async (_key, value) => { saved = value; } },
+    'react-native': { Platform: { OS: 'android' } },
+  });
+  assert.equal(await appearance.readAppearance(), 'auto');
+  await appearance.writeAppearance('dark');
+  assert.equal(await appearance.readAppearance(), 'dark');
+  await appearance.writeAppearance('auto');
+  assert.equal(await appearance.readAppearance(), 'auto');
+  saved = 'invalid';
+  assert.equal(await appearance.readAppearance(), 'auto');
+});
+
+test('unavailable appearance storage does not block startup or an immediate theme change', async () => {
+  const applied = [];
+  const { useAppearanceStore: store } = load('../stores/appearance-store', {
+    zustand: require('zustand'),
+    '@/lib/appearance': {
+      readAppearance: async () => { throw Error('storage unavailable'); },
+      writeAppearance: async () => { throw Error('storage unavailable'); },
+      applyNativeAppearance: (value) => applied.push(value),
+    },
+  });
+  await store.getState().hydrate();
+  assert.equal(store.getState().hydrated, true);
+  assert.equal(store.getState().preference, 'auto');
+  const save = store.getState().setPreference('dark');
+  assert.equal(store.getState().preference, 'dark');
+  await save;
+  assert.equal(store.getState().saving, false);
+  assert.match(store.getState().error, /could not be saved/);
+  assert.deepEqual(applied, ['auto', 'dark']);
+});
+
+test('live updates resolve the installed native Pusher bundle through Metro interop', () => {
+  const nativeModule = { exports: {} };
+  const nativeBundle = fs.readFileSync(require.resolve('pusher-js/dist/react-native/pusher.js'), 'utf8');
+  vm.runInNewContext(nativeBundle, {
+    module: nativeModule,
+    require: (name) => {
+      assert.equal(name, '@react-native-community/netinfo');
+      return { fetch: async () => ({ type: 'wifi' }), addEventListener: () => () => {} };
+    },
+    setTimeout, clearTimeout, setInterval, clearInterval,
+  });
+  const { resolvePusherConstructor } = load('pusher-client');
+  const nativePusher = nativeModule.exports.Pusher;
+  assert.equal(typeof nativePusher, 'function');
+  assert.equal(resolvePusherConstructor(nativeModule.exports), nativePusher);
+  assert.equal(resolvePusherConstructor({ default: nativeModule.exports }), nativePusher);
+  assert.equal(typeof nativePusher.prototype.connect, 'function');
+});
+
+test('live updates retain the installed web client export and reject invalid modules', () => {
+  const { resolvePusherConstructor } = load('pusher-client');
+  const webModule = { exports: {} };
+  vm.runInNewContext(fs.readFileSync(require.resolve('pusher-js/dist/web/pusher.js'), 'utf8'), {
+    module: webModule, exports: webModule.exports, self: {},
+    setTimeout, clearTimeout, setInterval, clearInterval,
+  });
+  const WebPusher = webModule.exports;
+  assert.equal(typeof WebPusher, 'function');
+  assert.equal(resolvePusherConstructor({ default: WebPusher }), WebPusher);
+  assert.equal(resolvePusherConstructor(WebPusher), WebPusher);
+  assert.throws(() => resolvePusherConstructor({ default: {} }), /Pusher constructor/);
+});
+
+test('native sockets use the API website origin while retaining the Reverb destination', () => {
+  const calls = [];
+  class NativeWebSocket {
+    constructor(...args) { calls.push(args); }
+  }
+  const { configureNativePusherOrigin } = load('pusher-client', {}, { WebSocket: NativeWebSocket });
+  const client = { Runtime: {} };
+  configureNativePusherOrigin(client, 'https://ovezi.ninesixty.mv/api/v1');
+  const socket = client.Runtime.createWebSocket('wss://reverb.example.test/app/public-key');
+  assert(socket instanceof NativeWebSocket);
+  assert.equal(calls[0][0], 'wss://reverb.example.test/app/public-key');
+  assert.equal(calls[0][1], undefined);
+  assert.deepEqual(JSON.parse(JSON.stringify(calls[0][2])), {
+    headers: { Origin: 'https://ovezi.ninesixty.mv' },
+  });
+});
+
 test('request timeout covers a response whose body stalls', async () => {
   const api = load('api-client', {}, {
     setTimeout: (fn) => setTimeout(fn, 5),

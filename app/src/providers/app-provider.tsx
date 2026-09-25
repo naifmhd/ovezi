@@ -9,16 +9,18 @@ import { PushNotificationSync } from '@/providers/push-notification-sync';
 import { RealtimeSync } from '@/providers/realtime-sync';
 import { useAuthStore } from '@/stores/auth-store';
 import { useOnboardingStore } from '@/stores/onboarding-store';
+import { useAppearanceStore } from '@/stores/appearance-store';
 
 export function AppProvider({ children }: PropsWithChildren) {
   const hydrateAuth = useAuthStore((state) => state.hydrate);
   const hydrateOnboarding = useOnboardingStore((state) => state.hydrate);
+  const hydrateAppearance = useAppearanceStore((state) => state.hydrate);
   const userId = useAuthStore((state) => state.user?.id ?? null);
   const sessionVersion = useAuthStore((state) => state.sessionVersion);
 
   useEffect(() => {
-    void Promise.all([hydrateAuth(), hydrateOnboarding()]);
-  }, [hydrateAuth, hydrateOnboarding]);
+    void Promise.all([hydrateAuth(), hydrateOnboarding(), hydrateAppearance()]);
+  }, [hydrateAuth, hydrateOnboarding, hydrateAppearance]);
 
   useEffect(() => { setSentryUserId(userId); }, [userId]);
 

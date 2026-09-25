@@ -15,9 +15,12 @@ import { exportPersonalData, sendVerificationEmail } from '@/lib/auth-api';
 import { errorMessage } from '@/lib/api-client';
 import { sharePersonalData } from '@/lib/share-text-file';
 import { useAuthStore } from '@/stores/auth-store';
+import { useAppearanceStore } from '@/stores/appearance-store';
+import { appearanceLabels } from '@/lib/appearance';
 
 export default function ProfileScreen() {
   const theme = useTheme();
+  const appearance = useAppearanceStore((state) => state.preference);
   const user = useAuthStore((state) => state.user)!;
   const token = useAuthStore((state) => state.token)!;
   const logout = useAuthStore((state) => state.logout);
@@ -83,6 +86,14 @@ export default function ProfileScreen() {
           tone="blue"
           onPress={() => router.push('/(app)/profile/edit')}
           subtitle="Name and default currency"
+        />
+        <View style={styles.divider} />
+        <ProfileLink
+          icon={{ ios: 'circle.lefthalf.filled', android: 'contrast', web: 'contrast' }}
+          label="Appearance"
+          tone="violet"
+          onPress={() => router.push('/(app)/profile/appearance')}
+          subtitle={appearance === 'auto' ? 'Auto · Follow device settings' : appearanceLabels[appearance]}
         />
         <View style={styles.divider} />
         <ProfileLink

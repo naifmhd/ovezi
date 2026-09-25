@@ -20,6 +20,7 @@ export default function AppLayout() {
       <Stack.Screen name="settlements/create" options={{ presentation: Platform.OS === 'ios' ? 'formSheet' : 'modal' }} />
       <Stack.Screen name="settlements/direct" options={{ presentation: Platform.OS === 'ios' ? 'formSheet' : 'modal' }} />
       <Stack.Screen name="profile/edit" />
+      <Stack.Screen name="profile/appearance" />
       <Stack.Screen name="profile/security" />
       <Stack.Screen name="profile/notifications" />
       <Stack.Screen name="profile/placeholder-claims" />

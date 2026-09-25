@@ -1,7 +1,9 @@
 import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
+import { StatusBar } from 'expo-status-bar';
+import * as SystemUI from 'expo-system-ui';
 import { useEffect } from 'react';
-import { useColorScheme } from 'react-native';
+import { Platform } from 'react-native';
 
 import { AuthShell } from '@/components/auth/auth-shell';
 import { PrimaryButton } from '@/components/auth/primary-button';
@@ -10,6 +12,9 @@ import { AppProvider } from '@/providers/app-provider';
 import { initializeSentry, withSentry } from '@/lib/sentry';
 import { useAuthStore } from '@/stores/auth-store';
 import { useOnboardingStore } from '@/stores/onboarding-store';
+import { useAppearanceStore } from '@/stores/appearance-store';
+import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useTheme } from '@/hooks/use-theme';
 
 void SplashScreen.preventAutoHideAsync();
 initializeSentry();
@@ -17,17 +22,18 @@ initializeSentry();
 function RootNavigator() {
   const authStatus = useAuthStore((state) => state.status);
   const onboardingStatus = useOnboardingStore((state) => state.status);
+  const appearanceHydrated = useAppearanceStore((state) => state.hydrated);
   const token = useAuthStore((state) => state.token);
   const hydrationError = useAuthStore((state) => state.hydrationError);
   const hydrate = useAuthStore((state) => state.hydrate);
 
   useEffect(() => {
-    if (authStatus !== 'hydrating' && onboardingStatus !== 'hydrating') {
+    if (authStatus !== 'hydrating' && onboardingStatus !== 'hydrating' && appearanceHydrated) {
       void SplashScreen.hideAsync();
     }
-  }, [authStatus, onboardingStatus]);
+  }, [authStatus, onboardingStatus, appearanceHydrated]);
 
-  if (authStatus === 'hydrating' || onboardingStatus === 'hydrating') {
+  if (authStatus === 'hydrating' || onboardingStatus === 'hydrating' || !appearanceHydrated) {
     return null;
   }
 
@@ -57,9 +63,17 @@ function RootNavigator() {
 
 function RootLayout() {
   const colorScheme = useColorScheme();
+  const theme = useTheme();
+  const navigationTheme = colorScheme === 'dark' ? DarkTheme : DefaultTheme;
+
+  useEffect(() => {
+    void SystemUI.setBackgroundColorAsync(theme.background).catch(() => {});
+    if (Platform.OS === 'web') document.documentElement.style.colorScheme = colorScheme;
+  }, [colorScheme, theme.background]);
 
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+    <ThemeProvider value={{ ...navigationTheme, colors: { ...navigationTheme.colors, background: theme.background, card: theme.surface, text: theme.text, border: theme.border, primary: theme.interactive } }}>
+      <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
       <AppProvider>
         <RootNavigator />
       </AppProvider>

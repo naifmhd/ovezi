@@ -12,6 +12,7 @@ fs.mkdirSync(output, { recursive: true });
   const browser = await chromium.launch({ headless: true, ...(process.env.OVEZI_CHROME_PATH ? { executablePath: process.env.OVEZI_CHROME_PATH } : {}) });
   const evidence = [], errors = [];
   async function scenario(name, handler, check) {
+    if (process.env.OVEZI_AUDIT_SCENARIO && process.env.OVEZI_AUDIT_SCENARIO !== name) return;
     const context = await browser.newContext({ viewport: { width: 390, height: 844 }, colorScheme: 'light', reducedMotion: 'reduce' });
     await context.addInitScript(() => {
       sessionStorage.setItem('ovezi.auth-token', 'audit-account-a');
@@ -29,6 +30,35 @@ fs.mkdirSync(output, { recursive: true });
     } finally { await context.close(); }
   }
   try {
+    await scenario('appearance', () => null, async (p) => {
+      async function scheme(expected) {
+        await p.waitForFunction(value => document.documentElement.style.colorScheme === value, expected, { timeout: 10000 });
+      }
+      await p.goto(base + '/profile');
+      await p.getByRole('button', { name: /Appearance/ }).click();
+      await p.getByRole('radio', { name: 'Auto', exact: true }).waitFor();
+      await scheme('light');
+      await p.getByRole('radio', { name: 'Dark', exact: true }).click();
+      await scheme('dark');
+      assert.equal(await p.getByRole('radio', { name: 'Dark', exact: true }).getAttribute('aria-checked'), 'true');
+      assert.equal(await p.evaluate(() => localStorage.getItem('ovezi.appearance')), 'dark');
+      await p.screenshot({ path: `${output}/appearance-dark.png` });
+      await p.reload();
+      await p.getByRole('radio', { name: 'Dark', exact: true }).waitFor();
+      await scheme('dark');
+      await p.getByRole('radio', { name: 'Light', exact: true }).click();
+      await p.emulateMedia({ colorScheme: 'dark' });
+      await scheme('light');
+      await p.screenshot({ path: `${output}/appearance-light.png` });
+      await p.getByRole('radio', { name: 'Auto', exact: true }).click();
+      await scheme('dark');
+      await p.emulateMedia({ colorScheme: 'light' });
+      await scheme('light');
+      await p.setViewportSize({ width: 320, height: 640 });
+      assert(await p.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth));
+      await p.getByRole('button', { name: 'Done', exact: true }).click();
+      await p.getByText('Auto · Follow device settings', { exact: true }).waitFor();
+    });
     await scenario('unavailable-balance', r => r.request().url().endsWith('/groups/1/balances') ? r.fulfill({ status: 403, json: { message: 'Balance data unavailable' } }) : null, async p => {
       await p.goto(base + '/groups/1');
       await p.getByText('Balance unavailable', { exact: true }).waitFor();
