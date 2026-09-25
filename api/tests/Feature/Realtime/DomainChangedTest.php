@@ -4,6 +4,7 @@ use App\Events\DomainChanged;
 use App\Models\Currency;
 use App\Models\Expense;
 use App\Models\ExpenseSplit;
+use App\Models\Friendship;
 use App\Models\Group;
 use App\Models\GroupMember;
 use App\Models\User;
@@ -67,12 +68,40 @@ it('broadcasts an expense change only to affected users', function () {
         ->toContain("private-users.{$owner->id}", "private-users.{$member->id}")
         ->not->toContain("private-users.{$outsider->id}")
         ->and($event->broadcastAs())->toBe('domain.changed')
-        ->and($event->broadcastWith())->toBe([
+        ->and($event->broadcastQueue())->toBe('broadcasts')
+        ->and($event->broadcastWith())->toMatchArray([
+            'version' => 1,
             'resource' => 'expense',
             'action' => 'created',
             'resource_id' => $expense->id,
             'group_id' => $group->id,
-        ]);
+        ])
+        ->and($event->broadcastWith()['event_id'])->toBeString()->not->toBeEmpty()
+        ->and($event->broadcastWith()['occurred_at'])->toBeString()->not->toBeEmpty();
+});
+
+it('captures the audience before a hard-deleted resource disappears', function () {
+    $first = User::factory()->create();
+    $second = User::factory()->create();
+    $userId = min($first->id, $second->id);
+    $friendId = max($first->id, $second->id);
+    $friendship = Friendship::factory()->create([
+        'user_id' => $userId,
+        'friend_id' => $friendId,
+        'requested_by' => $userId,
+    ]);
+
+    Event::fake([DomainChanged::class]);
+
+    $friendship->delete();
+
+    Event::assertDispatched(
+        DomainChanged::class,
+        fn (DomainChanged $event): bool => $event->resource === 'friendship'
+            && $event->action === 'deleted'
+            && $event->resourceId === $friendship->id
+            && $event->audience === [$userId, $friendId],
+    );
 });
 
 it('authorizes only the matching users private channel', function () {

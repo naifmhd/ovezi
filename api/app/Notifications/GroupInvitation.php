@@ -27,11 +27,7 @@ class GroupInvitation extends Notification implements ShouldQueue
 
     public function toMail(object $notifiable): MailMessage
     {
-        $url = sprintf(
-            '%s://group-invites/accept?token=%s',
-            config('ovezi.deep_link_scheme'),
-            rawurlencode($this->token),
-        );
+        $url = route('app.invite', ['token' => $this->token]);
 
         return (new MailMessage)
             ->subject("Join {$this->invite->group->name} on Ovezi")

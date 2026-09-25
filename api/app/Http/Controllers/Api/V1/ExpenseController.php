@@ -58,6 +58,17 @@ class ExpenseController extends Controller
                 ->where('group_id', $request->integer('group_id')))
             ->when($request->filled('expense_type'), fn (Builder $query): Builder => $query
                 ->where('expense_type', $request->string('expense_type')->toString()))
+            ->when($request->filled('q'), function (Builder $query) use ($request): void {
+                $term = '%'.$request->string('q')->trim()->toString().'%';
+                $query->where(function (Builder $searchQuery) use ($term): void {
+                    $searchQuery->where('description', 'like', $term)
+                        ->orWhere('category', 'like', $term);
+                });
+            })
+            ->when($request->filled('from'), fn (Builder $query): Builder => $query
+                ->where('occurred_at', '>=', $request->date('from')->utc()))
+            ->when($request->filled('before'), fn (Builder $query): Builder => $query
+                ->where('occurred_at', '<', $request->date('before')->utc()))
             ->with([
                 'payerUser:id,name',
                 'payerPlaceholder:id,name,claimed_by',

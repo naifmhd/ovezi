@@ -1,3 +1,4 @@
+import { financialRequest } from '@/lib/financial-request';
 import { apiMultipartRequest, apiRequest } from '@/lib/api-client';
 import type { Expense, ExpenseType, PaginatedResponse, SplitType } from '@/types/api';
 
@@ -31,22 +32,22 @@ export type UpdateExpenseInput = CreateExpenseInput & {
 
 export function fetchExpenses(
   token: string,
-  options: { groupId?: number; expenseType?: ExpenseType; perPage?: number } = {},
+  options: { groupId?: number; expenseType?: ExpenseType; perPage?: number; page?: number; search?: string; from?: string; before?: string } = {},
 ) {
   const params = new URLSearchParams();
   if (options.groupId) params.set('group_id', String(options.groupId));
   if (options.expenseType) params.set('expense_type', options.expenseType);
+  if (options.search) params.set('q', options.search);
+  if (options.from) params.set('from', options.from);
+  if (options.before) params.set('before', options.before);
+  if (options.page) params.set('page', String(options.page));
   params.set('per_page', String(options.perPage ?? 20));
 
   return apiRequest<PaginatedResponse<Expense>>(`/expenses?${params.toString()}`, { token });
 }
 
 export async function createExpense(token: string, input: CreateExpenseInput) {
-  const response = await apiRequest<DataResponse<Expense>>('/expenses', {
-    method: 'POST',
-    token,
-    body: input,
-  });
+  const response = await financialRequest<DataResponse<Expense>>('/expenses', token, input);
   return response.data;
 }
 

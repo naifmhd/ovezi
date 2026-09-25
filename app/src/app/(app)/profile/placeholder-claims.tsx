@@ -1,3 +1,4 @@
+import { HeaderAction } from '@/components/ui/header-action';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import { useState } from 'react';
@@ -47,9 +48,9 @@ export default function PlaceholderClaimsScreen() {
     <ThemedView style={styles.screen}>
       <SafeAreaView edges={['top']} style={styles.safeArea}>
         <View style={styles.header}>
-          <Pressable onPress={() => router.back()}>
+          <HeaderAction onPress={() => router.back()}>
             <ThemedText style={styles.back} themeColor="primary">‹ Back</ThemedText>
-          </Pressable>
+          </HeaderAction>
           <ThemedText style={styles.headerTitle}>Claim previous history</ThemedText>
           <View style={styles.headerSpacer} />
         </View>
@@ -164,27 +165,27 @@ export default function PlaceholderClaimsScreen() {
 const styles = StyleSheet.create({
   screen: { flex: 1 },
   safeArea: { flex: 1 },
-  header: { height: 60, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: Spacing.four },
-  back: { fontSize: 14, fontWeight: '800' },
-  headerTitle: { fontSize: 17, fontWeight: '800' },
+  header: { minHeight: 60, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: Spacing.four },
+  back: { fontSize: 14, fontWeight: '600' },
+  headerTitle: { fontSize: 17, fontWeight: '600' },
   headerSpacer: { width: 48 },
   content: { padding: Spacing.four, paddingBottom: 80, gap: 14, maxWidth: 680, width: '100%', alignSelf: 'center' },
   infoCard: { borderRadius: 20, padding: 17, gap: 5 },
-  infoTitle: { fontSize: 15, fontWeight: '900' },
+  infoTitle: { fontSize: 15, fontWeight: '600' },
   copy: { fontSize: 13, lineHeight: 19 },
   centered: { textAlign: 'center', paddingVertical: 40 },
-  success: { fontSize: 14, lineHeight: 20, fontWeight: '800' },
+  success: { fontSize: 14, lineHeight: 20, fontWeight: '600' },
   matchCard: { borderRadius: 22, padding: 17, gap: 11 },
   matchHeading: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   matchCopy: { flex: 1, gap: 2 },
-  cardTitle: { fontSize: 16, lineHeight: 22, fontWeight: '900' },
+  cardTitle: { fontSize: 16, lineHeight: 22, fontWeight: '600' },
   meta: { fontSize: 12, lineHeight: 17 },
   countPill: { borderRadius: 12, paddingHorizontal: 10, paddingVertical: 7 },
-  countText: { fontSize: 11, fontWeight: '900' },
+  countText: { fontSize: 11, fontWeight: '600' },
   claimAction: { minHeight: 44, alignItems: 'center', justifyContent: 'center' },
-  actionText: { fontSize: 14, fontWeight: '900' },
+  actionText: { fontSize: 14, fontWeight: '600' },
   confirmCard: { borderRadius: 16, padding: 14, gap: 6 },
-  confirmTitle: { fontSize: 14, fontWeight: '900' },
+  confirmTitle: { fontSize: 14, fontWeight: '600' },
   actions: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 5 },
   secondaryAction: { minHeight: 48, justifyContent: 'center', paddingHorizontal: 12 },
   primaryAction: { flex: 1 },

@@ -1,25 +1,32 @@
+import { HeaderAction } from '@/components/ui/header-action';
 import { useQuery } from '@tanstack/react-query';
 import { router } from 'expo-router';
-import { useState } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { FormField } from '@/components/auth/form-field';
-import { PrimaryButton } from '@/components/auth/primary-button';
 import { ExpenseRow } from '@/components/expense-row';
 import { GroupCard } from '@/components/group-card';
 import { QueryErrorCard } from '@/components/query-error-card';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
 import { searchOvezi } from '@/lib/search-api';
 import { useAuthStore } from '@/stores/auth-store';
 
 export default function SearchScreen() {
   const token = useAuthStore((state) => state.token)!;
   const user = useAuthStore((state) => state.user)!;
+  const theme = useTheme();
   const [queryInput, setQueryInput] = useState('');
   const [submittedQuery, setSubmittedQuery] = useState('');
+  useEffect(() => {
+    const normalized = queryInput.trim();
+    const timer = setTimeout(() => setSubmittedQuery(normalized.length >= 2 ? normalized : ''), 280);
+    return () => clearTimeout(timer);
+  }, [queryInput]);
   const query = useQuery({
     queryKey: ['search', submittedQuery],
     queryFn: () => searchOvezi(token, submittedQuery),
@@ -30,18 +37,13 @@ export default function SearchScreen() {
     + (results?.expenses.length ?? 0)
     + (results?.friends.length ?? 0);
 
-  function submit() {
-    const normalized = queryInput.trim();
-    if (normalized.length >= 2) setSubmittedQuery(normalized);
-  }
-
   return (
     <ThemedView style={styles.screen}>
       <SafeAreaView edges={['top']} style={styles.safeArea}>
         <View style={styles.header}>
-          <Pressable onPress={() => router.back()}>
+          <HeaderAction onPress={() => router.back()}>
             <ThemedText style={styles.back} themeColor="primary">‹ Back</ThemedText>
-          </Pressable>
+          </HeaderAction>
           <ThemedText style={styles.headerTitle}>Search</ThemedText>
           <View style={styles.headerSpacer} />
         </View>
@@ -57,20 +59,13 @@ export default function SearchScreen() {
                   autoFocus
                   label="Search Ovezi"
                   onChangeText={setQueryInput}
-                  onSubmitEditing={submit}
+                  onSubmitEditing={() => setSubmittedQuery(queryInput.trim())}
                   placeholder="Expenses, groups, or friends"
                   returnKeyType="search"
                   value={queryInput}
                 />
               </View>
-              <View style={styles.searchButton}>
-                <PrimaryButton
-                  disabled={queryInput.trim().length < 2}
-                  label="Search"
-                  loading={query.isFetching}
-                  onPress={submit}
-                />
-              </View>
+              {query.isFetching ? <ActivityIndicator color={theme.interactive} /> : null}
             </View>
 
             {query.error ? (
@@ -149,25 +144,24 @@ const styles = StyleSheet.create({
   screen: { flex: 1 },
   safeArea: { flex: 1 },
   flex: { flex: 1 },
-  header: { height: 60, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: Spacing.four },
-  back: { fontSize: 14, fontWeight: '800' },
-  headerTitle: { fontSize: 17, fontWeight: '800' },
+  header: { minHeight: 60, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: Spacing.four },
+  back: { fontSize: 14, fontWeight: '600' },
+  headerTitle: { fontSize: 17, fontWeight: '600' },
   headerSpacer: { width: 48 },
   content: { padding: Spacing.four, paddingBottom: 80, gap: 11, maxWidth: 720, width: '100%', alignSelf: 'center' },
   searchRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 10 },
   searchField: { flex: 1 },
-  searchButton: { width: 108 },
   tipCard: { borderRadius: 20, padding: 18, gap: 5, marginTop: 6 },
-  tipTitle: { fontSize: 17, lineHeight: 23, fontWeight: '900' },
+  tipTitle: { fontSize: 17, lineHeight: 23, fontWeight: '600' },
   copy: { fontSize: 13, lineHeight: 19 },
-  sectionTitle: { fontSize: 18, lineHeight: 25, fontWeight: '900', marginTop: 9 },
+  sectionTitle: { fontSize: 18, lineHeight: 25, fontWeight: '600', marginTop: 9 },
   friendRow: { minHeight: 72, borderRadius: 20, padding: 13, flexDirection: 'row', alignItems: 'center', gap: 11 },
   avatar: { width: 44, height: 44, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
-  initial: { fontSize: 18, fontWeight: '900' },
+  initial: { fontSize: 18, fontWeight: '600' },
   friendCopy: { flex: 1 },
-  friendName: { fontSize: 14, fontWeight: '900' },
+  friendName: { fontSize: 14, fontWeight: '600' },
   email: { fontSize: 12 },
   friendAction: { minHeight: 40, justifyContent: 'center', paddingHorizontal: 4 },
-  friendActionText: { fontSize: 12, fontWeight: '900' },
+  friendActionText: { fontSize: 12, fontWeight: '600' },
   emptyCard: { borderRadius: 20, padding: 20, gap: 5, marginTop: 12 },
 });

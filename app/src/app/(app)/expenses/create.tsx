@@ -1,8 +1,13 @@
+import { HeaderAction } from '@/components/ui/header-action';
+import { QueryErrorCard } from '@/components/query-error-card';
+import { ChoiceChip } from '@/components/ui/choice-chip';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
+import { useReducedMotion } from 'react-native-reanimated';
 import {
   KeyboardAvoidingView,
+  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -10,15 +15,18 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { FormField } from '@/components/auth/form-field';
 import { PrimaryButton } from '@/components/auth/primary-button';
 import { CurrencyPicker } from '@/components/currency-picker';
+import { NativeDateField } from '@/components/native-date-field';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { AnimatedPressable } from '@/components/ui/animated-pressable';
+import { PlatformMaterial } from '@/components/ui/platform-material';
 import { DEFAULT_CURRENCY_CODE } from '@/constants/currencies';
-import { Spacing } from '@/constants/theme';
+import { Radius, Spacing } from '@/constants/theme';
 import { ApiError, errorMessage } from '@/lib/api-client';
 import {
   createExpense,
@@ -30,6 +38,7 @@ import {
 import { currencyFractionDigits, formatMoney, minorAmountInput, parseDecimalToInteger } from '@/lib/format';
 import { fetchFriends } from '@/lib/friends-api';
 import { fetchGroup, fetchGroups } from '@/lib/groups-api';
+import { selectionHaptic, successHaptic } from '@/lib/haptics';
 import { useTheme } from '@/hooks/use-theme';
 import { createPlaceholder, fetchPlaceholders } from '@/lib/placeholders-api';
 import {
@@ -55,7 +64,7 @@ type ExpenseSubmissionInput = UpdateExpenseInput & {
 const splitOptions: { value: SplitType; label: string }[] = [
   { value: 'equal', label: 'Equal' },
   { value: 'exact', label: 'Exact' },
-  { value: 'percentage', label: '%' },
+  { value: 'percentage', label: 'Percent' },
   { value: 'shares', label: 'Shares' },
 ];
 
@@ -207,6 +216,12 @@ export default function CreateExpenseScreen() {
   const [formError, setFormError] = useState<string | null>(null);
   const [duplicateInput, setDuplicateInput] = useState<ExpenseSubmissionInput | null>(null);
   const [draftDecisionMade, setDraftDecisionMade] = useState(false);
+  const [showDetails, setShowDetails] = useState(false);
+  const [showDestinationPicker, setShowDestinationPicker] = useState(!hasInitialGroup && !hasInitialFriend && !isEditing);
+  const [destinationChosen, setDestinationChosen] = useState(hasInitialGroup || hasInitialFriend || isEditing);
+  const insets = useSafeAreaInsets();
+  const reduceMotion = useReducedMotion();
+  const [showSplitEditor, setShowSplitEditor] = useState(false);
   const initializedExpenseId = useRef<number | null>(null);
 
   const expenseQuery = useQuery({
@@ -240,7 +255,7 @@ export default function CreateExpenseScreen() {
   const friends = (friendsQuery.data ?? []).filter((item) => item.status === 'accepted');
   const selectedFriend = friends.find((item) => item.friend.id === selectedFriendId)?.friend;
   let defaultParticipants: ParticipantDraft[] = [];
-  if (destination === 'group') defaultParticipants = (group?.members ?? []).map(memberDraft);
+  if (destination === 'group') defaultParticipants = (group?.members ?? []).filter((member) => !member.user?.is_deleted).map(memberDraft);
   if (destination === 'direct' && (selectedPlaceholder || selectedFriend)) {
     defaultParticipants = [
       {
@@ -357,6 +372,13 @@ export default function CreateExpenseScreen() {
   }, [editingExpense, user.id]);
 
   useEffect(() => {
+    if (isEditing || !draftHydrated || savedDraft) return;
+    // A draft created during this visit must not become a "resume" prompt.
+    const timer = setTimeout(() => setDraftDecisionMade(true), 0);
+    return () => clearTimeout(timer);
+  }, [draftHydrated, isEditing, savedDraft]);
+
+  useEffect(() => {
     if (draftBelongsToAnotherUser) clearDraft();
   }, [clearDraft, draftBelongsToAnotherUser]);
 
@@ -382,6 +404,7 @@ export default function CreateExpenseScreen() {
       saveDraft({
         userId: user.id,
         destination,
+        destinationChosen,
         selectedGroupId,
         selectedPlaceholderId,
         selectedFriendId,
@@ -408,6 +431,7 @@ export default function CreateExpenseScreen() {
     clearDraft,
     description,
     destination,
+    destinationChosen,
     draftBelongsToAnotherUser,
     draftHydrated,
     draftRequiresDecision,
@@ -431,6 +455,8 @@ export default function CreateExpenseScreen() {
   function resumeDraft() {
     if (!savedDraft || savedDraft.userId !== user.id) return;
 
+    setDestinationChosen(savedDraft.destinationChosen ?? true);
+    setShowDestinationPicker(savedDraft.destinationChosen === false);
     setDestination(savedDraft.destination);
     setSelectedGroupId(savedDraft.selectedGroupId);
     setSelectedPlaceholderId(savedDraft.selectedPlaceholderId);
@@ -483,6 +509,7 @@ export default function CreateExpenseScreen() {
       return createExpense(token, input);
     },
     onSuccess: async (expense) => {
+      successHaptic();
       if (!isEditing) clearDraft();
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['expenses'] }),
@@ -508,6 +535,8 @@ export default function CreateExpenseScreen() {
   });
 
   function selectDestination(nextDestination: Destination, groupId: number | null = null) {
+    setDestinationChosen(true);
+    setShowDestinationPicker(false);
     setDestination(nextDestination);
     setSelectedGroupId(groupId);
     setSelectedPlaceholderId(null);
@@ -597,6 +626,7 @@ export default function CreateExpenseScreen() {
   }
 
   function submit() {
+    if (!destinationChosen) { setShowDestinationPicker(true); return setFormError('Choose who this expense is for.'); }
     setFormError(null);
     setDuplicateInput(null);
     const currencyCode = effectiveCurrency.trim().toUpperCase();
@@ -675,6 +705,14 @@ export default function CreateExpenseScreen() {
     });
   }
 
+  const contextError = expenseQuery.error ?? groupsQuery.error ?? groupQuery.error ?? placeholdersQuery.error ?? friendsQuery.error;
+  const requiredContextUnavailable = (isEditing && !editingExpense) || (destinationChosen && destination === 'group' && !group);
+  async function retryContext() {
+    await Promise.all([
+      ...(isEditing ? [expenseQuery.refetch()] : []), groupsQuery.refetch(),
+      ...(selectedGroupId && destination === 'group' ? [groupQuery.refetch()] : []), placeholdersQuery.refetch(), friendsQuery.refetch(),
+    ]);
+  }
   const visibleError = formError
     ?? (placeholderMutation.error ? errorMessage(placeholderMutation.error) : null)
     ?? (friendsQuery.error ? errorMessage(friendsQuery.error) : null)
@@ -684,9 +722,9 @@ export default function CreateExpenseScreen() {
     <ThemedView style={styles.screen}>
       <SafeAreaView edges={['top']} style={styles.safeArea}>
         <View style={styles.header}>
-          <Pressable onPress={() => router.back()}>
+          <HeaderAction accessibilityRole="button" style={styles.headerTouchTarget} onPress={() => router.back()}>
             <ThemedText style={styles.headerAction} themeColor="textSecondary">Cancel</ThemedText>
-          </Pressable>
+          </HeaderAction>
           <ThemedText style={styles.headerTitle}>{isEditing ? 'Edit expense' : 'Add expense'}</ThemedText>
           <View style={styles.headerSpacer} />
         </View>
@@ -697,12 +735,13 @@ export default function CreateExpenseScreen() {
             contentContainerStyle={styles.content}
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}>
+            {contextError ? <QueryErrorCard title="Expense details couldn’t load" error={contextError} onRetry={() => void retryContext()} retrying={groupsQuery.isFetching || groupQuery.isFetching || expenseQuery.isFetching || placeholdersQuery.isFetching || friendsQuery.isFetching} /> : null}
             {draftRequiresDecision && savedDraft ? (
               <ThemedView type="backgroundSelected" style={styles.draftCard}>
                 <View style={styles.draftCopy}>
                   <ThemedText style={styles.infoTitle}>Resume saved expense?</ThemedText>
                   <ThemedText style={styles.infoCopy} themeColor="textSecondary">
-                    Saved {new Date(savedDraft.savedAt).toLocaleString('en', {
+                    Saved {new Date(savedDraft.savedAt).toLocaleString(undefined, {
                       month: 'short',
                       day: 'numeric',
                       hour: 'numeric',
@@ -753,6 +792,41 @@ export default function CreateExpenseScreen() {
             {isEditing && expenseQuery.isLoading ? (
               <ThemedText themeColor="textSecondary">Loading expense…</ThemedText>
             ) : null}
+            <View style={styles.moneySection}>
+              <ThemedText style={styles.moneyLabel} themeColor="textSecondary">Amount</ThemedText>
+              <View style={styles.moneyInputWrap}>
+            <CurrencyPicker
+              compact
+              label="Currency"
+              onChange={(value) => {
+                setCurrencyTouched(true);
+                setCurrency(value);
+              }}
+              value={effectiveCurrency}
+            />
+                <TextInput
+                  accessibilityLabel="Expense amount"
+                  autoFocus={!isEditing}
+                  keyboardType="decimal-pad"
+                  onChangeText={setAmount}
+                  placeholder="0.00"
+                  placeholderTextColor={theme.textSecondary}
+                  selectionColor={theme.interactive}
+                  style={[styles.moneyInput, { color: theme.text }]}
+                  value={amount}
+                />
+              </View>
+            </View>
+            <FormField
+              autoCapitalize="sentences"
+              label="What was it for?"
+              style={[styles.descriptionInput, { borderColor: theme.controlBorder, backgroundColor: 'transparent' }]}
+              onChangeText={setDescription}
+              placeholder="Dinner, taxi, groceries…"
+              returnKeyType="done"
+              value={description}
+            />
+
             <SectionLabel label="Where" />
             {isEditing ? (
               <ThemedView type="backgroundSelected" style={styles.infoCard}>
@@ -766,18 +840,13 @@ export default function CreateExpenseScreen() {
                 </ThemedText>
               </ThemedView>
             ) : (
-              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                <View style={styles.chipRow}>
-                  <ChoiceChip
-                    active={destination === 'personal'}
-                    label="Just for me"
-                    onPress={() => selectDestination('personal')}
-                  />
-                  <ChoiceChip
-                    active={destination === 'direct'}
-                    label="1-on-1"
-                    onPress={() => selectDestination('direct')}
-                  />
+              <>
+              <AnimatedPressable accessibilityRole="button" accessibilityState={{ expanded: showDestinationPicker }} onPress={() => setShowDestinationPicker((value) => !value)} style={[styles.disclosure, { backgroundColor: theme.surface, borderWidth: 1, borderColor: theme.border }]}>
+                <ThemedText style={{ flex: 1 }}>{!destinationChosen ? 'Choose a group or person' : destination === 'group' ? group?.name ?? (groupQuery.isError ? 'Group unavailable' : 'Loading group…') : destination === 'direct' ? '1-on-1 expense' : 'Just for me'}</ThemedText>
+                <ThemedText themeColor="interactive">Change</ThemedText>
+              </AnimatedPressable>
+              {showDestinationPicker ? <View style={styles.chipWrap}>
+                <View style={styles.chipWrap}>
                   {(groupsQuery.data?.data ?? []).map((item) => (
                     <ChoiceChip
                       active={destination === 'group' && selectedGroupId === item.id}
@@ -786,96 +855,21 @@ export default function CreateExpenseScreen() {
                       onPress={() => selectDestination('group', item.id)}
                     />
                   ))}
-                </View>
-              </ScrollView>
-            )}
-
-            <FormField
-              autoCapitalize="sentences"
-              label="Description"
-              onChangeText={setDescription}
-              placeholder="Dinner, taxi, groceries…"
-              value={description}
-            />
-            <FormField
-              keyboardType="decimal-pad"
-              label="Amount"
-              onChangeText={setAmount}
-              placeholder="0.00"
-              value={amount}
-            />
-            <CurrencyPicker
-              label="Currency"
-              onChange={(value) => {
-                setCurrencyTouched(true);
-                setCurrency(value);
-              }}
-              value={effectiveCurrency}
-            />
-
-            <SectionLabel label="Category (optional)" />
-            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-              <View style={styles.chipRow}>
-                {categories.map((item) => (
+                  {friends.slice(0, 6).map(({ friend }) => <ChoiceChip key={`destination-friend:${friend.id}`} active={destinationChosen && destination === 'direct' && selectedFriendId === friend.id} label={friend.name} onPress={() => { selectDestination('direct'); selectFriend(friend.id); }} />)}
                   <ChoiceChip
-                    active={category === item}
-                    key={item}
-                    label={item}
-                    onPress={() => setCategory(category === item ? '' : item)}
+                    active={destinationChosen && destination === 'personal'}
+                    label="Just for me"
+                    onPress={() => selectDestination('personal')}
                   />
-                ))}
-              </View>
-            </ScrollView>
-
-            <FormField
-              autoCapitalize="none"
-              keyboardType="numbers-and-punctuation"
-              label="Date"
-              maxLength={10}
-              onChangeText={setOccurredOn}
-              placeholder="YYYY-MM-DD"
-              value={occurredOn}
-            />
-
-            {!isEditing ? (
-              <>
-                <SectionLabel label="Repeat" />
-                <View style={styles.segmentRow}>
                   <ChoiceChip
-                    active={recurrenceFrequency === null}
-                    label="One time"
-                    onPress={() => {
-                      setRecurrenceFrequency(null);
-                      setRecurrenceEndsOn('');
-                    }}
+                    active={destinationChosen && destination === 'direct'}
+                    label="1-on-1"
+                    onPress={() => selectDestination('direct')}
                   />
-                  {(['weekly', 'monthly', 'yearly'] as RecurrenceFrequency[]).map((frequency) => (
-                    <ChoiceChip
-                      active={recurrenceFrequency === frequency}
-                      key={frequency}
-                      label={frequency.charAt(0).toUpperCase() + frequency.slice(1)}
-                      onPress={() => setRecurrenceFrequency(frequency)}
-                    />
-                  ))}
                 </View>
-                {recurrenceFrequency ? (
-                  <>
-                    <FormField
-                      autoCapitalize="none"
-                      keyboardType="numbers-and-punctuation"
-                      label="Repeat until (optional)"
-                      maxLength={10}
-                      onChangeText={setRecurrenceEndsOn}
-                      placeholder="YYYY-MM-DD"
-                      value={recurrenceEndsOn}
-                    />
-                    <ThemedText style={styles.helper} themeColor="textSecondary">
-                      The first expense is saved now. Future expenses use the conversion rate available on their occurrence date.
-                    </ThemedText>
-                  </>
-                ) : null}
+              </View> : null}
               </>
-            ) : null}
+            )}
 
             {destination === 'direct' ? (
               <>
@@ -911,48 +905,103 @@ export default function CreateExpenseScreen() {
                     Add a friend from Profile, or create a placeholder for someone who does not have an account yet.
                   </ThemedText>
                 ) : null}
-                {showGuestForm ? (
-                  <ThemedView type="backgroundElement" style={styles.guestCard}>
-                    <ThemedText style={styles.infoTitle}>Add someone</ThemedText>
-                    <FormField
-                      autoCapitalize="words"
-                      label="Name"
-                      onChangeText={setGuestName}
-                      placeholder="Sarah"
-                      value={guestName}
-                    />
-                    <View style={styles.segmentRow}>
-                      <ChoiceChip
-                        active={guestContactType === 'email'}
-                        label="Email"
-                        onPress={() => setGuestContactType('email')}
-                      />
-                      <ChoiceChip
-                        active={guestContactType === 'phone'}
-                        label="Phone"
-                        onPress={() => setGuestContactType('phone')}
-                      />
-                    </View>
-                    <FormField
-                      autoCapitalize="none"
-                      keyboardType={guestContactType === 'email' ? 'email-address' : 'phone-pad'}
-                      label={guestContactType === 'email' ? 'Email address' : 'Phone number'}
-                      onChangeText={setGuestContactValue}
-                      placeholder={guestContactType === 'email' ? 'sarah@example.com' : '+960 700-0000'}
-                      value={guestContactValue}
-                    />
-                    <PrimaryButton
-                      label="Add person"
-                      loading={placeholderMutation.isPending}
-                      onPress={saveGuest}
-                    />
+                <Modal
+                  animationType={reduceMotion ? "none" : "slide"}
+                  onRequestClose={() => setShowGuestForm(false)}
+                  presentationStyle="pageSheet"
+                  visible={showGuestForm}>
+                  <ThemedView style={styles.guestModal}>
+                    <SafeAreaView style={styles.guestModalSafeArea}>
+                      <View style={styles.guestModalHeader}>
+                        <Pressable onPress={() => setShowGuestForm(false)} style={styles.headerTouchTarget}>
+                          <ThemedText themeColor="interactive">Cancel</ThemedText>
+                        </Pressable>
+                        <ThemedText style={styles.headerTitle}>Add someone</ThemedText>
+                        <View style={styles.headerSpacer} />
+                      </View>
+                      <ScrollView contentContainerStyle={styles.guestCard} keyboardShouldPersistTaps="handled">
+                        <ThemedText style={styles.infoCopy} themeColor="textSecondary">
+                          Add their contact so they can claim this expense history later.
+                        </ThemedText>
+                        <FormField
+                          autoCapitalize="words"
+                          autoFocus
+                          label="Name"
+                          onChangeText={setGuestName}
+                          placeholder="Sarah"
+                          value={guestName}
+                        />
+                        <View style={styles.segmentRow}>
+                          <ChoiceChip
+                            active={guestContactType === 'email'}
+                            label="Email"
+                            onPress={() => setGuestContactType('email')}
+                          />
+                          <ChoiceChip
+                            active={guestContactType === 'phone'}
+                            label="Phone"
+                            onPress={() => setGuestContactType('phone')}
+                          />
+                        </View>
+                        <FormField
+                          autoCapitalize="none"
+                          keyboardType={guestContactType === 'email' ? 'email-address' : 'phone-pad'}
+                          label={guestContactType === 'email' ? 'Email address' : 'Phone number'}
+                          onChangeText={setGuestContactValue}
+                          placeholder={guestContactType === 'email' ? 'sarah@example.com' : '+960 700-0000'}
+                          value={guestContactValue}
+                        />
+                        {placeholderMutation.error ? (
+                          <ThemedText accessibilityLiveRegion="polite" themeColor="danger">
+                            {errorMessage(placeholderMutation.error)}
+                          </ThemedText>
+                        ) : null}
+                        <PrimaryButton
+                          label="Add person"
+                          loading={placeholderMutation.isPending}
+                          onPress={saveGuest}
+                        />
+                      </ScrollView>
+                    </SafeAreaView>
                   </ThemedView>
-                ) : null}
+                </Modal>
               </>
             ) : null}
 
-            {destination !== 'personal' ? (
+            {destinationChosen && destination !== 'personal' ? (
               <>
+                <AnimatedPressable
+                  accessibilityRole="button"
+                  accessibilityState={{ expanded: showSplitEditor }}
+                  onPress={() => {
+                    selectionHaptic();
+                    setShowSplitEditor((current) => !current);
+                  }}
+                  style={[styles.splitSummary, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+                  <View style={styles.splitSummaryCopy}>
+                    <ThemedText style={styles.splitSummaryEyebrow} themeColor="textSecondary">
+                      Paid by
+                    </ThemedText>
+                    <ThemedText style={styles.splitSummaryValue}>{effectivePayerKey === `user:${user.id}` ? 'you' : payerName ?? 'Choose payer'}</ThemedText>
+                  </View>
+                  <View style={[styles.splitSummaryDivider, { backgroundColor: theme.border }]} />
+                  <View style={styles.splitSummaryCopy}>
+                    <ThemedText style={styles.splitSummaryEyebrow} themeColor="textSecondary">
+                      Split
+                    </ThemedText>
+                    <ThemedText style={styles.splitSummaryValue}>
+                      {splitType === 'equal' ? 'Equally' : splitOptions.find((option) => option.value === splitType)?.label} between {selectedParticipants.length} people
+                    </ThemedText>
+                  </View>
+                  <ThemedText style={styles.summaryChevron} themeColor="interactive">›</ThemedText>
+                </AnimatedPressable>
+
+                {splitType === 'equal' && previewAllocations.size > 0 ? <View style={{ gap: 4 }}>
+                  <ThemedText themeColor="textSecondary">{formatMoney(Math.min(...previewAllocations.values()), previewCurrency)}{Math.max(...previewAllocations.values()) !== Math.min(...previewAllocations.values()) ? `–${formatMoney(Math.max(...previewAllocations.values()), previewCurrency)}` : ''} per person</ThemedText>
+                </View> : null}
+
+                {showSplitEditor ? (
+                  <>
                 <SectionLabel label="Paid by" />
                 {destination === 'group' && groupQuery.isLoading ? (
                   <ThemedText themeColor="textSecondary">Loading members…</ThemedText>
@@ -992,6 +1041,8 @@ export default function CreateExpenseScreen() {
                       <View style={styles.participantRow}>
                         {destination === 'group' ? (
                           <Pressable
+                            accessibilityLabel={`Include ${participant.name}`}
+                            hitSlop={12}
                             accessibilityRole="checkbox"
                             accessibilityState={{ checked: participant.selected }}
                             onPress={() => toggleParticipant(participant.key)}
@@ -1018,6 +1069,7 @@ export default function CreateExpenseScreen() {
                         {participant.selected && splitType !== 'equal' ? (
                           <View style={styles.valueWrap}>
                             <TextInput
+                              accessibilityLabel={`${participant.name} ${splitType} split`}
                               keyboardType="decimal-pad"
                               onChangeText={(value) => updateParticipantValue(participant.key, value)}
                               placeholder={splitType === 'percentage' ? '0.00' : splitType === 'shares' ? '1' : '0.00'}
@@ -1043,7 +1095,93 @@ export default function CreateExpenseScreen() {
                     Any smallest-unit rounding remainder is assigned to {payerName}, the payer.
                   </ThemedText>
                 ) : null}
+                  </>
+                ) : null}
 
+              </>
+            ) : destinationChosen ? (
+              <ThemedView type="backgroundSelected" style={styles.infoCard}>
+                <ThemedText style={styles.infoTitle}>Personal tracking only</ThemedText>
+                <ThemedText style={styles.infoCopy} themeColor="textSecondary">
+                  This entry will not create a debt or affect any Ovezi balance.
+                </ThemedText>
+              </ThemedView>
+            ) : null}
+
+            <AnimatedPressable
+              accessibilityRole="button"
+              accessibilityState={{ expanded: showDetails }}
+              onPress={() => {
+                selectionHaptic();
+                setShowDetails((current) => !current);
+              }}
+              style={[styles.disclosure, { backgroundColor: theme.surfaceSubtle }]}>
+              <View>
+                <ThemedText style={styles.disclosureTitle}>More details</ThemedText>
+                <ThemedText style={styles.disclosureCopy} themeColor="textSecondary">
+                  {category || new Date(`${occurredOn}T12:00:00`).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} · {recurrenceFrequency ? `Repeats ${recurrenceFrequency}` : 'One time'}
+                </ThemedText>
+              </View>
+              <ThemedText style={styles.disclosureChevron} themeColor="interactive">
+                {showDetails ? '−' : '+'}
+              </ThemedText>
+            </AnimatedPressable>
+
+            {showDetails ? (
+              <>
+                <SectionLabel label="Category (optional)" />
+                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                  <View style={styles.chipRow}>
+                    {categories.map((item) => (
+                      <ChoiceChip
+                        active={category === item}
+                        key={item}
+                        label={item}
+                        onPress={() => setCategory(category === item ? '' : item)}
+                      />
+                    ))}
+                  </View>
+                </ScrollView>
+                <NativeDateField
+                  label="Date"
+                  onChange={setOccurredOn}
+                  value={occurredOn}
+                />
+                {!isEditing ? <SectionLabel label="Repeat" /> : null}
+                {!isEditing ? (
+                <View style={styles.segmentRow}>
+                  <ChoiceChip
+                    active={recurrenceFrequency === null}
+                    label="One time"
+                    onPress={() => {
+                      setRecurrenceFrequency(null);
+                      setRecurrenceEndsOn('');
+                    }}
+                  />
+                  {(['weekly', 'monthly', 'yearly'] as RecurrenceFrequency[]).map((frequency) => (
+                    <ChoiceChip
+                      active={recurrenceFrequency === frequency}
+                      key={frequency}
+                      label={frequency.charAt(0).toUpperCase() + frequency.slice(1)}
+                      onPress={() => setRecurrenceFrequency(frequency)}
+                    />
+                  ))}
+                </View>
+                ) : null}
+                {recurrenceFrequency ? (
+                  <>
+                    <NativeDateField
+                      label="Repeat until (optional)"
+                      minimumDate={new Date(occurredOn)}
+                      onChange={setRecurrenceEndsOn}
+                      optional
+                      value={recurrenceEndsOn}
+                    />
+                    <ThemedText style={styles.helper} themeColor="textSecondary">
+                      The first expense is saved now. Future expenses use the conversion rate available on their occurrence date.
+                    </ThemedText>
+                  </>
+                ) : null}
                 {rateNeeded ? (
                   <>
                     <FormField
@@ -1066,23 +1204,23 @@ export default function CreateExpenseScreen() {
                   </>
                 ) : null}
               </>
-            ) : (
-              <ThemedView type="backgroundSelected" style={styles.infoCard}>
-                <ThemedText style={styles.infoTitle}>Personal tracking only</ThemedText>
-                <ThemedText style={styles.infoCopy} themeColor="textSecondary">
-                  This entry will not create a debt or affect any Ovezi balance.
-                </ThemedText>
-              </ThemedView>
-            )}
+            ) : null}
 
-            {visibleError ? <ThemedText themeColor="danger">{visibleError}</ThemedText> : null}
+
+          </ScrollView>
+          <PlatformMaterial glassStyle="regular" style={[styles.bottomBar, { paddingBottom: Math.max(insets.bottom, 12) }]}>
+            {visibleError ? (
+              <ThemedText accessibilityLiveRegion="polite" style={styles.bottomError} themeColor="danger">
+                {visibleError}
+              </ThemedText>
+            ) : null}
             <PrimaryButton
-              disabled={(destination === 'group' && groupQuery.isLoading) || (isEditing && expenseQuery.isLoading)}
-              label={isEditing ? 'Save changes' : 'Save expense'}
+              disabled={requiredContextUnavailable || (destination === 'group' && groupQuery.isLoading) || (isEditing && expenseQuery.isLoading)}
+              label={isEditing ? 'Save changes' : 'Add expense'}
               loading={mutation.isPending}
               onPress={submit}
             />
-          </ScrollView>
+          </PlatformMaterial>
         </KeyboardAvoidingView>
       </SafeAreaView>
     </ThemedView>
@@ -1093,61 +1231,102 @@ function SectionLabel({ label }: { label: string }) {
   return <ThemedText style={styles.sectionLabel}>{label}</ThemedText>;
 }
 
-function ChoiceChip({ active, label, onPress }: { active: boolean; label: string; onPress: () => void }) {
-  const theme = useTheme();
-  return (
-    <Pressable
-      onPress={onPress}
-      style={[
-        styles.chip,
-        { backgroundColor: active ? theme.primary : theme.backgroundElement, borderColor: active ? theme.primary : theme.border },
-      ]}>
-      <ThemedText style={[styles.chipLabel, active && { color: theme.primaryText }]}>{label}</ThemedText>
-    </Pressable>
-  );
-}
-
 const styles = StyleSheet.create({
   screen: { flex: 1 },
   safeArea: { flex: 1 },
   flex: { flex: 1 },
   header: {
-    height: 60,
+    minHeight: 60,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: Spacing.four,
   },
-  headerAction: { fontSize: 14, fontWeight: '700' },
-  headerTitle: { fontSize: 17, lineHeight: 24, fontWeight: '800' },
+  headerAction: { fontSize: 14, fontWeight: '600' },
+  headerTitle: { fontSize: 17, lineHeight: 24, fontWeight: '600' },
   headerSpacer: { width: 48 },
-  content: { padding: Spacing.four, paddingBottom: 80, gap: 14 },
-  sectionLabel: { fontSize: 14, lineHeight: 20, fontWeight: '800', marginTop: 4 },
-  chipRow: { flexDirection: 'row', gap: 8, paddingRight: 8 },
+  headerTouchTarget: { minWidth: 48, minHeight: 48, justifyContent: 'center' },
+  content: { padding: Spacing.four, paddingBottom: 24, gap: 14 },
+  sectionLabel: { fontSize: 14, lineHeight: 20, fontWeight: '600', marginTop: 4 },
+  moneySection: { gap: 7 },
+  moneyLabel: { fontSize: 13, lineHeight: 18, fontWeight: '600' },
+  moneyInputWrap: {
+    minHeight: 82,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+  },
+  descriptionInput: { borderWidth: 0, borderBottomWidth: 1, borderRadius: 0, paddingHorizontal: 0, fontSize: 20, paddingVertical: 16 },
+  moneyCurrency: { fontSize: 15, lineHeight: 20, fontWeight: '600' },
+  moneyInput: { flex: 1, fontSize: 38, lineHeight: 48, minWidth: 0, fontVariant: ['tabular-nums'], fontWeight: '500', letterSpacing: -1.2 },
+  disclosure: {
+    minHeight: 64,
+    borderRadius: Radius.card,
+    paddingHorizontal: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  disclosureTitle: { fontSize: 14, lineHeight: 20, fontWeight: '600' },
+  disclosureCopy: { fontSize: 12, lineHeight: 17 },
+  disclosureChevron: { fontSize: 23, lineHeight: 27, fontWeight: '600' },
+  splitSummary: {
+    minHeight: 74,
+    borderWidth: 1,
+    borderRadius: Radius.card,
+    padding: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 13,
+  },
+  splitSummaryCopy: { flex: 1, gap: 2 },
+  splitSummaryEyebrow: { fontSize: 11, lineHeight: 15, fontWeight: '500' },
+  splitSummaryValue: { fontSize: 14, lineHeight: 20, fontWeight: '600' },
+  splitSummaryDivider: { width: StyleSheet.hairlineWidth, height: 36 },
+  summaryChevron: { fontSize: 25, lineHeight: 28 },
+  chipRow: { flexDirection: 'row', gap: 8, paddingEnd: 8 },
   chipWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   segmentRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  chip: { minHeight: 40, borderWidth: 1, borderRadius: 14, paddingHorizontal: 14, alignItems: 'center', justifyContent: 'center' },
-  chipLabel: { fontSize: 13, fontWeight: '800' },
-  participantCard: { borderRadius: 20, paddingHorizontal: 15 },
+  chip: { maxWidth: '100%', minHeight: 48, borderWidth: 1, borderRadius: Radius.pill, paddingHorizontal: 15, paddingVertical: 10, alignItems: 'center', justifyContent: 'center' },
+  chipLabel: { flexShrink: 1, fontSize: 13, fontWeight: '600' },
+  participantCard: { borderRadius: Radius.card, paddingHorizontal: 15 },
   participantRow: { minHeight: 64, flexDirection: 'row', alignItems: 'center', gap: 11 },
   participantCopy: { flex: 1, gap: 1 },
-  participantName: { fontSize: 14, fontWeight: '700' },
+  participantName: { fontSize: 14, fontWeight: '600' },
   previewAmount: { fontSize: 11, lineHeight: 15 },
   checkbox: { width: 24, height: 24, borderRadius: 8, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
-  check: { color: '#061A14', fontSize: 14, fontWeight: '900' },
+  check: { color: '#061A14', fontSize: 14, fontWeight: '600' },
   divider: { height: StyleSheet.hairlineWidth },
   valueWrap: { flexDirection: 'row', alignItems: 'center', gap: 5 },
-  valueInput: { width: 82, height: 40, borderWidth: 1, borderRadius: 12, paddingHorizontal: 10, textAlign: 'right' },
+  valueInput: { width: 82, minHeight: 48, borderWidth: 1, borderRadius: 12, paddingHorizontal: 10, textAlign: 'right' },
   infoCard: { borderRadius: 18, padding: 16, gap: 3 },
-  guestCard: { borderRadius: 20, padding: 16, gap: 14 },
-  infoTitle: { fontWeight: '800' },
+  guestModal: { flex: 1 },
+  guestModalSafeArea: { flex: 1 },
+  guestModalHeader: {
+    minHeight: 60,
+    paddingHorizontal: Spacing.four,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  guestCard: { padding: Spacing.four, paddingBottom: 80, gap: 14 },
+  infoTitle: { fontWeight: '600' },
   infoCopy: { fontSize: 13, lineHeight: 19 },
   helper: { fontSize: 13, lineHeight: 19 },
   draftCard: { borderRadius: 18, padding: 15, flexDirection: 'row', alignItems: 'center', gap: 12 },
   draftCopy: { flex: 1, gap: 2 },
   draftActions: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  draftAction: { minHeight: 40, justifyContent: 'center', paddingHorizontal: 9 },
+  draftAction: { minHeight: 48, justifyContent: 'center', paddingHorizontal: 9 },
   duplicateCard: { borderRadius: 18, padding: 15, gap: 12 },
   duplicateActions: { flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center', gap: 4 },
-  duplicateAction: { minHeight: 40, justifyContent: 'center', paddingHorizontal: 9 },
+  duplicateAction: { minHeight: 48, justifyContent: 'center', paddingHorizontal: 9 },
+  bottomBar: {
+    borderRadius: 0,
+    paddingHorizontal: Spacing.four,
+    paddingTop: 10,
+    paddingBottom: 12,
+    gap: 8,
+  },
+  bottomError: { fontSize: 12, lineHeight: 17, textAlign: 'center' },
 });

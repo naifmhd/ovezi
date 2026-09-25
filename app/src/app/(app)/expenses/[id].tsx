@@ -1,3 +1,6 @@
+import { HeaderAction } from '@/components/ui/header-action';
+import { Disclosure } from '@/components/ui/disclosure';
+import { useReducedMotion } from 'react-native-reanimated';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
@@ -179,9 +182,9 @@ export default function ExpenseDetailScreen() {
     <ThemedView style={styles.screen}>
       <SafeAreaView edges={['top']} style={styles.safeArea}>
         <View style={styles.header}>
-          <Pressable onPress={() => router.back()}>
+          <HeaderAction onPress={() => router.back()}>
             <ThemedText style={styles.headerAction} themeColor="primary">‹ Back</ThemedText>
-          </Pressable>
+          </HeaderAction>
           <ThemedText style={styles.headerTitle}>Expense</ThemedText>
           {expense && canManage && deletedAt === null ? (
             <Pressable
@@ -332,6 +335,7 @@ function ExpenseContent({
   receiptVersion: number;
   token: string;
 }) {
+  const reduceMotion = useReducedMotion();
   const ownSplit = expense.splits.find(
     (split) => (split.user_id ?? split.claimed_user_id) === currentUserId,
   );
@@ -348,7 +352,7 @@ function ExpenseContent({
     <>
       <ThemedView type="backgroundElement" style={styles.hero}>
         <ThemedText style={styles.eyebrow} themeColor="textSecondary">
-          {expense.category ? expense.category.replaceAll('_', ' ') : expense.expense_type}
+          {expense.category ? expense.category.split('_').join(' ') : expense.expense_type}
         </ThemedText>
         <ThemedText style={styles.description}>{expense.description}</ThemedText>
         <ThemedText style={styles.amount}>
@@ -361,76 +365,13 @@ function ExpenseContent({
         ) : null}
       </ThemedView>
 
-      {expense.receipt_url || canManage ? (
-        <>
-          <SectionTitle title="Receipt" />
-          <ThemedView type="backgroundElement" style={styles.receiptCard}>
-            {expense.receipt_url ? (
-              <Image
-                accessibilityLabel={`Receipt for ${expense.description}`}
-                cachePolicy="memory"
-                contentFit="contain"
-                source={{
-                  uri: `${expense.receipt_url}?v=${encodeURIComponent(`${expense.updated_at}-${receiptVersion}`)}`,
-                  headers: { Authorization: `Bearer ${token}` },
-                }}
-                style={styles.receiptImage}
-                transition={180}
-              />
-            ) : (
-              <View style={styles.receiptEmpty}>
-                <ThemedText style={styles.receiptEmptyTitle}>No receipt attached</ThemedText>
-                <ThemedText style={styles.receiptEmptyCopy} themeColor="textSecondary">
-                  Add a photo for your records. Ovezi won’t scan or process it.
-                </ThemedText>
-              </View>
-            )}
-            {canManage ? (
-              <View style={styles.receiptControls}>
-                {receiptError ? (
-                  <ThemedText style={styles.receiptError} themeColor="danger">{receiptError}</ThemedText>
-                ) : null}
-                <View style={styles.receiptActions}>
-                  <Pressable
-                    disabled={receiptUploading || receiptDeleting}
-                    onPress={() => onSelectReceipt('camera')}
-                    style={styles.receiptAction}>
-                    <ThemedText style={styles.receiptActionText} themeColor="primary">
-                      {receiptUploading ? 'Uploading…' : expense.receipt_url ? 'Retake photo' : 'Take photo'}
-                    </ThemedText>
-                  </Pressable>
-                  <Pressable
-                    disabled={receiptUploading || receiptDeleting}
-                    onPress={() => onSelectReceipt('library')}
-                    style={styles.receiptAction}>
-                    <ThemedText style={styles.receiptActionText} themeColor="primary">
-                      {expense.receipt_url ? 'Replace from photos' : 'Choose photo'}
-                    </ThemedText>
-                  </Pressable>
-                </View>
-                {expense.receipt_url ? (
-                  <Pressable
-                    disabled={receiptDeleting || receiptUploading}
-                    onPress={onDeleteReceipt}
-                    style={styles.receiptRemoveAction}>
-                    <ThemedText style={styles.receiptActionText} themeColor="danger">
-                      {receiptDeleting ? 'Removing…' : 'Remove receipt'}
-                    </ThemedText>
-                  </Pressable>
-                ) : null}
-              </View>
-            ) : null}
-          </ThemedView>
-        </>
-      ) : null}
-
       <SectionTitle title="Details" />
       <ThemedView type="backgroundElement" style={styles.detailCard}>
         <DetailRow label="Paid by" value={expense.payer.name ?? 'Unknown'} />
         <Divider />
         <DetailRow
           label="Date"
-          value={new Date(expense.occurred_at).toLocaleDateString('en', {
+          value={new Date(expense.occurred_at).toLocaleDateString(undefined, {
             year: 'numeric',
             month: 'long',
             day: 'numeric',
@@ -483,17 +424,18 @@ function ExpenseContent({
             <DetailRow
               label="Captured rate"
               value={expense.exchange_rate
-                ? `1 ${expense.currency_code} = ${Number(expense.exchange_rate).toLocaleString('en', { maximumFractionDigits: 12 })} ${expense.reporting_currency_code}`
+                ? `1 ${expense.currency_code} = ${Number(expense.exchange_rate).toLocaleString(undefined, { maximumFractionDigits: 12 })} ${expense.reporting_currency_code}`
                 : 'Same currency'}
             />
             <Divider />
+            <ThemedText themeColor="textSecondary">This is the rate saved with the expense. Later rate changes do not change this amount.</ThemedText>
             <DetailRow label="Rate source" value={rateSourceLabel(expense.exchange_rate_source)} />
             {expense.exchange_rate_effective_date ? (
               <>
                 <Divider />
                 <DetailRow
                   label="Rate date"
-                  value={new Date(`${expense.exchange_rate_effective_date}T00:00:00`).toLocaleDateString('en', {
+                  value={new Date(`${expense.exchange_rate_effective_date}T00:00:00`).toLocaleDateString(undefined, {
                     year: 'numeric',
                     month: 'short',
                     day: 'numeric',
@@ -514,6 +456,69 @@ function ExpenseContent({
           </ThemedText>
         </Pressable>
       ) : null}
+      {expense.receipt_url || canManage ? (
+        <Disclosure title={expense.receipt_url ? 'Receipt' : 'Add receipt'} initiallyOpen={Boolean(expense.receipt_url)}>
+          <ThemedView type="backgroundElement" style={styles.receiptCard}>
+            {expense.receipt_url ? (
+              <Image
+                accessibilityLabel={`Receipt for ${expense.description}`}
+                cachePolicy="memory"
+                contentFit="contain"
+                source={{
+                  uri: `${expense.receipt_url}?v=${encodeURIComponent(`${expense.updated_at}-${receiptVersion}`)}`,
+                  headers: { Authorization: `Bearer ${token}` },
+                }}
+                style={styles.receiptImage}
+                transition={reduceMotion ? 0 : 180}
+              />
+            ) : (
+              <View style={styles.receiptEmpty}>
+                <ThemedText style={styles.receiptEmptyTitle}>No receipt attached</ThemedText>
+                <ThemedText style={styles.receiptEmptyCopy} themeColor="textSecondary">
+                  Add a photo for your records. Ovezi won’t scan or process it.
+                </ThemedText>
+              </View>
+            )}
+            {canManage ? (
+              <View style={styles.receiptControls}>
+                {receiptError ? (
+                  <ThemedText style={styles.receiptError} themeColor="danger">{receiptError}</ThemedText>
+                ) : null}
+                <View style={styles.receiptActions}>
+                  <Pressable
+                    disabled={receiptUploading || receiptDeleting}
+                    onPress={() => onSelectReceipt('camera')}
+                    style={styles.receiptAction}>
+                    <ThemedText style={styles.receiptActionText} themeColor="primary">
+                      {receiptUploading ? 'Uploading…' : expense.receipt_url ? 'Retake photo' : 'Take photo'}
+                    </ThemedText>
+                  </Pressable>
+                  <Pressable
+                    disabled={receiptUploading || receiptDeleting}
+                    onPress={() => onSelectReceipt('library')}
+                    style={styles.receiptAction}>
+                    <ThemedText style={styles.receiptActionText} themeColor="primary">
+                      {expense.receipt_url ? 'Replace from photos' : 'Choose photo'}
+                    </ThemedText>
+                  </Pressable>
+                </View>
+                {expense.receipt_url ? (
+                  <Pressable
+                    disabled={receiptDeleting || receiptUploading}
+                    onPress={onDeleteReceipt}
+                    style={styles.receiptRemoveAction}>
+                    <ThemedText style={styles.receiptActionText} themeColor="danger">
+                      {receiptDeleting ? 'Removing…' : 'Remove receipt'}
+                    </ThemedText>
+                  </Pressable>
+                ) : null}
+              </View>
+            ) : null}
+          </ThemedView>
+        </Disclosure>
+      ) : null}
+
+
     </>
   );
 }
@@ -540,7 +545,7 @@ function rateSourceLabel(source: string) {
     provider: 'Default provider rate',
     same_currency: 'Same currency',
   };
-  return labels[source] ?? source.replaceAll('_', ' ');
+  return labels[source] ?? source.split('_').join(' ');
 }
 
 function SectionTitle({ title }: { title: string }) {
@@ -563,57 +568,57 @@ function Divider() {
 const styles = StyleSheet.create({
   screen: { flex: 1 },
   safeArea: { flex: 1 },
-  header: { height: 60, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: Spacing.four },
-  headerAction: { fontSize: 14, fontWeight: '800' },
-  headerTitle: { fontSize: 17, fontWeight: '800' },
+  header: { minHeight: 60, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: Spacing.four },
+  headerAction: { fontSize: 14, fontWeight: '600' },
+  headerTitle: { fontSize: 17, fontWeight: '600' },
   headerSpacer: { width: 48 },
   content: { padding: Spacing.four, paddingBottom: 80, gap: 12, maxWidth: 680, width: '100%', alignSelf: 'center' },
   centered: { textAlign: 'center', paddingVertical: 50 },
   recurringCard: { borderRadius: 20, padding: 16, flexDirection: 'row', alignItems: 'center', gap: 12 },
   recurringCopy: { flex: 1, gap: 2 },
-  recurringTitle: { fontSize: 14, fontWeight: '900' },
+  recurringTitle: { fontSize: 14, fontWeight: '600' },
   recurringText: { fontSize: 12, lineHeight: 18 },
   recurringChevron: { fontSize: 25, fontWeight: '600' },
   hero: { borderRadius: 24, padding: 22, alignItems: 'center', gap: 4 },
-  eyebrow: { fontSize: 12, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.8 },
-  description: { fontSize: 20, lineHeight: 28, fontWeight: '800', textAlign: 'center' },
-  amount: { fontSize: 36, lineHeight: 44, fontWeight: '900', marginVertical: 4 },
+  eyebrow: { fontSize: 12, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.8 },
+  description: { fontSize: 20, lineHeight: 28, fontWeight: '600', textAlign: 'center' },
+  amount: { fontSize: 36, lineHeight: 44, fontWeight: '600', marginVertical: 4 },
   impactPill: { borderRadius: 14, paddingHorizontal: 13, paddingVertical: 8, marginTop: 4 },
-  impactText: { fontSize: 13, fontWeight: '800' },
+  impactText: { fontSize: 13, fontWeight: '600' },
   receiptCard: { borderRadius: 20, overflow: 'hidden' },
   receiptImage: { width: '100%', aspectRatio: 4 / 3 },
   receiptEmpty: { minHeight: 146, alignItems: 'center', justifyContent: 'center', gap: 5, padding: 20 },
-  receiptEmptyTitle: { fontSize: 15, fontWeight: '800' },
+  receiptEmptyTitle: { fontSize: 15, fontWeight: '600' },
   receiptEmptyCopy: { fontSize: 13, lineHeight: 18, textAlign: 'center' },
   receiptControls: { padding: 10, gap: 4 },
   receiptActions: { flexDirection: 'row', gap: 8 },
   receiptAction: { flex: 1, minHeight: 48, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 6 },
   receiptRemoveAction: { minHeight: 44, alignItems: 'center', justifyContent: 'center' },
-  receiptActionText: { fontSize: 14, fontWeight: '800' },
+  receiptActionText: { fontSize: 14, fontWeight: '600' },
   receiptError: { fontSize: 13, lineHeight: 18, textAlign: 'center', padding: 6 },
-  sectionTitle: { fontSize: 17, lineHeight: 24, fontWeight: '800', marginTop: 10 },
+  sectionTitle: { fontSize: 17, lineHeight: 24, fontWeight: '600', marginTop: 10 },
   detailCard: { borderRadius: 20, paddingHorizontal: 16 },
   detailRow: { minHeight: 58, flexDirection: 'row', alignItems: 'center', gap: 16 },
   detailLabel: { fontSize: 13, flex: 1 },
-  detailValue: { fontSize: 13, fontWeight: '700', textAlign: 'right', flex: 2 },
+  detailValue: { fontSize: 13, fontWeight: '600', textAlign: 'right', flex: 2 },
   divider: { height: StyleSheet.hairlineWidth, backgroundColor: '#7A8498', opacity: 0.3 },
   splitRow: { minHeight: 64, flexDirection: 'row', alignItems: 'center', gap: 12 },
   splitCopy: { flex: 1, gap: 2 },
-  splitName: { fontSize: 14, fontWeight: '800' },
+  splitName: { fontSize: 14, fontWeight: '600' },
   splitValue: { fontSize: 12 },
-  splitAmount: { fontSize: 14, fontWeight: '800' },
+  splitAmount: { fontSize: 14, fontWeight: '600' },
   groupLink: { minHeight: 48, alignItems: 'center', justifyContent: 'center', marginTop: 6 },
-  groupLinkText: { fontSize: 14, fontWeight: '800' },
+  groupLinkText: { fontSize: 14, fontWeight: '600' },
   deleteButton: { minHeight: 48, alignItems: 'center', justifyContent: 'center', marginTop: 10 },
-  deleteText: { fontSize: 14, fontWeight: '800' },
+  deleteText: { fontSize: 14, fontWeight: '600' },
   confirmCard: { borderRadius: 20, padding: 18, gap: 8, marginTop: 8 },
-  confirmTitle: { fontSize: 17, lineHeight: 23, fontWeight: '800' },
+  confirmTitle: { fontSize: 17, lineHeight: 23, fontWeight: '600' },
   confirmActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 12, marginTop: 6 },
   confirmButton: { minHeight: 42, justifyContent: 'center', paddingHorizontal: 12 },
-  confirmAction: { fontSize: 14, fontWeight: '800' },
+  confirmAction: { fontSize: 14, fontWeight: '600' },
   deletedCard: { borderRadius: 24, padding: 22, gap: 9, marginTop: 20 },
-  deletedTitle: { fontSize: 21, lineHeight: 28, fontWeight: '900' },
+  deletedTitle: { fontSize: 21, lineHeight: 28, fontWeight: '600' },
   deletedCopy: { fontSize: 14, lineHeight: 20 },
   undoButton: { minHeight: 48, alignItems: 'center', justifyContent: 'center', marginTop: 5 },
-  undoText: { fontSize: 15, fontWeight: '900' },
+  undoText: { fontSize: 15, fontWeight: '600' },
 });

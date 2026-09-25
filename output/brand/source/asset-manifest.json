@@ -1,0 +1,648 @@
+[
+  {
+    "file": "output/brand/source/symbol-navy.svg",
+    "purpose": "Master editable ribbon symbol",
+    "width": 100,
+    "height": 100,
+    "format": "svg",
+    "transparency": "Transparent outside artwork",
+    "usedBy": [
+      "Editable master source; output/brand/source/generate.cjs"
+    ]
+  },
+  {
+    "file": "output/brand/source/wordmark-horizontal-navy.svg",
+    "purpose": "Editable wordmark; text remains editable (Arial)",
+    "width": 250,
+    "height": 72,
+    "format": "svg",
+    "transparency": "Transparent outside artwork",
+    "usedBy": [
+      "Editable master source; output/brand/source/generate.cjs"
+    ]
+  },
+  {
+    "file": "output/brand/source/wordmark-stacked-navy.svg",
+    "purpose": "Editable wordmark; text remains editable (Arial)",
+    "width": 250,
+    "height": 180,
+    "format": "svg",
+    "transparency": "Transparent outside artwork",
+    "usedBy": [
+      "Editable master source; output/brand/source/generate.cjs"
+    ]
+  },
+  {
+    "file": "output/brand/source/symbol-mint.svg",
+    "purpose": "Master editable ribbon symbol",
+    "width": 100,
+    "height": 100,
+    "format": "svg",
+    "transparency": "Transparent outside artwork",
+    "usedBy": [
+      "Editable master source; output/brand/source/generate.cjs"
+    ]
+  },
+  {
+    "file": "output/brand/source/wordmark-horizontal-mint.svg",
+    "purpose": "Editable wordmark; text remains editable (Arial)",
+    "width": 250,
+    "height": 72,
+    "format": "svg",
+    "transparency": "Transparent outside artwork",
+    "usedBy": [
+      "Editable master source; output/brand/source/generate.cjs"
+    ]
+  },
+  {
+    "file": "output/brand/source/wordmark-stacked-mint.svg",
+    "purpose": "Editable wordmark; text remains editable (Arial)",
+    "width": 250,
+    "height": 180,
+    "format": "svg",
+    "transparency": "Transparent outside artwork",
+    "usedBy": [
+      "Editable master source; output/brand/source/generate.cjs"
+    ]
+  },
+  {
+    "file": "output/brand/source/symbol-black.svg",
+    "purpose": "Master editable ribbon symbol",
+    "width": 100,
+    "height": 100,
+    "format": "svg",
+    "transparency": "Transparent outside artwork",
+    "usedBy": [
+      "Editable master source; output/brand/source/generate.cjs"
+    ]
+  },
+  {
+    "file": "output/brand/source/wordmark-horizontal-black.svg",
+    "purpose": "Editable wordmark; text remains editable (Arial)",
+    "width": 250,
+    "height": 72,
+    "format": "svg",
+    "transparency": "Transparent outside artwork",
+    "usedBy": [
+      "Editable master source; output/brand/source/generate.cjs"
+    ]
+  },
+  {
+    "file": "output/brand/source/wordmark-stacked-black.svg",
+    "purpose": "Editable wordmark; text remains editable (Arial)",
+    "width": 250,
+    "height": 180,
+    "format": "svg",
+    "transparency": "Transparent outside artwork",
+    "usedBy": [
+      "Editable master source; output/brand/source/generate.cjs"
+    ]
+  },
+  {
+    "file": "output/brand/source/symbol-reversed.svg",
+    "purpose": "Master editable ribbon symbol",
+    "width": 100,
+    "height": 100,
+    "format": "svg",
+    "transparency": "Transparent outside artwork",
+    "usedBy": [
+      "Editable master source; output/brand/source/generate.cjs"
+    ]
+  },
+  {
+    "file": "output/brand/source/wordmark-horizontal-reversed.svg",
+    "purpose": "Editable wordmark; text remains editable (Arial)",
+    "width": 250,
+    "height": 72,
+    "format": "svg",
+    "transparency": "Transparent outside artwork",
+    "usedBy": [
+      "Editable master source; output/brand/source/generate.cjs"
+    ]
+  },
+  {
+    "file": "output/brand/source/wordmark-stacked-reversed.svg",
+    "purpose": "Editable wordmark; text remains editable (Arial)",
+    "width": 250,
+    "height": 180,
+    "format": "svg",
+    "transparency": "Transparent outside artwork",
+    "usedBy": [
+      "Editable master source; output/brand/source/generate.cjs"
+    ]
+  },
+  {
+    "file": "output/brand/source/wordmark-horizontal-color-light.svg",
+    "purpose": "Full-color editable wordmark for specified background",
+    "width": 250,
+    "height": 72,
+    "format": "svg",
+    "transparency": "Transparent outside artwork",
+    "usedBy": [
+      "Editable master source; output/brand/source/generate.cjs"
+    ]
+  },
+  {
+    "file": "output/brand/source/wordmark-stacked-color-light.svg",
+    "purpose": "Full-color editable wordmark for specified background",
+    "width": 250,
+    "height": 180,
+    "format": "svg",
+    "transparency": "Transparent outside artwork",
+    "usedBy": [
+      "Editable master source; output/brand/source/generate.cjs"
+    ]
+  },
+  {
+    "file": "output/brand/source/wordmark-horizontal-color-dark.svg",
+    "purpose": "Full-color editable wordmark for specified background",
+    "width": 250,
+    "height": 72,
+    "format": "svg",
+    "transparency": "Transparent outside artwork",
+    "usedBy": [
+      "Editable master source; output/brand/source/generate.cjs"
+    ]
+  },
+  {
+    "file": "output/brand/source/wordmark-stacked-color-dark.svg",
+    "purpose": "Full-color editable wordmark for specified background",
+    "width": 250,
+    "height": 180,
+    "format": "svg",
+    "transparency": "Transparent outside artwork",
+    "usedBy": [
+      "Editable master source; output/brand/source/generate.cjs"
+    ]
+  },
+  {
+    "file": "output/brand/source/icon-light.svg",
+    "purpose": "Editable soft-depth icon tile; system supplies mask",
+    "width": 1024,
+    "height": 1024,
+    "format": "svg",
+    "transparency": "Opaque; no alpha channel",
+    "usedBy": [
+      "Editable master source; output/brand/source/generate.cjs"
+    ]
+  },
+  {
+    "file": "app/assets/images/icon-light.png",
+    "purpose": "iOS light icon",
+    "width": 1024,
+    "height": 1024,
+    "format": "png",
+    "transparency": "Opaque; no alpha channel",
+    "usedBy": [
+      "app/app.json"
+    ]
+  },
+  {
+    "file": "output/brand/source/icon-dark.svg",
+    "purpose": "Editable soft-depth icon tile; system supplies mask",
+    "width": 1024,
+    "height": 1024,
+    "format": "svg",
+    "transparency": "Opaque; no alpha channel",
+    "usedBy": [
+      "Editable master source; output/brand/source/generate.cjs"
+    ]
+  },
+  {
+    "file": "app/assets/images/icon-dark.png",
+    "purpose": "iOS dark icon",
+    "width": 1024,
+    "height": 1024,
+    "format": "png",
+    "transparency": "Opaque; no alpha channel",
+    "usedBy": [
+      "app/app.json"
+    ]
+  },
+  {
+    "file": "output/brand/source/icon-tinted.svg",
+    "purpose": "Editable soft-depth icon tile; system supplies mask",
+    "width": 1024,
+    "height": 1024,
+    "format": "svg",
+    "transparency": "Opaque; no alpha channel",
+    "usedBy": [
+      "Editable master source; output/brand/source/generate.cjs"
+    ]
+  },
+  {
+    "file": "app/assets/images/icon-tinted.png",
+    "purpose": "iOS tinted icon",
+    "width": 1024,
+    "height": 1024,
+    "format": "png",
+    "transparency": "Opaque; no alpha channel",
+    "usedBy": [
+      "app/app.json"
+    ]
+  },
+  {
+    "file": "app/assets/images/logo-mark-navy.png",
+    "purpose": "In-app mark for authentication and onboarding",
+    "width": 300,
+    "height": 300,
+    "format": "png",
+    "transparency": "Transparent outside artwork",
+    "usedBy": [
+      "app/src/components/brand-mark.tsx"
+    ]
+  },
+  {
+    "file": "app/assets/images/logo-mark-mint.png",
+    "purpose": "In-app mark for authentication and onboarding",
+    "width": 300,
+    "height": 300,
+    "format": "png",
+    "transparency": "Transparent outside artwork",
+    "usedBy": [
+      "app/src/components/brand-mark.tsx"
+    ]
+  },
+  {
+    "file": "app/assets/images/splash-icon.png",
+    "purpose": "Light splash mark",
+    "width": 300,
+    "height": 300,
+    "format": "png",
+    "transparency": "Transparent outside artwork",
+    "usedBy": [
+      "app/app.json"
+    ]
+  },
+  {
+    "file": "app/assets/images/splash-icon-dark.png",
+    "purpose": "Dark splash mark",
+    "width": 300,
+    "height": 300,
+    "format": "png",
+    "transparency": "Transparent outside artwork",
+    "usedBy": [
+      "app/app.json"
+    ]
+  },
+  {
+    "file": "output/brand/source/android-foreground.svg",
+    "purpose": "Android adaptive layer; mark fits 66/108 safe zone",
+    "width": 1024,
+    "height": 1024,
+    "format": "svg",
+    "transparency": "Transparent outside artwork",
+    "usedBy": [
+      "Editable master source; output/brand/source/generate.cjs"
+    ]
+  },
+  {
+    "file": "app/assets/images/android-icon-foreground.png",
+    "purpose": "Android adaptive icon layer",
+    "width": 1024,
+    "height": 1024,
+    "format": "png",
+    "transparency": "Transparent outside artwork",
+    "usedBy": [
+      "app/app.json"
+    ]
+  },
+  {
+    "file": "output/brand/source/android-monochrome.svg",
+    "purpose": "Android adaptive layer; mark fits 66/108 safe zone",
+    "width": 1024,
+    "height": 1024,
+    "format": "svg",
+    "transparency": "Transparent outside artwork",
+    "usedBy": [
+      "Editable master source; output/brand/source/generate.cjs"
+    ]
+  },
+  {
+    "file": "app/assets/images/android-icon-monochrome.png",
+    "purpose": "Android adaptive icon layer",
+    "width": 1024,
+    "height": 1024,
+    "format": "png",
+    "transparency": "Transparent outside artwork",
+    "usedBy": [
+      "app/app.json"
+    ]
+  },
+  {
+    "file": "output/brand/source/android-background.svg",
+    "purpose": "Android adaptive background",
+    "width": 1024,
+    "height": 1024,
+    "format": "svg",
+    "transparency": "Opaque; no alpha channel",
+    "usedBy": [
+      "Editable master source; output/brand/source/generate.cjs"
+    ]
+  },
+  {
+    "file": "output/brand/google-play-icon.png",
+    "purpose": "Google Play listing icon, system mask",
+    "width": 512,
+    "height": 512,
+    "format": "png",
+    "transparency": "32-bit RGBA PNG; fully opaque artwork",
+    "usedBy": [
+      "External store or campaign placement"
+    ]
+  },
+  {
+    "file": "output/brand/app-store-icon.png",
+    "purpose": "Official dark App Store icon",
+    "width": 1024,
+    "height": 1024,
+    "format": "png",
+    "transparency": "Opaque; no alpha channel",
+    "usedBy": [
+      "External store or campaign placement"
+    ]
+  },
+  {
+    "file": "api/public/favicon.svg",
+    "purpose": "Public-page favicon",
+    "width": 100,
+    "height": 100,
+    "format": "svg",
+    "transparency": "Transparent outside artwork",
+    "usedBy": [
+      "api/resources/views/layouts/public.blade.php",
+      "api/public/site.webmanifest"
+    ]
+  },
+  {
+    "file": "api/public/favicon-32.png",
+    "purpose": "Public page / manifest icon",
+    "width": 32,
+    "height": 32,
+    "format": "png",
+    "transparency": "Opaque; no alpha channel",
+    "usedBy": [
+      "api/resources/views/layouts/public.blade.php",
+      "api/public/site.webmanifest"
+    ]
+  },
+  {
+    "file": "api/public/apple-touch-icon.png",
+    "purpose": "Public page / manifest icon",
+    "width": 180,
+    "height": 180,
+    "format": "png",
+    "transparency": "Opaque; no alpha channel",
+    "usedBy": [
+      "api/resources/views/layouts/public.blade.php",
+      "api/public/site.webmanifest"
+    ]
+  },
+  {
+    "file": "api/public/icon-192.png",
+    "purpose": "Public page / manifest icon",
+    "width": 192,
+    "height": 192,
+    "format": "png",
+    "transparency": "Opaque; no alpha channel",
+    "usedBy": [
+      "api/resources/views/layouts/public.blade.php",
+      "api/public/site.webmanifest"
+    ]
+  },
+  {
+    "file": "api/public/icon-512.png",
+    "purpose": "Public page / manifest icon",
+    "width": 512,
+    "height": 512,
+    "format": "png",
+    "transparency": "Opaque; no alpha channel",
+    "usedBy": [
+      "api/resources/views/layouts/public.blade.php",
+      "api/public/site.webmanifest"
+    ]
+  },
+  {
+    "file": "app/assets/images/favicon.png",
+    "purpose": "Expo web favicon",
+    "width": 48,
+    "height": 48,
+    "format": "png",
+    "transparency": "Opaque; no alpha channel",
+    "usedBy": [
+      "app/app.json"
+    ]
+  },
+  {
+    "file": "api/public/favicon.ico",
+    "purpose": "Legacy favicon",
+    "width": "16,32,48",
+    "height": "16,32,48",
+    "format": "ico",
+    "transparency": "Transparent",
+    "usedBy": [
+      "api/resources/views/layouts/public.blade.php",
+      "api/public/site.webmanifest"
+    ]
+  },
+  {
+    "file": "api/public/brand/wordmark.png",
+    "purpose": "Transactional email header (rendered at 125 × 36)",
+    "width": 500,
+    "height": 144,
+    "format": "png",
+    "transparency": "Transparent outside artwork",
+    "usedBy": [
+      "api/resources/views/vendor/mail/html/header.blade.php",
+      "api/resources/views/exports/group-history.blade.php"
+    ]
+  },
+  {
+    "file": "output/brand/social-preview.svg",
+    "purpose": "Editable promotional artwork; no store badge or availability claim",
+    "width": 1200,
+    "height": 630,
+    "format": "svg",
+    "transparency": "Opaque; no alpha channel",
+    "usedBy": [
+      "External store or campaign placement"
+    ]
+  },
+  {
+    "file": "output/brand/social-preview.png",
+    "purpose": "Promotional artwork; not a UI screenshot",
+    "width": 1200,
+    "height": 630,
+    "format": "png",
+    "transparency": "Opaque; no alpha channel",
+    "usedBy": [
+      "External store or campaign placement"
+    ]
+  },
+  {
+    "file": "api/public/brand/social-preview.png",
+    "purpose": "Open Graph and Twitter sharing image",
+    "width": 1200,
+    "height": 630,
+    "format": "png",
+    "transparency": "Opaque; no alpha channel",
+    "usedBy": [
+      "api/resources/views/layouts/public.blade.php",
+      "api/public/site.webmanifest"
+    ]
+  },
+  {
+    "file": "output/brand/google-play-feature.svg",
+    "purpose": "Editable promotional artwork; no store badge or availability claim",
+    "width": 1024,
+    "height": 500,
+    "format": "svg",
+    "transparency": "Opaque; no alpha channel",
+    "usedBy": [
+      "External store or campaign placement"
+    ]
+  },
+  {
+    "file": "output/brand/google-play-feature.png",
+    "purpose": "Promotional artwork; not a UI screenshot",
+    "width": 1024,
+    "height": 500,
+    "format": "png",
+    "transparency": "Opaque; no alpha channel",
+    "usedBy": [
+      "External store or campaign placement"
+    ]
+  },
+  {
+    "file": "output/brand/campaign-square.svg",
+    "purpose": "Editable promotional artwork; no store badge or availability claim",
+    "width": 1080,
+    "height": 1080,
+    "format": "svg",
+    "transparency": "Opaque; no alpha channel",
+    "usedBy": [
+      "External store or campaign placement"
+    ]
+  },
+  {
+    "file": "output/brand/campaign-square.png",
+    "purpose": "Promotional artwork; not a UI screenshot",
+    "width": 1080,
+    "height": 1080,
+    "format": "png",
+    "transparency": "Opaque; no alpha channel",
+    "usedBy": [
+      "External store or campaign placement"
+    ]
+  },
+  {
+    "file": "output/brand/campaign-story.svg",
+    "purpose": "Editable promotional artwork; no store badge or availability claim",
+    "width": 1080,
+    "height": 1920,
+    "format": "svg",
+    "transparency": "Opaque; no alpha channel",
+    "usedBy": [
+      "External store or campaign placement"
+    ]
+  },
+  {
+    "file": "output/brand/campaign-story.png",
+    "purpose": "Promotional artwork; not a UI screenshot",
+    "width": 1080,
+    "height": 1920,
+    "format": "png",
+    "transparency": "Opaque; no alpha channel",
+    "usedBy": [
+      "External store or campaign placement"
+    ]
+  },
+  {
+    "file": "output/brand/campaign-landscape.svg",
+    "purpose": "Editable promotional artwork; no store badge or availability claim",
+    "width": 1200,
+    "height": 628,
+    "format": "svg",
+    "transparency": "Opaque; no alpha channel",
+    "usedBy": [
+      "External store or campaign placement"
+    ]
+  },
+  {
+    "file": "output/brand/campaign-landscape.png",
+    "purpose": "Promotional artwork; not a UI screenshot",
+    "width": 1200,
+    "height": 628,
+    "format": "png",
+    "transparency": "Opaque; no alpha channel",
+    "usedBy": [
+      "External store or campaign placement"
+    ]
+  },
+  {
+    "file": "output/brand/campaign-medium-rectangle.svg",
+    "purpose": "Editable promotional artwork; no store badge or availability claim",
+    "width": 300,
+    "height": 250,
+    "format": "svg",
+    "transparency": "Opaque; no alpha channel",
+    "usedBy": [
+      "External store or campaign placement"
+    ]
+  },
+  {
+    "file": "output/brand/campaign-medium-rectangle.png",
+    "purpose": "Promotional artwork; not a UI screenshot",
+    "width": 300,
+    "height": 250,
+    "format": "png",
+    "transparency": "Opaque; no alpha channel",
+    "usedBy": [
+      "External store or campaign placement"
+    ]
+  },
+  {
+    "file": "output/brand/campaign-mobile-banner.svg",
+    "purpose": "Editable promotional artwork; no store badge or availability claim",
+    "width": 320,
+    "height": 100,
+    "format": "svg",
+    "transparency": "Opaque; no alpha channel",
+    "usedBy": [
+      "External store or campaign placement"
+    ]
+  },
+  {
+    "file": "output/brand/campaign-mobile-banner.png",
+    "purpose": "Promotional artwork; not a UI screenshot",
+    "width": 320,
+    "height": 100,
+    "format": "png",
+    "transparency": "Opaque; no alpha channel",
+    "usedBy": [
+      "External store or campaign placement"
+    ]
+  },
+  {
+    "file": "output/brand/icon-small-size-check.png",
+    "purpose": "Actual display size checks",
+    "width": 480,
+    "height": 180,
+    "format": "png",
+    "transparency": "Opaque; no alpha channel",
+    "usedBy": [
+      "External store or campaign placement"
+    ]
+  },
+  {
+    "file": "app/assets/images/notification-icon.png",
+    "purpose": "Android notification silhouette",
+    "width": 96,
+    "height": 96,
+    "format": "png",
+    "transparency": "Transparent outside white artwork",
+    "usedBy": [
+      "app/app.json → expo-notifications"
+    ]
+  }
+]

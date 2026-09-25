@@ -13,5 +13,6 @@ class VerifiedSocialIdentity
         public readonly bool $emailVerified,
         public readonly ?string $name,
         public readonly ?string $avatarUrl,
+        public readonly ?int $issuedAt = null,
     ) {}
 }

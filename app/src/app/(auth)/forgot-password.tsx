@@ -48,4 +48,4 @@ export default function ForgotPasswordScreen() {
   );
 }
 
-const styles = StyleSheet.create({ link: { fontWeight: '800' } });
+const styles = StyleSheet.create({ link: { fontWeight: '600' } });

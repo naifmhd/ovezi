@@ -2,6 +2,7 @@
 
 use App\ExpenseType;
 use App\Jobs\SendSettlementReceivedPushNotification;
+use App\Models\ActivityLog;
 use App\Models\Currency;
 use App\Models\Expense;
 use App\Models\ExpenseSplit;
@@ -9,6 +10,7 @@ use App\Models\Group;
 use App\Models\GroupMember;
 use App\Models\User;
 use Illuminate\Support\Facades\Queue;
+use Illuminate\Support\Str;
 
 /** @return array{currency: Currency, group: Group, creditor: User, debtor: User} */
 function settlementTestScenario(array $groupAttributes = []): array
@@ -143,4 +145,17 @@ it('validates distinct sender and recipient participants', function () {
         ])
         ->assertUnprocessable()
         ->assertJsonValidationErrors('to_user_id');
+});
+
+it('replays a lost settlement response without repeating balances activity or notifications', function () {
+    ['currency' => $currency, 'group' => $group, 'creditor' => $creditor, 'debtor' => $debtor] = settlementTestScenario();
+    Queue::fake([SendSettlementReceivedPushNotification::class]);
+    $input = ['from_user_id' => $debtor->id, 'to_user_id' => $creditor->id, 'amount_minor' => 300,
+        'currency_code' => $currency->code, 'reporting_currency_code' => $currency->code, 'occurred_at' => now()->toISOString()];
+    $this->withToken($debtor->createToken('phone')->plainTextToken)->withHeader('Idempotency-Key', (string) Str::uuid());
+    $first = $this->postJson("/api/v1/groups/{$group->id}/settlements", $input)->assertCreated();
+    $this->postJson("/api/v1/groups/{$group->id}/settlements", $input)->assertCreated()->assertHeader('Idempotency-Replayed', 'true')->assertExactJson($first->json());
+    $this->assertDatabaseCount('settlements', 1);
+    expect(ActivityLog::query()->where('event', 'settlement.created')->count())->toBe(1);
+    Queue::assertPushed(SendSettlementReceivedPushNotification::class, 1);
 });

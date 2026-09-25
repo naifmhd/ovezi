@@ -67,8 +67,8 @@ export default function AcceptGroupInviteScreen() {
 
 const styles = StyleSheet.create({
   card: { marginTop: 36, borderRadius: 24, padding: 22, gap: 14 },
-  title: { fontSize: 22, lineHeight: 30, fontWeight: '800' },
+  title: { fontSize: 22, lineHeight: 30, fontWeight: '600' },
   copy: { fontSize: 14, lineHeight: 21 },
-  createAccount: { textAlign: 'center', fontSize: 14, fontWeight: '800', paddingVertical: 4 },
-  notNow: { textAlign: 'center', fontSize: 14, fontWeight: '700', paddingVertical: 4 },
+  createAccount: { textAlign: 'center', fontSize: 14, fontWeight: '600', paddingVertical: 4 },
+  notNow: { textAlign: 'center', fontSize: 14, fontWeight: '600', paddingVertical: 4 },
 });

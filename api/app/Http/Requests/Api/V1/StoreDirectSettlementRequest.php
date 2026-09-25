@@ -25,9 +25,9 @@ class StoreDirectSettlementRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'from_user_id' => ['nullable', 'integer', Rule::exists('users', 'id')->whereNull('deleted_at')],
+            'from_user_id' => ['nullable', 'integer', Rule::exists('users', 'id')],
             'from_placeholder_id' => ['nullable', 'integer', 'exists:placeholders,id'],
-            'to_user_id' => ['nullable', 'integer', Rule::exists('users', 'id')->whereNull('deleted_at')],
+            'to_user_id' => ['nullable', 'integer', Rule::exists('users', 'id')],
             'to_placeholder_id' => ['nullable', 'integer', 'exists:placeholders,id'],
             'amount_minor' => ['required', 'integer', 'min:1'],
             'currency_code' => ['required', 'string', 'size:3', 'exists:currencies,code'],

@@ -1,4 +1,4 @@
-import { apiRequest } from '@/lib/api-client';
+import { apiBaseUrl, apiRequest } from '@/lib/api-client';
 import type { GroupInvite, GroupMember, PaginatedResponse } from '@/types/api';
 
 type DataResponse<T> = { data: T };
@@ -8,7 +8,7 @@ export function fetchGroupInvites(token: string, groupId: number) {
 }
 
 export function createGroupInvite(token: string, groupId: number, invitedEmail?: string) {
-  return apiRequest<DataResponse<GroupInvite> & { meta: { token: string } }>(
+  return apiRequest<DataResponse<GroupInvite> & { meta: { token: string; url?: string } }>(
     `/groups/${groupId}/invites`,
     {
       method: 'POST',
@@ -33,4 +33,8 @@ export async function acceptGroupInvite(token: string, inviteToken: string) {
     body: { token: inviteToken },
   });
   return response.data;
+}
+
+export function invitationUrl(meta: { token: string; url?: string }) {
+  return meta.url ?? `${new URL(apiBaseUrl).origin}/group-invites/accept?token=${encodeURIComponent(meta.token)}`;
 }

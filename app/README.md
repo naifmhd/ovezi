@@ -30,6 +30,12 @@ The checked-in `eas.json` provides internal preview and App Store/Play Store pro
 Configure the `preview` and `production` EAS environments before starting a build. Production API
 URLs must use HTTPS.
 
+Ovezi's production homepage is `https://ovezi.ninesixty.mv`. Set
+`EXPO_PUBLIC_API_URL=https://ovezi.ninesixty.mv/api/v1` in the production EAS environment.
+The Expo config derives iOS associated domains and Android verified app links from this URL;
+rebuild both native apps after changing it. Keep the existing Reverb host unless the managed
+WebSocket endpoint also changes.
+
 ```bash
 eas build --profile preview --platform all
 eas build --profile production --platform all
@@ -42,6 +48,15 @@ Sign in with Apple is enabled for iOS through `expo-apple-authentication`. The A
 ## Reverb
 
 Set the `EXPO_PUBLIC_REVERB_*` variables to the Laravel Cloud Reverb application. Shared group, expense, settlement, and balance queries reconnect through private channels after authentication.
+
+Required mobile variables are `EXPO_PUBLIC_REVERB_APP_KEY`, `EXPO_PUBLIC_REVERB_HOST`,
+`EXPO_PUBLIC_REVERB_PORT`, and `EXPO_PUBLIC_REVERB_SCHEME`. Preview and production
+build profiles must point at their matching API and Reverb applications. The client never
+logs tokens or financial event payloads; realtime messages contain identifiers only.
+
+After authentication the app reports `connecting`, `connected`, `reconnecting`, `offline`,
+or `error`, reconnects when the app returns to the foreground, and refreshes active queries
+once after a reconnect to recover any events missed while suspended.
 
 ## Checks
 

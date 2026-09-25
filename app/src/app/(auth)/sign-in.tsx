@@ -92,7 +92,7 @@ export default function SignInScreen() {
 
 const styles = StyleSheet.create({
   forgotLink: { alignSelf: 'flex-end' },
-  link: { fontWeight: '800' },
+  link: { fontWeight: '600' },
   divider: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   line: { flex: 1, height: StyleSheet.hairlineWidth, backgroundColor: '#9AA3B5' },
   or: { fontSize: 13 },

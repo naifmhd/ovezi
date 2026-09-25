@@ -1,4 +1,4 @@
-import { apiRequest } from '@/lib/api-client';
+import { financialRequest } from '@/lib/financial-request';
 
 export type CreateSettlementInput = {
   from_user_id?: number;
@@ -14,17 +14,9 @@ export type CreateSettlementInput = {
 };
 
 export function createSettlement(token: string, groupId: number, input: CreateSettlementInput) {
-  return apiRequest(`/groups/${groupId}/settlements`, {
-    method: 'POST',
-    token,
-    body: input,
-  });
+  return financialRequest(`/groups/${groupId}/settlements`, token, input);
 }
 
 export function createDirectSettlement(token: string, input: CreateSettlementInput) {
-  return apiRequest('/settlements', {
-    method: 'POST',
-    token,
-    body: input,
-  });
+  return financialRequest('/settlements', token, input);
 }

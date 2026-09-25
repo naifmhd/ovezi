@@ -52,7 +52,7 @@ class GroupController extends Controller
         Gate::authorize('view', $group);
 
         $group->load([
-            'activeMembers.user:id,name',
+            'activeMembers.user:id,name,deleted_at',
             'activeMembers.placeholder:id,name',
         ])->loadCount('activeMembers');
 

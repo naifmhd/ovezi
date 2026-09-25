@@ -31,8 +31,9 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('expenses', function (Blueprint $table) {
+            $table->dropForeign(['recurring_expense_id']);
             $table->dropUnique('expenses_recurring_occurrence_unique');
-            $table->dropConstrainedForeignId('recurring_expense_id');
+            $table->dropColumn('recurring_expense_id');
             $table->dropColumn('recurring_occurrence_on');
         });
     }

@@ -1,0 +1,12 @@
+{
+  "name": "ovezi-brand-sources",
+  "private": true,
+  "version": "1.0.0",
+  "scripts": {
+    "generate": "node generate.cjs && node package-store-assets.cjs",
+    "verify": "node verify.cjs"
+  },
+  "devDependencies": {
+    "sharp": "0.35.4"
+  }
+}

@@ -1,3 +1,4 @@
+import { HeaderAction } from '@/components/ui/header-action';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
@@ -20,6 +21,7 @@ import {
   unregisterPushDevice,
 } from '@/lib/push-notifications';
 import { errorMessage } from '@/lib/api-client';
+import { useTheme } from '@/hooks/use-theme';
 import { useAuthStore } from '@/stores/auth-store';
 import type { NotificationPreferences } from '@/types/api';
 
@@ -86,9 +88,9 @@ export default function NotificationSettingsScreen() {
     <ThemedView style={styles.screen}>
       <SafeAreaView edges={['top']} style={styles.safeArea}>
         <View style={styles.header}>
-          <Pressable onPress={() => router.back()}>
+          <HeaderAction onPress={() => router.back()}>
             <ThemedText style={styles.back} themeColor="primary">‹ Back</ThemedText>
-          </Pressable>
+          </HeaderAction>
           <ThemedText style={styles.headerTitle}>Notifications</ThemedText>
           <View style={styles.headerSpacer} />
         </View>
@@ -147,14 +149,7 @@ export default function NotificationSettingsScreen() {
               disabled={!preferencesQuery.data || preferenceMutation.isPending}
               onChange={(value) => togglePreference('payment_received', value)}
             />
-            <Divider />
-            <SettingRow
-              label="Settle-up reminders"
-              subtitle="Periodic reminders once a schedule is enabled"
-              value={preferencesQuery.data?.settle_up_reminders ?? true}
-              disabled={!preferencesQuery.data || preferenceMutation.isPending}
-              onChange={(value) => togglePreference('settle_up_reminders', value)}
-            />
+
           </ThemedView>
 
           <SectionTitle title="Groups" />
@@ -205,6 +200,7 @@ function SettingRow({
   subtitle: string;
   value: boolean;
 }) {
+  const theme = useTheme();
   return (
     <View style={[styles.row, disabled && styles.disabled]}>
       <View style={styles.rowCopy}>
@@ -212,11 +208,13 @@ function SettingRow({
         <ThemedText style={styles.rowSubtitle} themeColor="textSecondary">{subtitle}</ThemedText>
       </View>
       <Switch
+        accessibilityLabel={label}
+        accessibilityHint={subtitle}
         disabled={disabled}
         ios_backgroundColor="#7A8498"
         onValueChange={onChange}
-        thumbColor={value ? '#00F5A0' : '#F5F8F7'}
-        trackColor={{ false: '#7A8498', true: '#087B5B' }}
+        thumbColor={value ? theme.primary : theme.surface}
+        trackColor={{ false: theme.border, true: theme.interactive }}
         value={value}
       />
     </View>
@@ -226,23 +224,23 @@ function SettingRow({
 const styles = StyleSheet.create({
   screen: { flex: 1 },
   safeArea: { flex: 1 },
-  header: { height: 60, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: Spacing.four },
-  back: { fontSize: 14, fontWeight: '800' },
-  headerTitle: { fontSize: 17, fontWeight: '800' },
+  header: { minHeight: 60, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: Spacing.four },
+  back: { fontSize: 14, fontWeight: '600' },
+  headerTitle: { fontSize: 17, fontWeight: '600' },
   headerSpacer: { width: 48 },
   content: { padding: Spacing.four, paddingBottom: 80, gap: 13, maxWidth: 620, width: '100%', alignSelf: 'center' },
-  sectionTitle: { fontSize: 18, lineHeight: 25, fontWeight: '800', marginTop: 8 },
+  sectionTitle: { fontSize: 18, lineHeight: 25, fontWeight: '600', marginTop: 8 },
   card: { borderRadius: 20, paddingHorizontal: 16 },
   row: { minHeight: 72, flexDirection: 'row', alignItems: 'center', gap: 12 },
   rowCopy: { flex: 1, gap: 2 },
-  rowLabel: { fontSize: 14, fontWeight: '800' },
+  rowLabel: { fontSize: 14, fontWeight: '600' },
   rowSubtitle: { fontSize: 12, lineHeight: 17 },
   divider: { height: StyleSheet.hairlineWidth, backgroundColor: '#7A8498', opacity: 0.3 },
   disabled: { opacity: 0.55 },
   settingsLink: { minHeight: 44, justifyContent: 'center', borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: '#7A8498' },
-  action: { fontSize: 13, fontWeight: '800' },
+  action: { fontSize: 13, fontWeight: '600' },
   messageCard: { borderRadius: 17, padding: 14 },
-  message: { fontSize: 13, lineHeight: 19, fontWeight: '700' },
+  message: { fontSize: 13, lineHeight: 19, fontWeight: '600' },
   hint: { fontSize: 13, lineHeight: 19 },
   empty: { paddingVertical: 22, textAlign: 'center' },
 });

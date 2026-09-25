@@ -11,7 +11,7 @@ export function initializeSentry() {
     tracesSampleRate: 0,
     profilesSampleRate: 0,
     enableAutoSessionTracking: false,
-    maxBreadcrumbs: 0,
+    maxBreadcrumbs: 30,
     beforeSend: scrubSentryEvent,
   });
 }
@@ -20,12 +20,16 @@ export function setSentryUserId(userId: number | null) {
   Sentry.setUser(userId === null ? null : { id: String(userId) });
 }
 
+export function addRealtimeBreadcrumb(message: string, level: Sentry.SeverityLevel = 'info') {
+  Sentry.addBreadcrumb({ category: 'realtime', message, level });
+}
+
 export function scrubSentryEvent(event: Sentry.ErrorEvent): Sentry.ErrorEvent {
   const userId = event.user?.id;
 
   return {
     ...event,
-    breadcrumbs: undefined,
+    breadcrumbs: event.breadcrumbs?.filter((breadcrumb) => breadcrumb.category === 'realtime'),
     extra: undefined,
     request: undefined,
     user: userId === undefined ? undefined : { id: userId },

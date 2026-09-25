@@ -1,3 +1,8 @@
+import { HeaderAction } from '@/components/ui/header-action';
+import { ActionSheet } from '@/components/ui/action-sheet';
+import { AnimatedPressable } from '@/components/ui/animated-pressable';
+import { fetchOverallBalances } from '@/lib/balances-api';
+import { formatMoney } from '@/lib/format';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import { useState } from 'react';
@@ -18,6 +23,8 @@ import type { Friendship } from '@/types/api';
 export default function FriendsScreen() {
   const token = useAuthStore((state) => state.token)!;
   const queryClient = useQueryClient();
+  const [showAddFriend, setShowAddFriend] = useState(false);
+  const balancesQuery = useQuery({ queryKey: ['dashboard-balances'], queryFn: () => fetchOverallBalances(token) });
   const [email, setEmail] = useState('');
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const friendsQuery = useQuery({
@@ -56,11 +63,11 @@ export default function FriendsScreen() {
     <ThemedView style={styles.screen}>
       <SafeAreaView edges={['top']} style={styles.safeArea}>
         <View style={styles.header}>
-          <Pressable onPress={() => router.back()}>
+          <HeaderAction onPress={() => router.back()}>
             <ThemedText style={styles.back} themeColor="primary">‹ Back</ThemedText>
-          </Pressable>
+          </HeaderAction>
           <ThemedText style={styles.headerTitle}>Friends</ThemedText>
-          <View style={styles.headerSpacer} />
+          <AnimatedPressable style={{ minHeight: 48, justifyContent: 'center' }} onPress={() => setShowAddFriend(!showAddFriend)} accessibilityState={{ expanded: showAddFriend }}><ThemedText themeColor="interactive">+ Friend</ThemedText></AnimatedPressable>
         </View>
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.flex}>
           <ScrollView
@@ -73,27 +80,6 @@ export default function FriendsScreen() {
               />
             )}
             showsVerticalScrollIndicator={false}>
-            <ThemedView type="backgroundElement" style={styles.addCard}>
-              <ThemedText style={styles.cardTitle}>Add a friend</ThemedText>
-              <ThemedText style={styles.copy} themeColor="textSecondary">
-                Enter the exact email address connected to their Ovezi account.
-              </ThemedText>
-              <FormField
-                autoCapitalize="none"
-                autoComplete="email"
-                keyboardType="email-address"
-                label="Email"
-                onChangeText={setEmail}
-                placeholder="friend@example.com"
-                value={email}
-              />
-              <PrimaryButton
-                disabled={!email.trim()}
-                label="Send friend request"
-                loading={requestMutation.isPending}
-                onPress={() => requestMutation.mutate()}
-              />
-            </ThemedView>
 
             {successMessage ? <ThemedText style={styles.success} themeColor="primary">{successMessage}</ThemedText> : null}
             {friendsQuery.error ? (
@@ -128,6 +114,9 @@ export default function FriendsScreen() {
                 key={friendship.id}
                 onRemove={() => removeMutation.mutate(friendship.id)}
                 removeLabel="Remove"
+                actionLabel="Add expense"
+                onAction={() => router.push({ pathname: '/(app)/expenses/create', params: { friendId: friendship.friend.id } })}
+                balances={balancesQuery.isError ? [] : (balancesQuery.data?.direct ?? []).filter((balance) => balance.participant.key === `user:${friendship.friend.id}`).map((balance) => ({ currency: balance.currency_code, minor: balance.balance_minor }))}
               />
             ))}
 
@@ -141,6 +130,29 @@ export default function FriendsScreen() {
               />
             ))}
 
+            {showAddFriend || (!friendsQuery.isPending && friendships.length === 0) ? <>
+            <ThemedView type="backgroundElement" style={styles.addCard}>
+              <ThemedText style={styles.cardTitle}>Add a friend</ThemedText>
+              <ThemedText style={styles.copy} themeColor="textSecondary">
+                Enter the exact email address connected to their Ovezi account.
+              </ThemedText>
+              <FormField
+                autoCapitalize="none"
+                autoComplete="email"
+                keyboardType="email-address"
+                label="Email"
+                onChangeText={setEmail}
+                placeholder="friend@example.com"
+                value={email}
+              />
+              <PrimaryButton
+                disabled={!email.trim()}
+                label="Send friend request"
+                loading={requestMutation.isPending}
+                onPress={() => requestMutation.mutate()}
+              />
+            </ThemedView>
+            </> : null}
             {!friendsQuery.isLoading && !friendsQuery.error && friendships.length === 0 ? (
               <ThemedView type="backgroundSelected" style={styles.emptyCard}>
                 <ThemedText style={styles.cardTitle}>No friends yet</ThemedText>
@@ -163,6 +175,7 @@ function FriendRow({
   onAction,
   onRemove,
   removeLabel,
+  balances = [],
 }: {
   actionLabel?: string;
   friendship: Friendship;
@@ -170,9 +183,13 @@ function FriendRow({
   onAction?: () => void;
   onRemove: () => void;
   removeLabel: string;
+  balances?: { currency: string; minor: number }[];
 }) {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [confirmRemove, setConfirmRemove] = useState(false);
   return (
     <ThemedView type="backgroundElement" style={styles.friendRow}>
+      <ActionSheet title={confirmRemove ? `Remove ${friendship.friend.name}?` : friendship.friend.name} visible={menuOpen || confirmRemove} onClose={() => { setMenuOpen(false); setConfirmRemove(false); }} actions={confirmRemove ? [{ label: 'Remove friend', destructive: true, onPress: onRemove }] : [{ label: 'Remove friend…', destructive: true, onPress: () => setConfirmRemove(true) }]} />
       <ThemedView type="backgroundSelected" style={styles.avatar}>
         <ThemedText style={styles.initial} themeColor="primary">
           {friendship.friend.name.slice(0, 1).toUpperCase()}
@@ -181,6 +198,9 @@ function FriendRow({
       <View style={styles.friendCopy}>
         <ThemedText style={styles.friendName}>{friendship.friend.name}</ThemedText>
         <ThemedText style={styles.email} themeColor="textSecondary">{friendship.friend.email}</ThemedText>
+        {balances.map((balance) => <AnimatedPressable key={balance.currency} style={{ minHeight: 48, justifyContent: 'center' }} onPress={() => router.push({ pathname: '/(app)/settlements/direct', params: { participant: `user:${friendship.friend.id}`, currency: balance.currency } })}>
+          <ThemedText style={styles.email} themeColor={balance.minor >= 0 ? 'positive' : 'danger'}>{balance.minor > 0 ? 'You are owed' : balance.minor < 0 ? 'You owe' : 'Settled'} · {formatMoney(Math.abs(balance.minor), balance.currency)}</ThemedText>
+        </AnimatedPressable>)}
       </View>
       <View style={styles.rowActions}>
         {onAction && actionLabel ? (
@@ -190,8 +210,8 @@ function FriendRow({
             </ThemedText>
           </Pressable>
         ) : null}
-        <Pressable onPress={onRemove} style={styles.rowButton}>
-          <ThemedText style={styles.rowAction} themeColor="danger">{removeLabel}</ThemedText>
+        <Pressable accessibilityRole="button" accessibilityLabel={removeLabel === 'Remove' ? `More options for ${friendship.friend.name}` : removeLabel} onPress={removeLabel === 'Remove' ? () => setMenuOpen(true) : onRemove} style={styles.rowButton}>
+          <ThemedText style={styles.rowAction} themeColor={removeLabel === 'Remove' ? 'textSecondary' : 'danger'}>{removeLabel === 'Remove' ? 'More' : removeLabel}</ThemedText>
         </Pressable>
       </View>
     </ThemedView>
@@ -206,25 +226,25 @@ const styles = StyleSheet.create({
   screen: { flex: 1 },
   safeArea: { flex: 1 },
   flex: { flex: 1 },
-  header: { height: 60, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: Spacing.four },
-  back: { fontSize: 14, fontWeight: '800' },
-  headerTitle: { fontSize: 17, fontWeight: '800' },
+  header: { minHeight: 60, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: Spacing.four },
+  back: { fontSize: 14, fontWeight: '600' },
+  headerTitle: { fontSize: 17, fontWeight: '600' },
   headerSpacer: { width: 48 },
   content: { padding: Spacing.four, paddingBottom: 80, gap: 12, maxWidth: 680, width: '100%', alignSelf: 'center' },
   addCard: { borderRadius: 22, padding: 18, gap: 12 },
-  cardTitle: { fontSize: 17, lineHeight: 23, fontWeight: '900' },
+  cardTitle: { fontSize: 17, lineHeight: 23, fontWeight: '600' },
   copy: { fontSize: 13, lineHeight: 19 },
-  success: { fontSize: 14, lineHeight: 20, fontWeight: '800' },
+  success: { fontSize: 14, lineHeight: 20, fontWeight: '600' },
   centered: { textAlign: 'center', paddingVertical: 30 },
-  sectionTitle: { fontSize: 17, lineHeight: 23, fontWeight: '900', marginTop: 8 },
-  friendRow: { minHeight: 76, borderRadius: 20, padding: 13, flexDirection: 'row', alignItems: 'center', gap: 11 },
+  sectionTitle: { fontSize: 17, lineHeight: 23, fontWeight: '600', marginTop: 8 },
+  friendRow: { minHeight: 76, borderRadius: 20, padding: 13, flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 11 },
   avatar: { width: 44, height: 44, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
-  initial: { fontSize: 18, fontWeight: '900' },
+  initial: { fontSize: 18, fontWeight: '600' },
   friendCopy: { flex: 1 },
-  friendName: { fontSize: 14, fontWeight: '900' },
+  friendName: { fontSize: 14, fontWeight: '600' },
   email: { fontSize: 12 },
-  rowActions: { alignItems: 'flex-end', gap: 2 },
-  rowButton: { minHeight: 32, justifyContent: 'center', paddingHorizontal: 5 },
-  rowAction: { fontSize: 12, fontWeight: '900' },
+  rowActions: { flexBasis: '100%', flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center', gap: 20 },
+  rowButton: { minHeight: 48, justifyContent: 'center', paddingHorizontal: 5 },
+  rowAction: { fontSize: 12, fontWeight: '600' },
   emptyCard: { borderRadius: 20, padding: 18, gap: 5 },
 });

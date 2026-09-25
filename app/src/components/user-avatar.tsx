@@ -1,5 +1,6 @@
 import { Image } from 'expo-image';
 import { useState } from 'react';
+import { useReducedMotion } from 'react-native-reanimated';
 import { StyleSheet } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
@@ -11,6 +12,7 @@ export function UserAvatar({ imageUrl, name, size = 48 }: { imageUrl?: string | 
 
 function AvatarContent({ imageUrl, name, size }: { imageUrl?: string | null; name: string; size: number }) {
   const [imageFailed, setImageFailed] = useState(false);
+  const reduceMotion = useReducedMotion();
 
   return (
     <ThemedView
@@ -23,7 +25,7 @@ function AvatarContent({ imageUrl, name, size }: { imageUrl?: string | null; nam
           onError={() => setImageFailed(true)}
           source={imageUrl}
           style={styles.image}
-          transition={150}
+          transition={reduceMotion ? 0 : 150}
         />
       ) : (
         <ThemedText style={[styles.initial, { fontSize: size * 0.43 }]} themeColor="primary">
@@ -37,5 +39,5 @@ function AvatarContent({ imageUrl, name, size }: { imageUrl?: string | null; nam
 const styles = StyleSheet.create({
   avatar: { alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
   image: { width: '100%', height: '100%' },
-  initial: { fontWeight: '800' },
+  initial: { fontWeight: '600' },
 });

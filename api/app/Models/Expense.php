@@ -40,7 +40,7 @@ class Expense extends Model
 
     public function payerUser(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'payer_user_id');
+        return $this->belongsTo(User::class, 'payer_user_id')->withTrashed();
     }
 
     public function payerPlaceholder(): BelongsTo
@@ -50,7 +50,7 @@ class Expense extends Model
 
     public function creator(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'created_by');
+        return $this->belongsTo(User::class, 'created_by')->withTrashed();
     }
 
     public function currency(): BelongsTo

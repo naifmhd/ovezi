@@ -18,6 +18,7 @@ class FriendshipController extends Controller
     public function index(Request $request): AnonymousResourceCollection
     {
         $friendships = Friendship::query()
+            ->whereHas('user')->whereHas('friend')
             ->where(fn (Builder $query): Builder => $query
                 ->where('user_id', $request->user()->id)
                 ->orWhere('friend_id', $request->user()->id))

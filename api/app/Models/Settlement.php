@@ -32,7 +32,7 @@ class Settlement extends Model
 
     public function fromUser(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'from_user_id');
+        return $this->belongsTo(User::class, 'from_user_id')->withTrashed();
     }
 
     public function fromPlaceholder(): BelongsTo
@@ -42,7 +42,7 @@ class Settlement extends Model
 
     public function toUser(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'to_user_id');
+        return $this->belongsTo(User::class, 'to_user_id')->withTrashed();
     }
 
     public function toPlaceholder(): BelongsTo
@@ -52,7 +52,7 @@ class Settlement extends Model
 
     public function creator(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'created_by');
+        return $this->belongsTo(User::class, 'created_by')->withTrashed();
     }
 
     public function currency(): BelongsTo

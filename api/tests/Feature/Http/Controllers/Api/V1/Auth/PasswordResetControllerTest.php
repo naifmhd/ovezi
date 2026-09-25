@@ -6,7 +6,7 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Password;
 
-it('sends a reset notification using the mobile deep link', function () {
+it('sends a reset notification using an HTTPS app link', function () {
     Notification::fake();
     $user = User::factory()->create(['email' => 'user@example.com']);
 
@@ -18,7 +18,7 @@ it('sends a reset notification using the mobile deep link', function () {
     Notification::assertSentTo($user, ResetPassword::class, function (ResetPassword $notification) use ($user): bool {
         $url = $notification->toMail($user)->actionUrl;
 
-        return str_starts_with($url, 'ovezi://auth/reset-password?token=')
+        return str_starts_with($url, route('app.reset').'?token=')
             && str_contains($url, 'email=user%40example.com');
     });
 });

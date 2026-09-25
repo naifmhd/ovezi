@@ -1,6 +1,7 @@
+import { HeaderAction } from '@/components/ui/header-action';
 import { router } from 'expo-router';
 import type { ReactNode } from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
@@ -29,9 +30,9 @@ export function DocumentScreen({
     <ThemedView style={styles.screen}>
       <SafeAreaView edges={['top']} style={styles.safeArea}>
         <View style={styles.header}>
-          <Pressable accessibilityRole="button" onPress={() => router.back()}>
+          <HeaderAction accessibilityRole="button" onPress={() => router.back()}>
             <ThemedText style={styles.back} themeColor="primary">‹ Back</ThemedText>
-          </Pressable>
+          </HeaderAction>
           <ThemedText style={styles.headerTitle}>{title}</ThemedText>
           <View style={styles.headerSpacer} />
         </View>
@@ -67,8 +68,8 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: Spacing.four,
   },
-  back: { fontSize: 14, fontWeight: '800' },
-  headerTitle: { fontSize: 17, fontWeight: '800' },
+  back: { fontSize: 14, fontWeight: '600' },
+  headerTitle: { fontSize: 17, fontWeight: '600' },
   headerSpacer: { width: 48 },
   content: {
     padding: Spacing.four,
@@ -78,9 +79,9 @@ const styles = StyleSheet.create({
     width: '100%',
     alignSelf: 'center',
   },
-  eyebrow: { fontSize: 12, lineHeight: 18, fontWeight: '900', letterSpacing: 0.8, textTransform: 'uppercase' },
-  intro: { fontSize: 18, lineHeight: 27, fontWeight: '700' },
+  eyebrow: { fontSize: 12, lineHeight: 18, fontWeight: '600', letterSpacing: 0.8, textTransform: 'uppercase' },
+  intro: { fontSize: 18, lineHeight: 27, fontWeight: '600' },
   card: { borderRadius: 20, padding: 18, gap: 9 },
-  sectionTitle: { fontSize: 16, lineHeight: 22, fontWeight: '900' },
+  sectionTitle: { fontSize: 16, lineHeight: 22, fontWeight: '600' },
   paragraph: { fontSize: 14, lineHeight: 21 },
 });

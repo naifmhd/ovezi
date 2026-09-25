@@ -21,6 +21,7 @@ class GroupMemberResource extends JsonResource
             'user' => $this->when($this->user_id !== null, fn (): array => [
                 'id' => $this->user_id,
                 'name' => $this->user?->name,
+                'is_deleted' => $this->user?->trashed() ?? true,
             ]),
             'placeholder' => $this->when($this->placeholder_id !== null, fn (): array => [
                 'id' => $this->placeholder_id,

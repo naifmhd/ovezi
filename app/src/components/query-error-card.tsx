@@ -18,7 +18,7 @@ export function QueryErrorCard({
   title = 'Couldn’t load this yet',
 }: QueryErrorCardProps) {
   return (
-    <ThemedView type="backgroundElement" style={styles.card}>
+    <ThemedView accessibilityLiveRegion="polite" type="dangerSurface" style={styles.card}>
       <View style={styles.copy}>
         <ThemedText style={styles.title}>{title}</ThemedText>
         <ThemedText style={styles.message} themeColor="textSecondary">
@@ -35,10 +35,10 @@ export function QueryErrorCard({
 }
 
 const styles = StyleSheet.create({
-  card: { borderRadius: 20, padding: 17, flexDirection: 'row', alignItems: 'center', gap: 14 },
+  card: { borderRadius: 20, padding: 17, flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 14 },
   copy: { flex: 1, gap: 3 },
-  title: { fontSize: 15, lineHeight: 21, fontWeight: '800' },
+  title: { fontSize: 15, lineHeight: 21, fontWeight: '600' },
   message: { fontSize: 13, lineHeight: 19 },
-  retry: { minHeight: 42, justifyContent: 'center', paddingHorizontal: 5 },
-  retryLabel: { fontSize: 13, fontWeight: '800' },
+  retry: { minHeight: 48, justifyContent: 'center', paddingHorizontal: 5 },
+  retryLabel: { fontSize: 13, fontWeight: '600' },
 });

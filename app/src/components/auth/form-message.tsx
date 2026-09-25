@@ -7,7 +7,7 @@ export function FormMessage({ children, success = false }: { children: string; s
     <ThemedText
       accessibilityLiveRegion="polite"
       style={[styles.message, success ? styles.success : undefined]}
-      themeColor={success ? 'primary' : 'danger'}>
+      themeColor={success ? 'positive' : 'danger'}>
       {children}
     </ThemedText>
   );

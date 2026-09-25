@@ -1,0 +1,9 @@
+{
+  "name": "decode-uri-component",
+  "version": "0.5.0",
+  "description": "Official 0.5.0 security fix with CommonJS export for Expo query-string compatibility",
+  "main": "index.js",
+  "types": "index.d.ts",
+  "license": "MIT",
+  "repository": "SamVerschueren/decode-uri-component"
+}

@@ -1,3 +1,4 @@
+import { HeaderAction } from '@/components/ui/header-action';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
@@ -11,7 +12,7 @@ import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
 import { errorMessage } from '@/lib/api-client';
 import { formatMoney } from '@/lib/format';
-import { createGroupInvite, fetchGroupInvites, revokeGroupInvite } from '@/lib/group-invites-api';
+import { invitationUrl, createGroupInvite, fetchGroupInvites, revokeGroupInvite } from '@/lib/group-invites-api';
 import {
   addGroupPlaceholder,
   fetchGroup,
@@ -133,7 +134,7 @@ export default function GroupMembersScreen() {
     onSuccess: async (response) => {
       await queryClient.invalidateQueries({ queryKey: ['group-invites', groupId] });
       await Share.share({
-        message: `Join ${group?.name ?? 'my group'} on Ovezi: ovezi://group-invites/accept?token=${response.meta.token}`,
+        message: `Join ${group?.name ?? 'my group'} on Ovezi: ${invitationUrl(response.meta)}`,
       });
     },
   });
@@ -175,9 +176,9 @@ export default function GroupMembersScreen() {
     <ThemedView style={styles.screen}>
       <SafeAreaView edges={['top']} style={styles.safeArea}>
         <View style={styles.header}>
-          <Pressable onPress={() => router.back()}>
+          <HeaderAction onPress={() => router.back()}>
             <ThemedText style={styles.headerAction} themeColor="primary">‹ Back</ThemedText>
-          </Pressable>
+          </HeaderAction>
           <ThemedText style={styles.headerTitle}>Manage members</ThemedText>
           <View style={styles.headerSpacer} />
         </View>
@@ -440,40 +441,40 @@ const styles = StyleSheet.create({
   screen: { flex: 1 },
   safeArea: { flex: 1 },
   flex: { flex: 1 },
-  header: { height: 60, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: Spacing.four },
-  headerAction: { fontSize: 14, fontWeight: '800' },
-  headerTitle: { fontSize: 17, fontWeight: '800' },
+  header: { minHeight: 60, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: Spacing.four },
+  headerAction: { fontSize: 14, fontWeight: '600' },
+  headerTitle: { fontSize: 17, fontWeight: '600' },
   headerSpacer: { width: 48 },
   content: { padding: Spacing.four, paddingBottom: 80, gap: 14, maxWidth: 680, width: '100%', alignSelf: 'center' },
   centered: { textAlign: 'center', paddingVertical: 40 },
-  sectionTitle: { fontSize: 18, lineHeight: 25, fontWeight: '800', marginTop: 8 },
+  sectionTitle: { fontSize: 18, lineHeight: 25, fontWeight: '600', marginTop: 8 },
   copy: { fontSize: 13, lineHeight: 19 },
   memberList: { borderRadius: 20, paddingHorizontal: 15 },
   divider: { height: StyleSheet.hairlineWidth },
   memberRow: { minHeight: 72, flexDirection: 'row', alignItems: 'center', gap: 11 },
   avatar: { width: 40, height: 40, borderRadius: 15, alignItems: 'center', justifyContent: 'center' },
-  initial: { fontWeight: '900' },
+  initial: { fontWeight: '600' },
   memberCopy: { flex: 1, gap: 2 },
-  memberName: { fontSize: 14, fontWeight: '800' },
+  memberName: { fontSize: 14, fontWeight: '600' },
   memberMeta: { fontSize: 12, lineHeight: 17 },
   memberActions: { alignItems: 'flex-end', gap: 5 },
-  smallAction: { fontSize: 12, fontWeight: '800' },
+  smallAction: { fontSize: 12, fontWeight: '600' },
   disabled: { opacity: 0.55 },
   confirmRow: { marginHorizontal: -5, marginBottom: 10, borderRadius: 14, padding: 12, gap: 8 },
-  confirmMessage: { fontSize: 13, lineHeight: 19, fontWeight: '700' },
+  confirmMessage: { fontSize: 13, lineHeight: 19, fontWeight: '600' },
   confirmActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 20 },
-  confirmLink: { fontSize: 12, fontWeight: '800' },
+  confirmLink: { fontSize: 12, fontWeight: '600' },
   placeholderGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   placeholderChip: { minHeight: 40, borderWidth: 1, borderRadius: 14, paddingHorizontal: 14, alignItems: 'center', justifyContent: 'center' },
-  placeholderName: { fontSize: 13, fontWeight: '800' },
-  createGuestLink: { fontSize: 14, fontWeight: '800', paddingVertical: 4 },
+  placeholderName: { fontSize: 13, fontWeight: '600' },
+  createGuestLink: { fontSize: 14, fontWeight: '600', paddingVertical: 4 },
   guestCard: { borderRadius: 20, padding: 16, gap: 14 },
   inviteCard: { borderRadius: 20, padding: 16, gap: 12 },
   shareButton: { minHeight: 48, borderWidth: 1, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
-  shareLabel: { fontSize: 14, fontWeight: '800' },
+  shareLabel: { fontSize: 14, fontWeight: '600' },
   inviteList: { borderRadius: 20, paddingHorizontal: 15 },
   inviteRow: { minHeight: 66, flexDirection: 'row', alignItems: 'center', gap: 12 },
   typeRow: { flexDirection: 'row', gap: 8 },
-  typeChip: { height: 40, paddingHorizontal: 16, borderRadius: 14, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
-  typeLabel: { fontSize: 13, fontWeight: '800', textTransform: 'capitalize' },
+  typeChip: { minHeight: 48, paddingVertical: 10, paddingHorizontal: 16, borderRadius: 14, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+  typeLabel: { fontSize: 13, fontWeight: '600', textTransform: 'capitalize' },
 });

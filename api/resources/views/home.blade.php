@@ -9,7 +9,7 @@
         <p class="eyebrow">Split. Share. Settle.</p>
         <h1>Shared expenses, made easy.</h1>
         <p class="lead">Ovezi helps friends and groups split costs, understand balances, and record settlements—without ads, daily limits, or paywalled essentials.</p>
-        <div class="pill"><span class="pill-dot"></span> Coming soon to iPhone</div>
+        <div class="pill"><span class="pill-dot"></span> Coming soon to iOS and Android</div>
     </section>
 
     <section class="feature-grid shell" aria-label="Ovezi features">

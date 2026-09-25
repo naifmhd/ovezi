@@ -4,9 +4,18 @@ import { useEffect, useState } from 'react';
 import { AppState, Platform, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { useTheme } from '@/hooks/use-theme';
+
+import { useRealtimeStore } from '@/stores/realtime-store';
+
 export function ConnectivitySync() {
   const insets = useSafeAreaInsets();
+  const theme = useTheme();
   const [isOffline, setIsOffline] = useState(false);
+  const realtimeStatus = useRealtimeStore((state) => state.status);
+  const [warnedRealtimeStatus, setWarnedRealtimeStatus] = useState<string | null>(null);
+  const showRealtimeWarning = warnedRealtimeStatus === realtimeStatus
+    && (realtimeStatus === 'error' || realtimeStatus === 'reconnecting');
 
   useEffect(() => {
     const unsubscribe = NetInfo.addEventListener((state) => {
@@ -22,6 +31,12 @@ export function ConnectivitySync() {
   }, []);
 
   useEffect(() => {
+    if (realtimeStatus !== 'error' && realtimeStatus !== 'reconnecting') return;
+    const timer = setTimeout(() => setWarnedRealtimeStatus(realtimeStatus), 8_000);
+    return () => clearTimeout(timer);
+  }, [realtimeStatus]);
+
+  useEffect(() => {
     if (Platform.OS === 'web') return;
 
     focusManager.setFocused(AppState.currentState === 'active');
@@ -35,26 +50,28 @@ export function ConnectivitySync() {
     };
   }, []);
 
-  if (!isOffline) return null;
+  if (!isOffline && !showRealtimeWarning) return null;
 
   return (
     <View
       accessibilityLiveRegion="polite"
       accessibilityRole="alert"
       pointerEvents="none"
-      style={[styles.banner, { top: Math.max(insets.top, 8) + 8 }]}>
-      <View style={styles.dot} />
-      <Text style={styles.copy}>You’re offline. New changes need a connection.</Text>
+      style={[styles.banner, { marginBottom: Math.max(insets.bottom, 8), backgroundColor: theme.warningSurface }]}>
+      <View style={[styles.dot, showRealtimeWarning && !isOffline && styles.warningDot]} />
+      <Text style={[styles.copy, { color: theme.warning }]}>
+        {isOffline
+          ? 'You’re offline. New changes need a connection.'
+          : 'Live updates are reconnecting. Your saved data is safe.'}
+      </Text>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   banner: {
-    position: 'absolute',
-    left: 16,
-    right: 16,
-    zIndex: 1000,
+    marginHorizontal: 16,
+    marginTop: 8,
     elevation: 8,
     minHeight: 44,
     borderRadius: 16,
@@ -64,7 +81,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 9,
-    backgroundColor: '#0A1128',
+    backgroundColor: '#172033',
     shadowColor: '#000000',
     shadowOffset: { width: 0, height: 5 },
     shadowOpacity: 0.2,
@@ -74,13 +91,14 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: '#00F5A0',
+    backgroundColor: '#20D9A1',
   },
+  warningDot: { backgroundColor: '#FFB86B' },
   copy: {
-    color: '#FFFFFF',
+    flex: 1,
     fontSize: 13,
     lineHeight: 18,
-    fontWeight: '700',
+    fontWeight: '600',
     textAlign: 'center',
   },
 });

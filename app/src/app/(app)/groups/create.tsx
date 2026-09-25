@@ -1,7 +1,8 @@
+import { HeaderAction } from '@/components/ui/header-action';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, StyleSheet, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { FormField } from '@/components/auth/form-field';
@@ -39,11 +40,11 @@ export default function CreateGroupScreen() {
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           style={styles.keyboard}>
           <View style={styles.header}>
-            <Pressable onPress={() => router.back()}>
+            <HeaderAction onPress={() => router.back()}>
               <ThemedText style={styles.cancel} themeColor="primary">
                 Cancel
               </ThemedText>
-            </Pressable>
+            </HeaderAction>
             <ThemedText style={styles.headerTitle}>New group</ThemedText>
             <View style={styles.headerSpacer} />
           </View>
@@ -96,11 +97,11 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: Spacing.four,
   },
-  cancel: { fontSize: 14, fontWeight: '800' },
-  headerTitle: { fontSize: 16, fontWeight: '800' },
+  cancel: { fontSize: 14, fontWeight: '600' },
+  headerTitle: { fontSize: 16, fontWeight: '600' },
   headerSpacer: { width: 48 },
   content: { padding: Spacing.four, gap: Spacing.three, maxWidth: 520, width: '100%', alignSelf: 'center' },
   heading: { gap: 8, marginBottom: Spacing.three },
-  title: { fontSize: 29, lineHeight: 37, fontWeight: '800', letterSpacing: -0.7 },
+  title: { fontSize: 29, lineHeight: 37, fontWeight: '600', letterSpacing: -0.7 },
   hint: { fontSize: 13, lineHeight: 19 },
 });

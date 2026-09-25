@@ -1,36 +1,36 @@
+import { MoneyAmount } from '@/components/money-amount';
 import { useQuery } from '@tanstack/react-query';
 import { router } from 'expo-router';
+import { SymbolView } from 'expo-symbols';
 import { Pressable, RefreshControl, StyleSheet, View } from 'react-native';
 
-import { ActivityRow } from '@/components/activity-row';
 import { AppScreen } from '@/components/app-screen';
 import { ExpenseRow } from '@/components/expense-row';
+import { EmptyState } from '@/components/empty-state';
 import { GroupCard } from '@/components/group-card';
 import { QueryErrorCard } from '@/components/query-error-card';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { fetchActivity } from '@/lib/activity-api';
 import { fetchOverallBalances } from '@/lib/balances-api';
 import { fetchExpenses } from '@/lib/expenses-api';
 import { formatMoney } from '@/lib/format';
 import { fetchGroups } from '@/lib/groups-api';
+import { useTheme } from '@/hooks/use-theme';
 import { useAuthStore } from '@/stores/auth-store';
 
 export default function HomeScreen() {
+  const theme = useTheme();
   const token = useAuthStore((state) => state.token)!;
   const user = useAuthStore((state) => state.user)!;
   const groupsQuery = useQuery({
     queryKey: ['groups', 'active'],
     queryFn: () => fetchGroups(token),
   });
-  const activityQuery = useQuery({
-    queryKey: ['activity', 'global', 5],
-    queryFn: () => fetchActivity(token, undefined, 5),
-  });
   const expensesQuery = useQuery({
-    queryKey: ['expenses', 'recent'],
-    queryFn: () => fetchExpenses(token, { perPage: 20 }),
+    queryKey: ['expenses', 'recent', 'personal'],
+    queryFn: () => fetchExpenses(token, { expenseType: 'personal', perPage: 5 }),
   });
+  const directExpensesQuery = useQuery({ queryKey: ['expenses', 'recent', 'direct'], queryFn: () => fetchExpenses(token, { expenseType: 'direct', perPage: 5 }) });
   const groups = groupsQuery.data?.data ?? [];
   const balancesQuery = useQuery({
     queryKey: ['dashboard-balances'],
@@ -43,32 +43,30 @@ export default function HomeScreen() {
     ]),
   );
   const directBalances = balancesQuery.data?.direct ?? [];
-  const recentPersonalExpenses = (expensesQuery.data?.data ?? [])
-    .filter((expense) => expense.expense_type !== 'group')
-    .slice(0, 5);
-  const refreshing = groupsQuery.isRefetching || activityQuery.isRefetching || expensesQuery.isRefetching;
-  const firstError = groupsQuery.error ?? activityQuery.error ?? expensesQuery.error ?? balancesQuery.error;
+  const recentPersonalExpenses = [...(expensesQuery.data?.data ?? []), ...(directExpensesQuery.data?.data ?? [])]
+    .sort((a, b) => new Date(b.occurred_at).getTime() - new Date(a.occurred_at).getTime() || b.id - a.id).slice(0, 5);
+  const refreshing = groupsQuery.isRefetching || expensesQuery.isRefetching || directExpensesQuery.isRefetching || balancesQuery.isRefetching;
+  const firstError = groupsQuery.error ?? expensesQuery.error ?? directExpensesQuery.error ?? balancesQuery.error;
+  const startingFresh = groupsQuery.isSuccess && expensesQuery.isSuccess && directExpensesQuery.isSuccess && balancesQuery.isSuccess && groups.length === 0 && recentPersonalExpenses.length === 0 && directBalances.length === 0;
 
   async function refresh() {
     await Promise.all([
       groupsQuery.refetch(),
-      activityQuery.refetch(),
       expensesQuery.refetch(),
+      directExpensesQuery.refetch(),
       balancesQuery.refetch(),
     ]);
   }
 
   return (
     <AppScreen
+      branded
       eyebrow={`Hello, ${user.name.split(' ')[0]}`}
-      title="Your balance"
+      title="Your shared life"
       action={
         <View style={styles.headerActions}>
-          <Pressable onPress={() => router.push('/(app)/search')}>
-            <ThemedText style={styles.addAction} themeColor="primary">Search</ThemedText>
-          </Pressable>
-          <Pressable onPress={() => router.push('/(app)/expenses/create')}>
-            <ThemedText style={styles.addAction} themeColor="primary">+ Expense</ThemedText>
+          <Pressable accessibilityRole="button" accessibilityLabel="Search expenses, groups and friends" style={[styles.searchButton, { backgroundColor: theme.surface }]} onPress={() => router.push('/(app)/search')}>
+            <SymbolView name={{ ios: 'magnifyingglass', android: 'search', web: 'search' }} size={21} tintColor={theme.interactive} />
           </Pressable>
         </View>
       }
@@ -76,7 +74,7 @@ export default function HomeScreen() {
         refreshControl: <RefreshControl refreshing={refreshing} onRefresh={() => void refresh()} />,
       }}>
       {!user.email_verified_at ? (
-        <ThemedView type="backgroundSelected" style={styles.verificationCard}>
+        <ThemedView style={[styles.verificationCard, { backgroundColor: theme.informationSurface }]}>
           <ThemedText style={styles.verificationTitle}>Verify your email</ThemedText>
           <ThemedText style={styles.smallCopy} themeColor="textSecondary">
             Use the secure link sent to {user.email}.
@@ -93,18 +91,31 @@ export default function HomeScreen() {
         />
       ) : null}
 
+      {balancesQuery.isRefetchError ? <ThemedText themeColor="textSecondary">Showing last known balances. Pull down to retry.</ThemedText> : null}
       {(balancesQuery.data?.totals_by_currency ?? []).length > 0 ? (
         <View style={styles.totalGrid}>
-          {balancesQuery.data?.totals_by_currency.map((total) => (
-            <ThemedView key={total.currency_code} type="backgroundSelected" style={styles.totalCard}>
-              <ThemedText style={styles.totalLabel} themeColor="textSecondary">
-                {total.balance_minor >= 0 ? 'You are owed' : 'You owe'} · {total.currency_code}
-              </ThemedText>
-              <ThemedText
-                style={styles.totalAmount}
-                themeColor={total.balance_minor >= 0 ? 'primary' : 'danger'}>
-                {formatMoney(Math.abs(total.balance_minor), total.currency_code)}
-              </ThemedText>
+          {balancesQuery.data?.totals_by_currency.map((total, index) => (
+            <ThemedView
+              key={total.currency_code}
+              style={[
+                index === 0 ? styles.totalCard : styles.secondaryTotal,
+                index === 0 ? { backgroundColor: total.balance_minor >= 0 ? theme.positiveSurface : theme.dangerSurface } : { borderColor: theme.border },
+              ]}>
+              <View style={styles.totalHeader}>
+                <SymbolView
+                  name={total.balance_minor >= 0
+                    ? { ios: 'arrow.down.left', android: 'south_west', web: 'south_west' }
+                    : { ios: 'arrow.up.right', android: 'north_east', web: 'north_east' }}
+                  size={15}
+                  tintColor={total.balance_minor >= 0 ? theme.positive : theme.danger}
+                  weight="bold"
+                />
+                <ThemedText style={styles.totalLabel} themeColor="textSecondary">
+                  {total.balance_minor >= 0 ? total.balance_minor === 0 ? 'Settled up' : 'You are owed' : 'You owe'}{index > 0 ? ` · ${total.currency_code}` : ''}
+                </ThemedText>
+              </View>
+              {index === 0 ? <MoneyAmount minor={total.balance_minor} currency={total.currency_code} tone={total.balance_minor >= 0 ? 'positive' : 'danger'} /> : <ThemedText style={styles.secondaryAmount} themeColor={total.balance_minor >= 0 ? 'positive' : 'danger'}>{formatMoney(Math.abs(total.balance_minor), total.currency_code)}</ThemedText>}
+
             </ThemedView>
           ))}
         </View>
@@ -127,21 +138,13 @@ export default function HomeScreen() {
         <GroupCard key={group.id} balanceMinor={balanceByGroup.get(group.id)} group={group} />
       ))}
       {!groupsQuery.isLoading && !groupsQuery.error && groups.length === 0 ? (
-        <ThemedView type="backgroundElement" style={styles.emptyCard}>
-          <ThemedText style={styles.emptyTitle}>Create your first group</ThemedText>
-          <ThemedText style={styles.smallCopy} themeColor="textSecondary">
-            Trips, homes, events—keep every shared expense in one place.
-          </ThemedText>
-          <Pressable onPress={() => router.push('/(app)/groups/create')}>
-            <ThemedText style={styles.createLink} themeColor="primary">
-              Create group
-            </ThemedText>
-          </Pressable>
-        </ThemedView>
+        <EmptyState title="Good times start here" description="Create a group for a trip, a home, or your everyday plans. Add your first expense together." action={{ label: 'Create a group', onPress: () => router.push('/(app)/groups/create') }} />
       ) : null}
 
+      {!startingFresh ? <>
       <View style={styles.sectionHeading}>
         <ThemedText style={styles.sectionTitle}>1-on-1 balances</ThemedText>
+        <Pressable accessibilityRole="button" onPress={() => router.push('/(app)/friends')}><ThemedText style={styles.seeAll} themeColor="interactive">Friends</ThemedText></Pressable>
       </View>
       {balancesQuery.isLoading ? (
         <ThemedText style={styles.emptyActivity} themeColor="textSecondary">
@@ -158,7 +161,12 @@ export default function HomeScreen() {
               currency: balance.currency_code,
             },
           })}>
-          <ThemedView type="backgroundElement" style={styles.directCard}>
+          <ThemedView
+            type="backgroundElement"
+            style={[
+              styles.directCard,
+              { borderStartColor: balance.balance_minor >= 0 ? theme.positive : theme.danger },
+            ]}>
             <View style={styles.directCopy}>
               <ThemedText style={styles.directName}>{balance.participant.name}</ThemedText>
               <ThemedText style={styles.smallCopy} themeColor="textSecondary">
@@ -168,10 +176,10 @@ export default function HomeScreen() {
             <View style={styles.directAmountWrap}>
               <ThemedText
                 style={styles.directAmount}
-                themeColor={balance.balance_minor >= 0 ? 'primary' : 'danger'}>
+                themeColor={balance.balance_minor >= 0 ? 'positive' : 'danger'}>
                 {formatMoney(Math.abs(balance.balance_minor), balance.currency_code)}
               </ThemedText>
-              <ThemedText style={styles.settleLabel} themeColor="primary">Settle</ThemedText>
+              <ThemedText style={styles.settleLabel} themeColor="interactive">Settle</ThemedText>
             </View>
           </ThemedView>
         </Pressable>
@@ -190,7 +198,7 @@ export default function HomeScreen() {
           </ThemedText>
         </Pressable>
       </View>
-      {expensesQuery.isLoading ? (
+      {expensesQuery.isLoading || directExpensesQuery.isLoading ? (
         <ThemedText style={styles.emptyActivity} themeColor="textSecondary">
           Loading expenses…
         </ThemedText>
@@ -203,46 +211,29 @@ export default function HomeScreen() {
           onPress={() => router.push({ pathname: '/(app)/expenses/[id]', params: { id: expense.id } })}
         />
       ))}
-      {!expensesQuery.isLoading && !expensesQuery.error && recentPersonalExpenses.length === 0 ? (
+      {!expensesQuery.isLoading && !directExpensesQuery.isLoading && !expensesQuery.error && !directExpensesQuery.error && recentPersonalExpenses.length === 0 ? (
         <ThemedText style={styles.emptyActivity} themeColor="textSecondary">
           No personal or 1-on-1 expenses yet.
         </ThemedText>
       ) : null}
 
-      <View style={styles.sectionHeading}>
-        <ThemedText style={styles.sectionTitle}>Recent activity</ThemedText>
-        <Pressable onPress={() => router.push('/(app)/(tabs)/activity')}>
-          <ThemedText style={styles.seeAll} themeColor="primary">
-            See all
-          </ThemedText>
-        </Pressable>
-      </View>
-      {activityQuery.isLoading ? (
-        <ThemedText style={styles.emptyActivity} themeColor="textSecondary">
-          Loading activity…
-        </ThemedText>
-      ) : null}
-      {(activityQuery.data?.data ?? []).map((activity) => (
-        <ActivityRow activity={activity} key={activity.id} />
-      ))}
-      {!activityQuery.isLoading && !activityQuery.error && activityQuery.data?.data.length === 0 ? (
-        <ThemedText style={styles.emptyActivity} themeColor="textSecondary">
-          Nothing has happened yet.
-        </ThemedText>
-      ) : null}
+      </> : <Pressable accessibilityRole="button" onPress={() => router.push('/(app)/friends')}><ThemedText style={styles.seeAll} themeColor="interactive">Or add a friend for 1-on-1 expenses</ThemedText></Pressable>}
     </AppScreen>
   );
 }
 
 const styles = StyleSheet.create({
-  addAction: { fontSize: 14, fontWeight: '800' },
+  searchButton: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center' },
+  secondaryTotal: { width: '100%', paddingVertical: 14, borderBottomWidth: StyleSheet.hairlineWidth, flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 8, backgroundColor: 'transparent' },
+  secondaryAmount: { fontSize: 17, lineHeight: 24, fontWeight: '600', fontVariant: ['tabular-nums'] },
   headerActions: { flexDirection: 'row', alignItems: 'center', gap: 14 },
   verificationCard: { padding: 16, borderRadius: 18, gap: 3 },
-  verificationTitle: { fontWeight: '800' },
+  verificationTitle: { fontWeight: '600' },
   totalGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  totalCard: { minWidth: 150, flexGrow: 1, borderRadius: 18, padding: 16, gap: 4 },
-  totalLabel: { fontSize: 12, lineHeight: 17, fontWeight: '700' },
-  totalAmount: { fontSize: 21, lineHeight: 28, fontWeight: '900' },
+  totalCard: { width: '100%', borderRadius: 22, padding: 22, gap: 8 },
+  totalHeader: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  totalLabel: { fontSize: 12, lineHeight: 17, fontWeight: '600' },
+  totalAmount: { fontSize: 34, lineHeight: 43, fontWeight: '500', fontVariant: ['tabular-nums'] },
   smallCopy: { fontSize: 14, lineHeight: 20 },
   sectionHeading: {
     flexDirection: 'row',
@@ -250,11 +241,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 10,
   },
-  sectionTitle: { fontSize: 18, lineHeight: 25, fontWeight: '800' },
-  seeAll: { fontSize: 13, fontWeight: '800' },
+  sectionTitle: { fontSize: 17, lineHeight: 25, fontWeight: '600' },
+  seeAll: { fontSize: 13, fontWeight: '500', paddingVertical: 14 },
   emptyCard: { borderRadius: 22, padding: 20, gap: 6 },
-  emptyTitle: { fontSize: 17, lineHeight: 24, fontWeight: '800' },
-  createLink: { marginTop: 8, fontWeight: '800' },
+  emptyTitle: { fontSize: 17, lineHeight: 24, fontWeight: '600' },
+  createLink: { marginTop: 8, fontWeight: '600' },
   emptyActivity: { textAlign: 'center', paddingVertical: 28 },
   directCard: {
     minHeight: 76,
@@ -265,10 +256,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 12,
+    borderStartWidth: 3,
   },
-  directCopy: { flex: 1, gap: 2 },
-  directName: { fontSize: 16, lineHeight: 22, fontWeight: '800' },
-  directAmountWrap: { alignItems: 'flex-end', gap: 2 },
-  directAmount: { fontSize: 15, lineHeight: 21, fontWeight: '900' },
-  settleLabel: { fontSize: 12, lineHeight: 17, fontWeight: '800' },
+  directCopy: { flex: 1, minWidth: 0, gap: 2 },
+  directName: { fontSize: 16, lineHeight: 22, fontWeight: '600' },
+  directAmountWrap: { maxWidth: '45%', alignItems: 'flex-end', gap: 2 },
+  directAmount: { fontSize: 15, lineHeight: 21, fontWeight: '600' },
+  settleLabel: { fontSize: 12, lineHeight: 17, fontWeight: '600' },
 });

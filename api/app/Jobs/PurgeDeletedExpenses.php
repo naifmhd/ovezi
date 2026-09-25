@@ -6,6 +6,7 @@ use App\Models\Expense;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use RuntimeException;
 
@@ -21,6 +22,10 @@ class PurgeDeletedExpenses implements ShouldBeUnique, ShouldQueue
 
     public function handle(): void
     {
+        // Keep the submission tombstone, but do not retain old financial response copies.
+        DB::table('financial_submissions')->where('created_at', '<=', now()->subDays(30))
+            ->where('response_body', '!=', '')->update(['response_body' => '']);
+        DB::table('account_deletion_tokens')->where('expires_at', '<=', now())->delete();
         Expense::onlyTrashed()
             ->where('deleted_at', '<=', now()->subDays(30))
             ->chunkById(100, function ($expenses): void {

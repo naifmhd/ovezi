@@ -37,7 +37,7 @@ class GroupInviteController extends Controller
         );
 
         return GroupInviteResource::make($result['invite'])
-            ->additional(['meta' => ['token' => $result['token']]])
+            ->additional(['meta' => ['token' => $result['token'], 'url' => route('app.invite', ['token' => $result['token']])]])
             ->response()
             ->setStatusCode(Response::HTTP_CREATED);
     }

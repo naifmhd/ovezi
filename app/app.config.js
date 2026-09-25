@@ -77,6 +77,8 @@ module.exports = () => {
     throw new Error('EXPO_PUBLIC_API_URL must use HTTPS for production builds.');
   }
 
+  const linkHost = apiUrl ? new URL(apiUrl).hostname : null;
+  const linkPaths = ['/group-invites/accept', '/auth/reset-password', '/auth/verify-email'];
   const iosUrlScheme = googleIosUrlScheme(googleIosClientId);
   const plugins = [...staticConfig.expo.plugins];
 
@@ -99,10 +101,12 @@ module.exports = () => {
     ...staticConfig.expo,
     ios: {
       ...staticConfig.expo.ios,
+      ...(linkHost && apiUrl.startsWith('https://') ? { associatedDomains: [`applinks:${linkHost}`] } : {}),
       ...(iosBundleIdentifier ? { bundleIdentifier: iosBundleIdentifier } : {}),
     },
     android: {
       ...staticConfig.expo.android,
+      ...(linkHost && apiUrl.startsWith('https://') ? { intentFilters: [{ action: 'VIEW', autoVerify: true, category: ['BROWSABLE', 'DEFAULT'], data: linkPaths.map((pathPrefix) => ({ scheme: 'https', host: linkHost, pathPrefix })) }] } : {}),
       ...(androidPackage ? { package: androidPackage } : {}),
     },
     plugins,

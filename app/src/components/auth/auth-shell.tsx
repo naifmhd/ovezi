@@ -8,7 +8,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { BrandMark } from '@/components/brand-mark';
+import { BrandLockup } from '@/components/brand-mark';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
@@ -31,11 +31,7 @@ export function AuthShell({ title, subtitle, children, footer }: AuthShellProps)
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}>
             <View style={styles.brand}>
-              <BrandMark size={58} />
-              <ThemedText style={styles.wordmark}>Ovezi</ThemedText>
-              <ThemedText themeColor="textSecondary" style={styles.tagline}>
-                Split. Share. Settle.
-              </ThemedText>
+              <BrandLockup size={72} tagline />
             </View>
 
             <View style={styles.heading}>
@@ -64,11 +60,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.four,
     paddingVertical: Spacing.five,
   },
-  brand: { alignItems: 'center', marginBottom: 44 },
-  wordmark: { fontSize: 28, lineHeight: 34, fontWeight: '800', letterSpacing: -0.6 },
-  tagline: { fontSize: 13, lineHeight: 18, fontWeight: '600', letterSpacing: 0.8 },
+  brand: { alignItems: 'flex-start', marginBottom: 32 },
   heading: { gap: Spacing.two, marginBottom: Spacing.four },
-  title: { fontSize: 30, lineHeight: 38, fontWeight: '800', letterSpacing: -0.7 },
+  title: { fontSize: 28, lineHeight: 36, fontWeight: '600', letterSpacing: -0.7 },
   form: { gap: Spacing.three },
   footer: { marginTop: 'auto', paddingTop: Spacing.five, alignItems: 'center' },
 });

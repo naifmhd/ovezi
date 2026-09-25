@@ -5,7 +5,7 @@ use Illuminate\Auth\Notifications\VerifyEmail;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\URL;
 
-it('sends a mobile deep-link verification notification', function () {
+it('sends a HTTPS app-link verification notification', function () {
     Notification::fake();
     $user = User::factory()->unverified()->create();
     $token = $user->createToken('User phone');
@@ -17,7 +17,7 @@ it('sends a mobile deep-link verification notification', function () {
     Notification::assertSentTo($user, VerifyEmail::class, function (VerifyEmail $notification) use ($user): bool {
         $url = $notification->toMail($user)->actionUrl;
 
-        return str_starts_with($url, 'ovezi://auth/verify-email?verification_url=')
+        return str_starts_with($url, route('app.verify').'?verification_url=')
             && str_contains(rawurldecode($url), '/api/v1/auth/email/verify/');
     });
 });

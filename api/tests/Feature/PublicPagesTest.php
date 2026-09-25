@@ -6,7 +6,7 @@ it('serves the branded public homepage', function () {
     get('/')
         ->assertOk()
         ->assertSee('Shared expenses, made easy.')
-        ->assertSee('Coming soon to iPhone')
+        ->assertSee('Coming soon to iOS and Android')
         ->assertDontSee('Laravel has an incredibly rich ecosystem');
 });
 

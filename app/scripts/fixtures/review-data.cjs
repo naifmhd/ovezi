@@ -1,0 +1,23 @@
+const date='2026-09-25T10:00:00Z';
+const user={id:1,name:'Ahmed Umar',email:'ahmed@example.test',email_verified_at:date,default_currency_code:'MVR',avatar_url:null,has_password:true,connected_providers:[],created_at:date};
+const names=['Ahmed Umar','Aishath Mariyam Mohamed','Mohamed Zayaan','Fathimath Nasha'];
+const groups=['Bali with the whole crew','Hulhumalé apartment & groceries','Friday coffee club'].map((name,i)=>({id:i+1,name,reporting_currency_code:i===1?'USD':'MVR',has_photo:false,photo_url:null,created_by:1,active_member_count:4,is_archived:false,archived_at:null,members:names.map((name,j)=>({id:j+1,group_id:i+1,role:j===0?'owner':'member',user:{id:j+1,name},joined_at:date,left_at:null})),created_at:date,updated_at:date}));
+const amounts=[124000,68000,32000,248000];
+const expenses=['Dinner at the harbour','Airport taxi for everyone','Coffee & pastries','Weekend villa deposit'].map((description,i)=>({id:i+1,recurring_expense_id:null,recurring_occurrence_on:null,expense_type:'group',group_id:1,payer:{user_id:i===0?1:2,placeholder_id:null,claimed_user_id:null,name:names[i===0?0:1]},amount_minor:amounts[i],currency_code:'MVR',reporting_amount_minor:amounts[i],reporting_currency_code:'MVR',exchange_rate:null,exchange_rate_source:'same_currency',exchange_rate_effective_date:null,description,category:['food','transport','food','travel'][i],has_receipt:false,receipt_url:null,occurred_at:date,created_by:1,splits:names.map((name,j)=>({id:j+1,user_id:j+1,placeholder_id:null,claimed_user_id:null,name,amount_owed_minor:amounts[i]/4,reporting_amount_owed_minor:amounts[i]/4,split_type:'equal',split_value:null})),created_at:date,updated_at:date}));
+const balances={groups:groups.map((g,i)=>({group_id:g.id,name:g.name,currency_code:g.reporting_currency_code,balance_minor:[186000,-4500,0][i],archived_at:null})),direct:[{participant:{key:'user:2',user_id:2,placeholder_id:null,name:names[1]},currency_code:'MVR',balance_minor:-25000}],totals_by_currency:[{currency_code:'MVR',balance_minor:161000},{currency_code:'USD',balance_minor:-4500}]};
+const activity=expenses.map((e,i)=>({id:i+1,group_id:1,actor:{id:1,name:names[0]},subject:{type:'expense',id:e.id},event:'expense.created',metadata:{description:e.description,amount_minor:e.amount_minor,currency_code:e.currency_code},created_at:date}));
+const page=(data)=>({data,links:{next:null,prev:null},meta:{current_page:1,last_page:1,per_page:100,total:data.length}});
+function respond(url,empty=false){const u=new URL(url,'http://localhost'),p=u.pathname.replace(/^.*\/api\/v1/,'');
+if(p==='/me')return {data:user};if(p==='/auth/login')return {data:{user,token:'local-visual-review'}};
+if(p==='/currencies')return {data:[{code:'MVR',name:'Maldivian Rufiyaa',symbol:'Rf',minor_unit_factor:100},{code:'USD',name:'US Dollar',symbol:'$',minor_unit_factor:100},{code:'EUR',name:'Euro',symbol:'€',minor_unit_factor:100},{code:'JPY',name:'Japanese Yen',symbol:'¥',minor_unit_factor:1}]};
+if(p==='/balances')return {data:empty?{groups:[],direct:[],totals_by_currency:[]}:balances};
+if(p==='/groups')return page(empty?[]:groups);if(/^\/groups\/\d+$/.test(p))return {data:groups[Number(p.split('/')[2])-1]??groups[0]};
+if(p.endsWith('/balances'))return {data:{group_id:1,currency_code:'MVR',members:names.map((name,i)=>({member_id:i+1,participant:{key:`user:${i+1}`,user_id:i+1,placeholder_id:null,name},balance_minor:empty?0:[186000,-100000,-60000,-26000][i]})),suggested_settlements:empty?[]:[{from:'user:2',to:'user:1',amount_minor:100000},{from:'user:3',to:'user:1',amount_minor:60000},{from:'user:4',to:'user:1',amount_minor:26000}]}};
+if(p==='/expenses'||p.endsWith('/expenses'))return page(empty?[]:u.searchParams.get('expense_type')&&u.searchParams.get('expense_type')!=='group'?[]:expenses);if(/^\/expenses\/\d+$/.test(p))return {data:expenses[0]};
+if(p==='/activity'||p.endsWith('/activity'))return page(empty?[]:activity);
+if(p==='/friends')return page(empty?[]:[{id:1,friend:{id:2,name:names[1],email:'aishath@example.test'},status:'accepted',direction:'outgoing',accepted_at:date,created_at:date}]);
+if(p.includes('notification-preferences'))return {data:{expense_created:true,payment_received:true,settle_up_reminders:true,groups:[]}};
+if(p==='/search')return {data:{groups:empty?[]:groups,expenses:empty?[]:expenses,friends:[]}};
+return page([]);
+}
+module.exports={respond,expenses};

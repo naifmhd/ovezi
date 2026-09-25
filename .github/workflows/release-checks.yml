@@ -1,0 +1,70 @@
+name: Release checks
+on:
+  pull_request:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  mobile:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+      - run: npm ci
+      - run: npm run check
+      - run: npm audit --omit=dev --audit-level=high
+      - run: npx expo install --check
+      - run: npx playwright install --with-deps chromium
+      - name: Browser regressions with synthetic data
+        run: |
+          npx expo start --web --port 8085 > /tmp/ovezi-web.log 2>&1 &
+          EXPO_PID=$!
+          trap 'kill "$EXPO_PID"' EXIT
+          for attempt in $(seq 1 60); do
+            if curl --silent --fail http://localhost:8085 > /dev/null; then break; fi
+            sleep 1
+          done
+          npm run test:browser
+      - run: npx expo export --platform ios --platform android --output-dir ../output/ci-native
+  api:
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: testing
+          MYSQL_DATABASE: ovezi_test
+        ports: ['3306:3306']
+        options: --health-cmd="mysqladmin ping -ptesting" --health-interval=10s --health-timeout=5s --health-retries=10
+    defaults:
+      run:
+        working-directory: api
+    env:
+      APP_ENV: testing
+      APP_KEY: base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+      DB_CONNECTION: mysql
+      DB_HOST: 127.0.0.1
+      DB_PORT: 3306
+      DB_DATABASE: ovezi_test
+      DB_USERNAME: root
+      DB_PASSWORD: testing
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.5'
+          extensions: mbstring, pdo_mysql, pdo_sqlite, gd, zip
+          coverage: none
+      - run: composer install --no-interaction --prefer-dist
+      - run: composer audit --locked
+      - run: vendor/bin/pint --format agent
+      - run: git diff --exit-code
+      - run: php artisan test --compact

@@ -1,7 +1,9 @@
-import * as Linking from 'expo-linking';
+import { HeaderAction } from '@/components/ui/header-action';
+import { Disclosure } from '@/components/ui/disclosure';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import * as ImagePicker from 'expo-image-picker';
 import { router, useLocalSearchParams } from 'expo-router';
+import { SymbolView } from 'expo-symbols';
 import { useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, Share, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -12,9 +14,11 @@ import { CurrencyPicker } from '@/components/currency-picker';
 import { GroupAvatar } from '@/components/group-avatar';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Spacing } from '@/constants/theme';
+import { AnimatedPressable } from '@/components/ui/animated-pressable';
+import { Radius, Spacing } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
 import { errorMessage } from '@/lib/api-client';
-import { createGroupInvite, fetchGroupInvites, revokeGroupInvite } from '@/lib/group-invites-api';
+import { invitationUrl, createGroupInvite, fetchGroupInvites, revokeGroupInvite } from '@/lib/group-invites-api';
 import { deleteGroupRate, fetchGroupRates, saveGroupRate } from '@/lib/group-rates-api';
 import {
   deleteGroupPhoto,
@@ -30,6 +34,7 @@ function firstParam(value: string | string[] | undefined) {
 }
 
 export default function GroupSettingsScreen() {
+  const theme = useTheme();
   const params = useLocalSearchParams<{ id?: string | string[] }>();
   const groupId = Number(firstParam(params.id));
   const token = useAuthStore((state) => state.token)!;
@@ -100,9 +105,7 @@ export default function GroupSettingsScreen() {
     onSuccess: async (response) => {
       await queryClient.invalidateQueries({ queryKey: ['group-invites', groupId] });
       setTargetEmail('');
-      const inviteUrl = Linking.createURL('group-invites/accept', {
-        queryParams: { token: response.meta.token },
-      });
+      const inviteUrl = invitationUrl(response.meta);
       await Share.share({
         title: `Join ${group?.name ?? 'my Ovezi group'}`,
         message: `Join ${group?.name ?? 'my group'} on Ovezi: ${inviteUrl}`,
@@ -239,9 +242,9 @@ export default function GroupSettingsScreen() {
     <ThemedView style={styles.screen}>
       <SafeAreaView edges={['top']} style={styles.safeArea}>
         <View style={styles.header}>
-          <Pressable onPress={() => router.back()}>
+          <HeaderAction onPress={() => router.back()}>
             <ThemedText style={styles.headerAction} themeColor="primary">‹ Back</ThemedText>
-          </Pressable>
+          </HeaderAction>
           <ThemedText style={styles.headerTitle}>Group settings</ThemedText>
           <View style={styles.headerSpacer} />
         </View>
@@ -263,9 +266,118 @@ export default function GroupSettingsScreen() {
             ) : null}
             {group && isOwner ? (
               <>
-                <SectionTitle title="Group photo" />
+                <SectionTitle title="Details" />
+                <FormField
+                  autoCapitalize="words"
+                  editable={!group.is_archived}
+                  label="Group name"
+                  onChangeText={setName}
+                  value={effectiveName}
+                />
+                <CurrencyPicker
+                  disabled={group.is_archived}
+                  label="Reporting currency"
+                  onChange={setCurrency}
+                  value={effectiveCurrency}
+                />
+                <ThemedText style={styles.copy} themeColor="textSecondary">
+                  Existing expenses keep their captured conversion rate when this currency changes.
+                </ThemedText>
+                {!group.is_archived ? (
+                  <PrimaryButton
+                    label="Save changes"
+                    loading={updateMutation.isPending}
+                    onPress={saveSettings}
+                  />
+                ) : null}
+
+                <SectionTitle title="Invite people" />
+                <AnimatedPressable
+                  accessibilityHint="Add or remove people and transfer group ownership"
+                  accessibilityRole="button"
+                  onPress={() => router.push({
+                    pathname: '/(app)/groups/[id]/members',
+                    params: { id: group.id },
+                  })}
+                  style={[
+                    styles.manageMembersAction,
+                    { backgroundColor: theme.surfaceRaised, borderColor: theme.border },
+                  ]}>
+                  <View style={[styles.manageMembersIcon, { backgroundColor: theme.surfaceSubtle }]}>
+                    <SymbolView
+                      name={{ ios: 'person.2.fill', android: 'group', web: 'group' }}
+                      size={21}
+                      tintColor={theme.interactive}
+                      weight="semibold"
+                    />
+                  </View>
+                  <View style={styles.manageMembersCopy}>
+                    <ThemedText style={styles.cardTitle}>Manage members</ThemedText>
+                    <ThemedText style={styles.copy} themeColor="textSecondary">
+                      Add placeholders, remove settled members, or transfer ownership.
+                    </ThemedText>
+                  </View>
+                  <SymbolView
+                    name={{ ios: 'chevron.right', android: 'chevron_right', web: 'chevron_right' }}
+                    size={18}
+                    tintColor={theme.textSecondary}
+                    weight="semibold"
+                  />
+                </AnimatedPressable>
+                {group.is_archived ? (
+                  <ThemedText style={styles.copy} themeColor="textSecondary">
+                    Reopen this group before creating a new invitation.
+                  </ThemedText>
+                ) : (
+                  <>
+                    <FormField
+                      autoCapitalize="none"
+                      keyboardType="email-address"
+                      label="Email restriction (optional)"
+                      onChangeText={setTargetEmail}
+                      placeholder="friend@example.com"
+                      value={targetEmail}
+                    />
+                    <ThemedText style={styles.copy} themeColor="textSecondary">
+                      Leave this blank for a link anyone can accept. Add an email to restrict it to that verified account.
+                    </ThemedText>
+                    <PrimaryButton
+                      label="Create and share invite"
+                      loading={inviteMutation.isPending}
+                      onPress={() => inviteMutation.mutate()}
+                    />
+                  </>
+                )}
+
+                {activeInvites.length > 0 ? (
+                  <ThemedView type="backgroundElement" style={styles.inviteList}>
+                    {activeInvites.map((invite, index) => (
+                      <View key={invite.id}>
+                        {index > 0 ? <View style={styles.divider} /> : null}
+                        <View style={styles.inviteRow}>
+                          <View style={styles.inviteCopy}>
+                            <ThemedText style={styles.inviteTitle}>
+                              {invite.invited_email ?? 'Open invite link'}
+                            </ThemedText>
+                            <ThemedText style={styles.inviteMeta} themeColor="textSecondary">
+                              Expires {new Date(invite.expires_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                            </ThemedText>
+                          </View>
+                          <Pressable
+                            disabled={revokeMutation.isPending}
+                            onPress={() => revokeMutation.mutate(invite.id)}>
+                            <ThemedText style={[styles.revoke, { paddingVertical: 14 }]} themeColor="danger">Revoke</ThemedText>
+                          </Pressable>
+                        </View>
+                      </View>
+                    ))}
+                  </ThemedView>
+                ) : null}
+
+                <Disclosure title="Group photo">
+
                 <ThemedView type="backgroundElement" style={styles.photoCard}>
-                  <GroupAvatar group={group} size={104} />
+                  <GroupAvatar group={group} size={64} />
                   <ThemedText style={styles.copy} themeColor="textSecondary">
                     Visible only to active members of this group.
                   </ThemedText>
@@ -304,32 +416,9 @@ export default function GroupSettingsScreen() {
                   ) : null}
                 </ThemedView>
 
-                <SectionTitle title="Details" />
-                <FormField
-                  autoCapitalize="words"
-                  editable={!group.is_archived}
-                  label="Group name"
-                  onChangeText={setName}
-                  value={effectiveName}
-                />
-                <CurrencyPicker
-                  disabled={group.is_archived}
-                  label="Reporting currency"
-                  onChange={setCurrency}
-                  value={effectiveCurrency}
-                />
-                <ThemedText style={styles.copy} themeColor="textSecondary">
-                  Existing expenses keep their captured conversion rate when this currency changes.
-                </ThemedText>
-                {!group.is_archived ? (
-                  <PrimaryButton
-                    label="Save changes"
-                    loading={updateMutation.isPending}
-                    onPress={saveSettings}
-                  />
-                ) : null}
+                </Disclosure>
+                <Disclosure title="Custom exchange rates">
 
-                <SectionTitle title="Currency overrides" />
                 <ThemedText style={styles.copy} themeColor="textSecondary">
                   These owner-managed rates take priority over the cached daily default. Enter how much one unit of the base currency is worth in {group.reporting_currency_code}.
                 </ThemedText>
@@ -337,7 +426,7 @@ export default function GroupSettingsScreen() {
                   <ThemedView key={item.id} type="backgroundElement" style={styles.rateRow}>
                     <View style={styles.inviteCopy}>
                       <ThemedText style={styles.inviteTitle}>
-                        1 {item.base_currency_code} = {Number(item.rate).toLocaleString('en', { maximumFractionDigits: 12 })} {item.quote_currency_code}
+                        1 {item.base_currency_code} = {Number(item.rate).toLocaleString(undefined, { maximumFractionDigits: 12 })} {item.quote_currency_code}
                       </ThemedText>
                       <ThemedText style={styles.inviteMeta} themeColor="textSecondary">Group override</ThemedText>
                     </View>
@@ -345,7 +434,7 @@ export default function GroupSettingsScreen() {
                       <Pressable
                         disabled={deleteRateMutation.isPending}
                         onPress={() => deleteRateMutation.mutate(item.base_currency_code)}>
-                        <ThemedText style={styles.revoke} themeColor="danger">Remove</ThemedText>
+                        <ThemedText style={[styles.revoke, { paddingVertical: 14 }]} themeColor="danger">Remove</ThemedText>
                       </Pressable>
                     ) : null}
                   </ThemedView>
@@ -373,72 +462,9 @@ export default function GroupSettingsScreen() {
                   </ThemedView>
                 ) : null}
 
-                <SectionTitle title="Invite people" />
-                <Pressable
-                  onPress={() => router.push({
-                    pathname: '/(app)/groups/[id]/members',
-                    params: { id: group.id },
-                  })}
-                  style={styles.manageMembersAction}>
-                  <View>
-                    <ThemedText style={styles.cardTitle}>Manage members</ThemedText>
-                    <ThemedText style={styles.copy} themeColor="textSecondary">
-                      Add placeholders, remove settled members, or transfer ownership.
-                    </ThemedText>
-                  </View>
-                  <ThemedText style={styles.chevron} themeColor="primary">›</ThemedText>
-                </Pressable>
-                {group.is_archived ? (
-                  <ThemedText style={styles.copy} themeColor="textSecondary">
-                    Reopen this group before creating a new invitation.
-                  </ThemedText>
-                ) : (
-                  <>
-                    <FormField
-                      autoCapitalize="none"
-                      keyboardType="email-address"
-                      label="Email restriction (optional)"
-                      onChangeText={setTargetEmail}
-                      placeholder="friend@example.com"
-                      value={targetEmail}
-                    />
-                    <ThemedText style={styles.copy} themeColor="textSecondary">
-                      Leave this blank for a link anyone can accept. Add an email to restrict it to that verified account.
-                    </ThemedText>
-                    <PrimaryButton
-                      label="Create and share invite"
-                      loading={inviteMutation.isPending}
-                      onPress={() => inviteMutation.mutate()}
-                    />
-                  </>
-                )}
+                </Disclosure>
+                <Disclosure title="Archive and reopen group">
 
-                {activeInvites.length > 0 ? (
-                  <ThemedView type="backgroundElement" style={styles.inviteList}>
-                    {activeInvites.map((invite, index) => (
-                      <View key={invite.id}>
-                        {index > 0 ? <View style={styles.divider} /> : null}
-                        <View style={styles.inviteRow}>
-                          <View style={styles.inviteCopy}>
-                            <ThemedText style={styles.inviteTitle}>
-                              {invite.invited_email ?? 'Open invite link'}
-                            </ThemedText>
-                            <ThemedText style={styles.inviteMeta} themeColor="textSecondary">
-                              Expires {new Date(invite.expires_at).toLocaleDateString('en', { month: 'short', day: 'numeric' })}
-                            </ThemedText>
-                          </View>
-                          <Pressable
-                            disabled={revokeMutation.isPending}
-                            onPress={() => revokeMutation.mutate(invite.id)}>
-                            <ThemedText style={styles.revoke} themeColor="danger">Revoke</ThemedText>
-                          </Pressable>
-                        </View>
-                      </View>
-                    ))}
-                  </ThemedView>
-                ) : null}
-
-                <SectionTitle title="Group status" />
                 <ThemedView type="backgroundElement" style={styles.card}>
                   <ThemedText style={styles.cardTitle}>
                     {group.is_archived ? 'This group is archived' : 'Archive this group'}
@@ -456,24 +482,25 @@ export default function GroupSettingsScreen() {
                     />
                   ) : confirmingArchive ? (
                     <View style={styles.confirmActions}>
-                      <Pressable onPress={() => setConfirmingArchive(false)} style={styles.secondaryAction}>
+                      <Pressable onPress={() => setConfirmingArchive(false)} style={[styles.secondaryAction, { backgroundColor: theme.surfaceSubtle }]}>
                         <ThemedText style={styles.secondaryLabel}>Cancel</ThemedText>
                       </Pressable>
                       <Pressable
                         disabled={archiveMutation.isPending}
                         onPress={() => archiveMutation.mutate(true)}
-                        style={styles.dangerAction}>
-                        <ThemedText style={styles.dangerLabel}>
+                        style={[styles.dangerAction, { backgroundColor: theme.danger }]}>
+                        <ThemedText style={[styles.dangerLabel, { color: theme.background }]}>
                           {archiveMutation.isPending ? 'Archiving…' : 'Confirm archive'}
                         </ThemedText>
                       </Pressable>
                     </View>
                   ) : (
-                    <Pressable onPress={() => setConfirmingArchive(true)} style={styles.archiveAction}>
+                    <Pressable onPress={() => setConfirmingArchive(true)} style={[styles.archiveAction, { borderColor: theme.danger }]}>
                       <ThemedText style={styles.archiveLabel} themeColor="danger">Archive group</ThemedText>
                     </Pressable>
                   )}
                 </ThemedView>
+                </Disclosure>
               </>
             ) : null}
             {visibleError ? <ThemedText themeColor="danger">{visibleError}</ThemedText> : null}
@@ -492,37 +519,52 @@ const styles = StyleSheet.create({
   screen: { flex: 1 },
   safeArea: { flex: 1 },
   flex: { flex: 1 },
-  header: { height: 60, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: Spacing.four },
-  headerAction: { fontSize: 14, fontWeight: '800' },
-  headerTitle: { fontSize: 17, fontWeight: '800' },
+  header: { minHeight: 60, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: Spacing.four },
+  headerAction: { fontSize: 14, fontWeight: '600' },
+  headerTitle: { fontSize: 17, fontWeight: '600' },
   headerSpacer: { width: 48 },
   content: { padding: Spacing.four, paddingBottom: 80, gap: 14, maxWidth: 620, width: '100%', alignSelf: 'center' },
   centered: { textAlign: 'center', paddingVertical: 40 },
-  sectionTitle: { fontSize: 18, lineHeight: 25, fontWeight: '800', marginTop: 8 },
+  sectionTitle: { fontSize: 18, lineHeight: 25, fontWeight: '600', marginTop: 8 },
   copy: { fontSize: 13, lineHeight: 19 },
   card: { borderRadius: 20, padding: 17, gap: 10 },
   photoCard: { borderRadius: 20, padding: 18, alignItems: 'center', gap: 12 },
   photoActions: { width: '100%', flexDirection: 'row', gap: 8 },
-  photoAction: { flex: 1, minHeight: 46, alignItems: 'center', justifyContent: 'center' },
-  removePhotoAction: { minHeight: 42, alignItems: 'center', justifyContent: 'center' },
-  photoActionLabel: { fontSize: 14, fontWeight: '800' },
-  cardTitle: { fontSize: 15, fontWeight: '800' },
+  photoAction: { flex: 1, minHeight: 48, alignItems: 'center', justifyContent: 'center' },
+  removePhotoAction: { minHeight: 48, alignItems: 'center', justifyContent: 'center' },
+  photoActionLabel: { fontSize: 14, fontWeight: '600' },
+  cardTitle: { fontSize: 15, fontWeight: '600' },
   inviteList: { borderRadius: 20, paddingHorizontal: 16 },
   inviteRow: { minHeight: 67, flexDirection: 'row', alignItems: 'center', gap: 12 },
   inviteCopy: { flex: 1, gap: 2 },
-  inviteTitle: { fontSize: 14, fontWeight: '700' },
+  inviteTitle: { fontSize: 14, fontWeight: '600' },
   inviteMeta: { fontSize: 12 },
-  revoke: { fontSize: 13, fontWeight: '800' },
+  revoke: { fontSize: 13, fontWeight: '600' },
   divider: { height: StyleSheet.hairlineWidth, backgroundColor: '#7A8498', opacity: 0.3 },
   confirmActions: { flexDirection: 'row', gap: 10, marginTop: 4 },
-  secondaryAction: { flex: 1, height: 46, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: '#DDE5E2' },
-  secondaryLabel: { color: '#0A1128', fontWeight: '800' },
-  dangerAction: { flex: 1, height: 46, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: '#C63E4E' },
-  dangerLabel: { color: '#FFFFFF', fontWeight: '800' },
-  archiveAction: { height: 46, borderRadius: 14, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#C63E4E', marginTop: 4 },
-  archiveLabel: { fontWeight: '800' },
-  manageMembersAction: { minHeight: 70, borderRadius: 18, padding: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#DDFBF0', gap: 12 },
-  chevron: { fontSize: 28, lineHeight: 30, fontWeight: '500' },
+  secondaryAction: { flex: 1, minHeight: 48, paddingVertical: 12, paddingHorizontal: 10, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: '#DDE5E2' },
+  secondaryLabel: { fontWeight: '600' },
+  dangerAction: { flex: 1, minHeight: 48, paddingVertical: 12, paddingHorizontal: 10, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: '#C63E4E' },
+  dangerLabel: { color: '#FFFFFF', fontWeight: '600' },
+  archiveAction: { minHeight: 48, paddingVertical: 12, paddingHorizontal: 10, borderRadius: 14, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#C63E4E', marginTop: 4 },
+  archiveLabel: { fontWeight: '600' },
+  manageMembersAction: {
+    minHeight: 78,
+    borderRadius: Radius.card,
+    borderWidth: StyleSheet.hairlineWidth,
+    padding: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  manageMembersIcon: {
+    width: 42,
+    height: 42,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  manageMembersCopy: { flex: 1, gap: 2 },
   rateRow: { minHeight: 64, borderRadius: 18, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', gap: 12 },
   rateForm: { borderRadius: 20, padding: 16, gap: 14 },
 });

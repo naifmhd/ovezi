@@ -82,7 +82,7 @@ describe('management', function () {
                     && $channels === ['mail']
                     && $notification->invite->group_id === $group->id
                     && $mail->subject === "Join {$group->name} on Ovezi"
-                    && $mail->actionUrl === "ovezi://group-invites/accept?token={$rawToken}"
+                    && $mail->actionUrl === route('app.invite', ['token' => $rawToken])
                     && str_contains(implode(' ', $mail->introLines), $owner->name);
             },
         );

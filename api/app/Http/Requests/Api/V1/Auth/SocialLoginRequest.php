@@ -33,6 +33,7 @@ class SocialLoginRequest extends FormRequest
                 'string',
                 'between:16,255',
             ],
+            'authorization_code' => [Rule::requiredIf(app()->isProduction() && $this->input('provider') === 'apple'), 'nullable', 'string', 'max:4096'],
             'name' => ['nullable', 'string', 'max:255'],
             'device_name' => ['required', 'string', 'max:100'],
         ];

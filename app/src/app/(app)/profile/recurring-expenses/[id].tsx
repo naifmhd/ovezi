@@ -1,3 +1,4 @@
+import { HeaderAction } from '@/components/ui/header-action';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
@@ -7,6 +8,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { FormField } from '@/components/auth/form-field';
 import { PrimaryButton } from '@/components/auth/primary-button';
 import { CurrencyPicker } from '@/components/currency-picker';
+import { NativeDateField } from '@/components/native-date-field';
 import { QueryErrorCard } from '@/components/query-error-card';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -80,9 +82,6 @@ export default function EditRecurringExpenseScreen() {
     if (!description.trim()) return setFormError('Enter what the expense is for.');
     if (!amountMinor || amountMinor < 1) return setFormError('Enter a valid amount.');
     if (currencyCode.length !== 3) return setFormError('Choose a valid currency.');
-    if (endsOn && !/^\d{4}-\d{2}-\d{2}$/.test(endsOn)) {
-      return setFormError('Enter the end date in YYYY-MM-DD format.');
-    }
     if (endsOn && endsOn <= schedule.start_on.slice(0, 10)) {
       return setFormError('The end date must be after the first expense date.');
     }
@@ -118,9 +117,9 @@ export default function EditRecurringExpenseScreen() {
     <ThemedView style={styles.screen}>
       <SafeAreaView edges={['top']} style={styles.safeArea}>
         <View style={styles.header}>
-          <Pressable onPress={() => router.back()}>
+          <HeaderAction onPress={() => router.back()}>
             <ThemedText style={styles.back} themeColor="primary">‹ Back</ThemedText>
-          </Pressable>
+          </HeaderAction>
           <ThemedText style={styles.headerTitle}>Edit future expenses</ThemedText>
           <View style={styles.headerSpacer} />
         </View>
@@ -182,13 +181,11 @@ export default function EditRecurringExpenseScreen() {
                     />
                   ))}
                 </View>
-                <FormField
-                  autoCapitalize="none"
-                  keyboardType="numbers-and-punctuation"
-                  label="Repeat until (optional)"
-                  maxLength={10}
-                  onChangeText={setEndsOn}
-                  placeholder="YYYY-MM-DD"
+                <NativeDateField
+                  label="Repeat until"
+                  minimumDate={new Date(`${schedule.start_on.slice(0, 10)}T12:00:00`)}
+                  onChange={setEndsOn}
+                  optional
                   value={endsOn}
                 />
                 {formError ? <ThemedText themeColor="danger">{formError}</ThemedText> : null}
@@ -223,17 +220,17 @@ const styles = StyleSheet.create({
   screen: { flex: 1 },
   safeArea: { flex: 1 },
   flex: { flex: 1 },
-  header: { height: 60, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: Spacing.four },
-  back: { fontSize: 14, fontWeight: '800' },
-  headerTitle: { fontSize: 17, fontWeight: '800' },
+  header: { minHeight: 60, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: Spacing.four },
+  back: { fontSize: 14, fontWeight: '600' },
+  headerTitle: { fontSize: 17, fontWeight: '600' },
   headerSpacer: { width: 48 },
   content: { padding: Spacing.four, paddingBottom: 80, gap: 14, maxWidth: 680, width: '100%', alignSelf: 'center' },
   centered: { textAlign: 'center', paddingVertical: 40 },
   infoCard: { borderRadius: 20, padding: 17, gap: 5 },
-  title: { fontSize: 15, lineHeight: 21, fontWeight: '900' },
+  title: { fontSize: 15, lineHeight: 21, fontWeight: '600' },
   copy: { fontSize: 13, lineHeight: 19 },
-  sectionLabel: { fontSize: 14, lineHeight: 20, fontWeight: '800' },
+  sectionLabel: { fontSize: 14, lineHeight: 20, fontWeight: '600' },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   chip: { minHeight: 42, borderRadius: 14, paddingHorizontal: 14, alignItems: 'center', justifyContent: 'center' },
-  chipText: { fontSize: 13, fontWeight: '900' },
+  chipText: { fontSize: 13, fontWeight: '600' },
 });

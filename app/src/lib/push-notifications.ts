@@ -18,7 +18,9 @@ Notifications.setNotificationHandler({
 });
 
 function projectId() {
-  return Constants.expoConfig?.extra?.eas?.projectId ?? Constants.easConfig?.projectId;
+  return process.env.EXPO_PUBLIC_EAS_PROJECT_ID?.trim()
+    || Constants.expoConfig?.extra?.eas?.projectId
+    || Constants.easConfig?.projectId;
 }
 
 export async function notificationPermissionStatus() {
@@ -40,7 +42,7 @@ export async function syncPushToken(apiToken: string, requestPermission = false)
     await Notifications.setNotificationChannelAsync('default', {
       name: 'Ovezi activity',
       importance: Notifications.AndroidImportance.DEFAULT,
-      lightColor: '#00F5A0',
+      lightColor: '#20D9A1',
     });
   }
 

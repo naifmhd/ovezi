@@ -33,7 +33,7 @@
 
         <section>
             <h2>Export or delete your account</h2>
-            <p>In Ovezi, open <strong>Profile → Security</strong>. From there you can export your personal data, log out of all devices, or delete your account.</p>
+            <p>In Ovezi, choose <strong>Profile → Export my data</strong> to download your information. Open <strong>Profile → Security</strong> to sign out all devices or delete your account. You can also <a href="{{ route('account-deletion.create') }}">request account deletion here</a> without the app.</p>
             <p>Deleting your account removes access and active profile use. Minimum historical records may remain in an inactive or de-identified form so shared group history and other members’ balances stay accurate. See the <a href="{{ route('privacy') }}">Privacy Policy</a> for details.</p>
         </section>
 

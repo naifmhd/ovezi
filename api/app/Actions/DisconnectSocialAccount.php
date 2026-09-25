@@ -3,7 +3,10 @@
 namespace App\Actions;
 
 use App\ConnectedAccountProvider;
+use App\Jobs\RevokeAppleToken;
 use App\Models\User;
+use Illuminate\Support\Facades\Crypt;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
@@ -26,6 +29,15 @@ class DisconnectSocialAccount
             ]);
         }
 
-        $socialAccount->delete();
+        DB::transaction(function () use ($socialAccount, $provider): void {
+            if ($provider === ConnectedAccountProvider::Apple && $socialAccount->refresh_token) {
+                $id = DB::table('apple_token_revocations')->insertGetId([
+                    'token' => Crypt::encryptString($socialAccount->refresh_token),
+                    'client_id' => $socialAccount->client_id, 'created_at' => now(),
+                ]);
+                RevokeAppleToken::dispatch($id)->afterCommit();
+            }
+            $socialAccount->delete();
+        });
     }
 }

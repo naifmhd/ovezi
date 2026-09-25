@@ -18,6 +18,7 @@ class UpdateEmail
         }
 
         DB::transaction(function () use ($user, $email): void {
+            DB::table('account_deletion_tokens')->where('user_id', $user->id)->delete();
             $currentTokenId = $user->currentAccessToken()?->getKey();
             $user->forceFill([
                 'email' => $email,

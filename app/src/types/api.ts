@@ -28,7 +28,7 @@ export type GroupMember = {
   id: number;
   group_id: number;
   role: 'owner' | 'member';
-  user?: { id: number; name: string };
+  user?: { id: number; name: string; is_deleted?: boolean };
   placeholder?: { id: number; name: string };
   joined_at: string;
   left_at: string | null;

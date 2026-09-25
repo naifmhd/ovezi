@@ -1,7 +1,11 @@
+import { HeaderAction } from '@/components/ui/header-action';
+import { Disclosure } from '@/components/ui/disclosure';
+import { AnimatedPressable } from '@/components/ui/animated-pressable';
+import { ChoiceChip } from '@/components/ui/choice-chip';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { FormField } from '@/components/auth/form-field';
@@ -10,10 +14,9 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
 import { errorMessage } from '@/lib/api-client';
-import { currencyFractionDigits, formatMoney, parseDecimalToInteger } from '@/lib/format';
+import { currencyFractionDigits, formatMoney, minorAmountInput, parseDecimalToInteger } from '@/lib/format';
 import { fetchGroup, fetchGroupBalances } from '@/lib/groups-api';
 import { createSettlement, type CreateSettlementInput } from '@/lib/settlements-api';
-import { useTheme } from '@/hooks/use-theme';
 import { useAuthStore } from '@/stores/auth-store';
 
 const methods = [
@@ -47,11 +50,14 @@ export default function CreateSettlementScreen() {
   const suggestedFrom = firstParam(params.from) ?? '';
   const suggestedTo = firstParam(params.to) ?? '';
   const token = useAuthStore((state) => state.token)!;
+  const [occurredAt] = useState(() => new Date().toISOString());
   const user = useAuthStore((state) => state.user)!;
   const queryClient = useQueryClient();
   const [fromKey, setFromKey] = useState(suggestedFrom);
   const [toKey, setToKey] = useState(suggestedTo);
-  const [amount, setAmount] = useState(firstParam(params.amount) ?? '');
+  const [amount, setAmount] = useState<string | null>(firstParam(params.amount) ?? null);
+  const [choosePayment, setChoosePayment] = useState(false);
+  const [chooseMembers, setChooseMembers] = useState(false);
   const [method, setMethod] = useState('');
   const [note, setNote] = useState('');
   const [formError, setFormError] = useState<string | null>(null);
@@ -71,22 +77,18 @@ export default function CreateSettlementScreen() {
   const balances = balancesQuery.data;
   const participants = balances?.members ?? [];
   const currentUserKey = `user:${user.id}`;
-  const effectiveFrom = fromKey || (
-    participants.find((item) => item.participant.key === currentUserKey)?.participant.key
-      ?? participants.find((item) => item.balance_minor < 0)?.participant.key
-      ?? ''
-  );
-  const effectiveTo = toKey || (
-    participants.find((item) => item.participant.key !== effectiveFrom && item.balance_minor > 0)?.participant.key
-      ?? participants.find((item) => item.participant.key !== effectiveFrom)?.participant.key
-      ?? ''
-  );
+  const isOwner = group?.members?.some((member) => member.user?.id === user.id && member.role === 'owner') ?? false;
+  const suggestions = (balances?.suggested_settlements ?? []).filter((payment) => isOwner || payment.from === currentUserKey || payment.to === currentUserKey);
+  const preferredPayment = suggestions.find((payment) => payment.from === currentUserKey || payment.to === currentUserKey) ?? suggestions[0];
+  const effectiveFrom = fromKey || preferredPayment?.from || '';
+  const effectiveTo = toKey || preferredPayment?.to || '';
   const senderBalance = participants.find((item) => item.participant.key === effectiveFrom)?.balance_minor ?? 0;
   const recipientBalance = participants.find((item) => item.participant.key === effectiveTo)?.balance_minor ?? 0;
   const maximumMinor = Math.max(0, Math.min(-senderBalance, recipientBalance));
-  const isOwner = group?.members?.some(
-    (member) => member.user?.id === user.id && member.role === 'owner',
-  ) ?? false;
+  const matchingSuggestion = suggestions.find((payment) => payment.from === effectiveFrom && payment.to === effectiveTo);
+  const effectiveAmount = amount ?? (group && maximumMinor > 0 ? minorAmountInput(matchingSuggestion?.amount_minor ?? maximumMinor, group.reporting_currency_code) : '');
+  const personName = (key: string) => key === currentUserKey ? 'you' : participants.find((item) => item.participant.key === key)?.participant.name ?? 'Choose a member';
+  const paymentLabel = (from: string, to: string) => `${from === currentUserKey ? 'You pay' : `${personName(from)} pays`} ${personName(to)}`;
 
   const mutation = useMutation({
     mutationFn: (input: CreateSettlementInput) => createSettlement(token, groupId, input),
@@ -114,7 +116,7 @@ export default function CreateSettlementScreen() {
     }
 
     const amountMinor = parseDecimalToInteger(
-      amount,
+      effectiveAmount,
       currencyFractionDigits(group.reporting_currency_code),
     );
     if (!amountMinor || amountMinor < 1) return setFormError('Enter a valid payment amount.');
@@ -129,7 +131,7 @@ export default function CreateSettlementScreen() {
       currency_code: group.reporting_currency_code,
       ...(method ? { method } : {}),
       ...(note.trim() ? { note: note.trim() } : {}),
-      occurred_at: new Date().toISOString(),
+      occurred_at: occurredAt,
     });
   }
 
@@ -142,9 +144,9 @@ export default function CreateSettlementScreen() {
     <ThemedView style={styles.screen}>
       <SafeAreaView edges={['top']} style={styles.safeArea}>
         <View style={styles.header}>
-          <Pressable onPress={() => router.back()}>
+          <HeaderAction onPress={() => router.back()}>
             <ThemedText style={styles.headerAction} themeColor="textSecondary">Cancel</ThemedText>
-          </Pressable>
+          </HeaderAction>
           <ThemedText style={styles.headerTitle}>Record payment</ThemedText>
           <View style={styles.headerSpacer} />
         </View>
@@ -160,6 +162,20 @@ export default function CreateSettlementScreen() {
               </ThemedText>
             </ThemedView>
 
+            <ThemedView type="backgroundElement" style={styles.infoCard}>
+              <ThemedText style={styles.infoTitle}>{effectiveFrom && effectiveTo ? paymentLabel(effectiveFrom, effectiveTo) : 'Choose a payment'}</ThemedText>
+              <AnimatedPressable style={{ minHeight: 48, justifyContent: 'center' }} accessibilityState={{ expanded: choosePayment }} onPress={() => setChoosePayment(!choosePayment)}>
+                <ThemedText themeColor="interactive">Choose payment</ThemedText>
+              </AnimatedPressable>
+            </ThemedView>
+            {choosePayment ? <View style={{ gap: 10 }}>
+              {suggestions.map((payment) => <AnimatedPressable key={`${payment.from}:${payment.to}`} style={styles.infoCard} onPress={() => { setFromKey(payment.from); setToKey(payment.to); setAmount(null); setChoosePayment(false); setChooseMembers(false); }}>
+                <ThemedText>{paymentLabel(payment.from, payment.to)}</ThemedText>
+                <ThemedText themeColor="interactive">{formatMoney(payment.amount_minor, group?.reporting_currency_code ?? 'MVR')}</ThemedText>
+              </AnimatedPressable>)}
+              <AnimatedPressable style={{ minHeight: 48, justifyContent: 'center' }} onPress={() => { setChooseMembers(!chooseMembers); }} accessibilityState={{ expanded: chooseMembers }}><ThemedText themeColor="interactive">Choose other members</ThemedText></AnimatedPressable>
+            </View> : null}
+            {choosePayment && chooseMembers ? <>
             <SectionLabel label="Who paid" />
             <View style={styles.chipWrap}>
               {participants.map((member) => (
@@ -169,6 +185,7 @@ export default function CreateSettlementScreen() {
                   label={member.participant.name}
                   onPress={() => {
                     setFromKey(member.participant.key);
+                    setAmount(null);
                     if (effectiveTo === member.participant.key) setToKey('');
                   }}
                 />
@@ -184,24 +201,27 @@ export default function CreateSettlementScreen() {
                     active={effectiveTo === member.participant.key}
                     key={member.participant.key}
                     label={member.participant.name}
-                    onPress={() => setToKey(member.participant.key)}
+                    onPress={() => { setToKey(member.participant.key); setAmount(null); }}
                   />
                 ))}
             </View>
+
+            </> : null}
 
             <FormField
               keyboardType="decimal-pad"
               label={`Amount · ${group?.reporting_currency_code ?? ''}`}
               onChangeText={setAmount}
               placeholder="0.00"
-              value={amount}
+              value={effectiveAmount}
             />
             {group && maximumMinor > 0 ? (
               <ThemedText style={styles.helper} themeColor="textSecondary">
-                Up to {formatMoney(maximumMinor, group.reporting_currency_code)} can be settled in this direction.
+                Edit the amount to record a partial payment. Maximum {formatMoney(maximumMinor, group.reporting_currency_code)}.
               </ThemedText>
             ) : null}
 
+            <Disclosure title="Method and note (optional)">
             <SectionLabel label="Method (optional)" />
             <View style={styles.chipWrap}>
               {methods.map((item) => (
@@ -222,9 +242,10 @@ export default function CreateSettlementScreen() {
               value={note}
             />
 
+            </Disclosure>
             {visibleError ? <ThemedText themeColor="danger">{visibleError}</ThemedText> : null}
             <PrimaryButton
-              disabled={groupQuery.isLoading || balancesQuery.isLoading}
+              disabled={groupQuery.isLoading || balancesQuery.isLoading || !group || !balances || maximumMinor <= 0}
               label="Record payment"
               loading={mutation.isPending}
               onPress={submit}
@@ -240,23 +261,6 @@ function SectionLabel({ label }: { label: string }) {
   return <ThemedText style={styles.sectionLabel}>{label}</ThemedText>;
 }
 
-function ChoiceChip({ active, label, onPress }: { active: boolean; label: string; onPress: () => void }) {
-  const theme = useTheme();
-  return (
-    <Pressable
-      onPress={onPress}
-      style={[
-        styles.chip,
-        {
-          backgroundColor: active ? theme.primary : theme.backgroundElement,
-          borderColor: active ? theme.primary : theme.border,
-        },
-      ]}>
-      <ThemedText style={[styles.chipLabel, active && { color: theme.primaryText }]}>{label}</ThemedText>
-    </Pressable>
-  );
-}
-
 const styles = StyleSheet.create({
   screen: { flex: 1 },
   safeArea: { flex: 1 },
@@ -268,14 +272,14 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: Spacing.four,
   },
-  headerAction: { fontSize: 14, fontWeight: '700' },
-  headerTitle: { fontSize: 17, lineHeight: 24, fontWeight: '800' },
+  headerAction: { fontSize: 14, fontWeight: '600' },
+  headerTitle: { fontSize: 17, lineHeight: 24, fontWeight: '600' },
   headerSpacer: { width: 48 },
   content: { padding: Spacing.four, paddingBottom: 80, gap: 14 },
   infoCard: { borderRadius: 18, padding: 16, gap: 3 },
-  infoTitle: { fontWeight: '800' },
+  infoTitle: { fontWeight: '600' },
   infoCopy: { fontSize: 13, lineHeight: 19 },
-  sectionLabel: { fontSize: 14, lineHeight: 20, fontWeight: '800', marginTop: 4 },
+  sectionLabel: { fontSize: 14, lineHeight: 20, fontWeight: '600', marginTop: 4 },
   chipWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   chip: {
     minHeight: 40,
@@ -285,6 +289,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  chipLabel: { fontSize: 13, fontWeight: '800' },
+  chipLabel: { fontSize: 13, fontWeight: '600' },
   helper: { fontSize: 13, lineHeight: 19, marginTop: -7 },
 });

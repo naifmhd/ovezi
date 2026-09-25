@@ -1,3 +1,4 @@
+import { HeaderAction } from '@/components/ui/header-action';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import { Alert, Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
@@ -61,9 +62,9 @@ export default function RecurringExpensesScreen() {
     <ThemedView style={styles.screen}>
       <SafeAreaView edges={['top']} style={styles.safeArea}>
         <View style={styles.header}>
-          <Pressable onPress={() => router.back()}>
+          <HeaderAction onPress={() => router.back()}>
             <ThemedText style={styles.back} themeColor="primary">‹ Back</ThemedText>
-          </Pressable>
+          </HeaderAction>
           <ThemedText style={styles.headerTitle}>Recurring expenses</ThemedText>
           <View style={styles.headerSpacer} />
         </View>
@@ -109,7 +110,7 @@ export default function RecurringExpensesScreen() {
                 <ThemedView type="backgroundSelected" style={styles.statusPill}>
                   <ThemedText
                     style={styles.statusText}
-                    themeColor={schedule.status === 'active' ? 'primary' : 'textSecondary'}>
+                    themeColor={schedule.status === 'active' ? 'positive' : 'textSecondary'}>
                     {capitalize(schedule.status)}
                   </ThemedText>
                 </ThemedView>
@@ -176,7 +177,7 @@ function capitalize(value: string) {
 }
 
 function formatDate(value: string) {
-  return new Date(`${value.slice(0, 10)}T12:00:00`).toLocaleDateString('en', {
+  return new Date(`${value.slice(0, 10)}T12:00:00`).toLocaleDateString(undefined, {
     month: 'short',
     day: 'numeric',
     year: 'numeric',
@@ -186,9 +187,9 @@ function formatDate(value: string) {
 const styles = StyleSheet.create({
   screen: { flex: 1 },
   safeArea: { flex: 1 },
-  header: { height: 60, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: Spacing.four },
-  back: { fontSize: 14, fontWeight: '800' },
-  headerTitle: { fontSize: 17, fontWeight: '800' },
+  header: { minHeight: 60, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: Spacing.four },
+  back: { fontSize: 14, fontWeight: '600' },
+  headerTitle: { fontSize: 17, fontWeight: '600' },
   headerSpacer: { width: 48 },
   content: { padding: Spacing.four, paddingBottom: 80, gap: 14, maxWidth: 680, width: '100%', alignSelf: 'center' },
   infoCard: { borderRadius: 20, padding: 17, gap: 5 },
@@ -197,13 +198,13 @@ const styles = StyleSheet.create({
   scheduleCard: { borderRadius: 22, padding: 17, gap: 6 },
   headingRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
   headingCopy: { flex: 1, gap: 2 },
-  cardTitle: { fontSize: 16, lineHeight: 22, fontWeight: '900' },
-  amount: { fontSize: 19, lineHeight: 25, fontWeight: '900' },
+  cardTitle: { fontSize: 16, lineHeight: 22, fontWeight: '600' },
+  amount: { fontSize: 19, lineHeight: 25, fontWeight: '600' },
   statusPill: { borderRadius: 12, paddingHorizontal: 10, paddingVertical: 7 },
-  statusText: { fontSize: 11, fontWeight: '900' },
+  statusText: { fontSize: 11, fontWeight: '600' },
   actions: { flexDirection: 'row', flexWrap: 'wrap', gap: 2, marginTop: 7 },
   action: { minHeight: 42, justifyContent: 'center', paddingHorizontal: 10 },
-  actionText: { fontSize: 13, fontWeight: '900' },
+  actionText: { fontSize: 13, fontWeight: '600' },
   emptyCard: { borderRadius: 22, padding: 20, gap: 6 },
   emptyAction: { minHeight: 44, justifyContent: 'center', alignSelf: 'flex-start' },
 });

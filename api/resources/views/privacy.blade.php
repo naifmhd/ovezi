@@ -57,8 +57,8 @@
 
         <section>
             <h2>5. Retention and deletion</h2>
-            <p>We retain information while your account is active and as needed to provide Ovezi. You can export your information and request account deletion from the app’s security settings.</p>
-            <p>Deleting an account removes access and stops active use of the profile. The minimum historical information needed to keep shared group expenses, settlements, and balances understandable may be preserved in an inactive or de-identified form. Security, backup, fraud-prevention, and legal records may be retained for a limited period where reasonably necessary.</p>
+            <p>We retain information while your account is active and as needed to provide Ovezi. Export your information from Profile and delete your account from Profile → Security, or use the <a href="{{ route('account-deletion.create') }}">account deletion page</a>.</p>
+            <p>Deleting an account removes active sessions, sign-in connections, name, email, avatar references, and notification settings. Personal expenses are queued for permanent removal. The minimum historical information needed to keep shared group expenses, settlements, and balances understandable is preserved under an anonymized “Deleted member” record. Security, backup, fraud-prevention, and legal records may be retained for a limited period where reasonably necessary.</p>
         </section>
 
         <section>

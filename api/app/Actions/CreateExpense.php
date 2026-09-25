@@ -196,6 +196,10 @@ class CreateExpense
         array $participants,
     ): void {
         $this->participantKey($payerUserId, $payerPlaceholderId);
+        $userIds = collect($participants)->pluck('user_id')->push($payerUserId)->filter()->unique();
+        if (User::query()->whereIn('id', $userIds)->count() !== $userIds->count()) {
+            throw ValidationException::withMessages(['participants' => 'A participant has deleted their account. Review the split before saving.']);
+        }
 
         if ($expenseType === ExpenseType::Personal) {
             if ($group !== null || $payerUserId !== $creator->id || $payerPlaceholderId !== null || $participants !== []) {

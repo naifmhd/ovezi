@@ -1,3 +1,4 @@
+import { financialRequest } from '@/lib/financial-request';
 import { apiRequest } from '@/lib/api-client';
 import type { CreateExpenseInput } from '@/lib/expenses-api';
 import type {
@@ -15,14 +16,10 @@ export type RecurringExpenseInput = CreateExpenseInput & {
 };
 
 export async function createRecurringExpense(token: string, input: RecurringExpenseInput) {
-  const response = await apiRequest<DataResponse<{
+  const response = await financialRequest<DataResponse<{
     expense: Expense;
     recurring_expense: RecurringExpense;
-  }>>('/recurring-expenses', {
-    method: 'POST',
-    token,
-    body: input,
-  });
+  }>>('/recurring-expenses', token, input);
   return response.data;
 }
 

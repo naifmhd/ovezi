@@ -1,9 +1,8 @@
 import Constants from 'expo-constants';
 import { StyleSheet, View } from 'react-native';
 
-import { BrandMark } from '@/components/brand-mark';
+import { BrandLockup } from '@/components/brand-mark';
 import { DocumentScreen } from '@/components/document-screen';
-import { ThemedText } from '@/components/themed-text';
 
 const version = Constants.expoConfig?.version ?? '1.0.0';
 
@@ -13,8 +12,7 @@ export default function AboutScreen() {
       eyebrow={`Ovezi ${version}`}
       hero={(
         <View style={styles.brand}>
-          <BrandMark size={72} />
-          <ThemedText style={styles.name}>Ovezi</ThemedText>
+          <BrandLockup size={88} />
         </View>
       )}
       intro="Split. Share. Settle."
@@ -46,5 +44,5 @@ export default function AboutScreen() {
 
 const styles = StyleSheet.create({
   brand: { alignItems: 'center', gap: 8 },
-  name: { fontSize: 24, lineHeight: 30, fontWeight: '900' },
+  name: { fontSize: 24, lineHeight: 30, fontWeight: '600' },
 });

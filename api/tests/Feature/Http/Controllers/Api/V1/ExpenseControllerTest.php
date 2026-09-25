@@ -646,3 +646,59 @@ it('rejects a registered direct participant who is not an accepted friend', func
         ->assertUnprocessable()
         ->assertJsonValidationErrors('participants');
 });
+
+it('filters history by search and local date boundaries without leaking other groups', function () {
+    $currency = Currency::factory()->mvr()->create();
+    $user = User::factory()->create(['default_currency_code' => $currency->code]);
+    $group = Group::factory()->for($user, 'creator')->create(['reporting_currency_code' => $currency->code]);
+    GroupMember::factory()->owner()->for($group)->for($user)->create();
+    $attributes = [
+        'expense_type' => 'group', 'payer_user_id' => $user->id, 'created_by' => $user->id,
+        'currency_code' => $currency->code, 'reporting_currency_code' => $currency->code,
+        'description' => 'Dinner by the sea', 'category' => 'food',
+    ];
+    $start = Expense::factory()->for($group)->create([...$attributes, 'occurred_at' => '2026-09-24 19:00:00']);
+    $categoryMatch = Expense::factory()->for($group)->create([...$attributes, 'description' => 'Lunch', 'category' => 'dinner', 'occurred_at' => '2026-09-25 18:59:59']);
+    Expense::factory()->for($group)->create([...$attributes, 'occurred_at' => '2026-09-24 18:59:59']);
+    Expense::factory()->for($group)->create([...$attributes, 'occurred_at' => '2026-09-25 19:00:00']);
+    Expense::factory()->for($group)->create([...$attributes, 'description' => 'Taxi', 'category' => 'transport', 'occurred_at' => '2026-09-25 12:00:00']);
+    $privateGroup = Group::factory()->create(['reporting_currency_code' => $currency->code]);
+    Expense::factory()->for($privateGroup)->create([...$attributes, 'occurred_at' => '2026-09-25 12:00:00']);
+    $filters = ['q' => 'dinner', 'from' => '2026-09-25T00:00:00+05:00', 'before' => '2026-09-26T00:00:00+05:00'];
+    $token = $user->createToken('History test')->plainTextToken;
+
+    $this->withToken($token)->getJson('/api/v1/expenses?'.http_build_query([...$filters, 'group_id' => $group->id]))
+        ->assertOk()->assertJsonCount(2, 'data')
+        ->assertJsonPath('data.0.id', $categoryMatch->id)->assertJsonPath('data.1.id', $start->id);
+    $this->withToken($token)->getJson('/api/v1/expenses?'.http_build_query([...$filters, 'group_id' => $privateGroup->id]))
+        ->assertOk()->assertJsonCount(0, 'data');
+});
+
+it('keeps older matching group expenses available on the next history page', function () {
+    $currency = Currency::factory()->mvr()->create();
+    $user = User::factory()->create(['default_currency_code' => $currency->code]);
+    $group = Group::factory()->for($user, 'creator')->create(['reporting_currency_code' => $currency->code]);
+    GroupMember::factory()->owner()->for($group)->for($user)->create();
+    $expenses = Expense::factory()->count(21)->for($group)->create([
+        'expense_type' => 'group', 'payer_user_id' => $user->id, 'created_by' => $user->id,
+        'currency_code' => $currency->code, 'reporting_currency_code' => $currency->code,
+        'description' => 'Ferry tickets', 'occurred_at' => '2026-09-25 12:00:00',
+    ]);
+    $this->withToken($user->createToken('History test')->plainTextToken)
+        ->getJson('/api/v1/expenses?'.http_build_query(['group_id' => $group->id, 'q' => 'Ferry', 'page' => 2, 'per_page' => 20]))
+        ->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.id', $expenses->first()->id)
+        ->assertJsonPath('meta.total', 21)->assertJsonPath('meta.last_page', 2);
+});
+
+it('returns 422 for invalid history filters', function (array $filters, string $field) {
+    $currency = Currency::factory()->mvr()->create();
+    $user = User::factory()->create(['default_currency_code' => $currency->code]);
+    $this->withToken($user->createToken('History test')->plainTextToken)
+        ->getJson('/api/v1/expenses?'.http_build_query($filters))
+        ->assertUnprocessable()->assertJsonValidationErrors($field);
+})->with([
+    'long search' => [['q' => str_repeat('a', 121)], 'q'],
+    'invalid start' => [['from' => 'not-a-date'], 'from'],
+    'invalid end' => [['before' => 'not-a-date'], 'before'],
+    'reversed dates' => [['from' => '2026-09-26T00:00:00Z', 'before' => '2026-09-25T00:00:00Z'], 'before'],
+]);

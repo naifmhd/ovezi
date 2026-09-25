@@ -41,73 +41,53 @@ async function throwApiError(response: Response): Promise<never> {
   );
 }
 
+const REQUEST_TIMEOUT_MS = 25000;
+
+async function request<T>(url: string, options: RequestInit, read: (response: Response) => Promise<T>): Promise<T> {
+  const resolved = url.startsWith('http') ? url : `${apiBaseUrl}${url}`;
+  if (new URL(resolved).origin !== new URL(apiBaseUrl).origin) {
+    throw new Error('This link does not belong to Ovezi.');
+  }
+  const controller = new AbortController();
+  const upstream = options.signal;
+  const cancel = () => controller.abort();
+  if (upstream?.aborted) cancel();
+  upstream?.addEventListener('abort', cancel, { once: true });
+  let timedOut = false;
+  const timer = setTimeout(() => { timedOut = true; controller.abort(); }, REQUEST_TIMEOUT_MS);
+  try {
+    const response = await fetch(resolved, { ...options, signal: controller.signal });
+    if (!response.ok) return await throwApiError(response);
+    if (response.status === 204) return undefined as T;
+    return await read(response);
+  } catch (error) {
+    if (timedOut) throw new Error(options.headers && new Headers(options.headers).has('Idempotency-Key')
+      ? 'The connection took too long. Your details are still here. Retry the same save to safely check its result.'
+      : 'The connection took too long. Check your connection and try again.');
+    throw error;
+  } finally {
+    clearTimeout(timer);
+    upstream?.removeEventListener('abort', cancel);
+  }
+}
+
 export async function apiRequest<T>(path: string, options: ApiRequestOptions = {}): Promise<T> {
   const { body, headers, token, ...requestOptions } = options;
-  const response = await fetch(path.startsWith('http') ? path : `${apiBaseUrl}${path}`, {
+  return request(path, {
     ...requestOptions,
-    headers: {
-      Accept: 'application/json',
-      ...(body === undefined ? {} : { 'Content-Type': 'application/json' }),
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...headers,
-    },
+    headers: { Accept: 'application/json', ...(body === undefined ? {} : { 'Content-Type': 'application/json' }),
+      ...(token ? { Authorization: `Bearer ${token}` } : {}), ...headers },
     body: body === undefined ? undefined : JSON.stringify(body),
-  });
-
-  if (!response.ok) {
-    return throwApiError(response);
-  }
-
-  if (response.status === 204) {
-    return undefined as T;
-  }
-
-  return response.json() as Promise<T>;
+  }, (response) => response.json() as Promise<T>);
 }
 
-export async function apiMultipartRequest<T>(
-  path: string,
-  token: string,
-  body: FormData,
-  method = 'POST',
-): Promise<T> {
-  const response = await fetch(path.startsWith('http') ? path : `${apiBaseUrl}${path}`, {
-    method,
-    headers: {
-      Accept: 'application/json',
-      Authorization: `Bearer ${token}`,
-    },
-    body,
-  });
-
-  if (!response.ok) {
-    return throwApiError(response);
-  }
-
-  if (response.status === 204) {
-    return undefined as T;
-  }
-
-  return response.json() as Promise<T>;
+export async function apiMultipartRequest<T>(path: string, token: string, body: FormData, method = 'POST'): Promise<T> {
+  return request(path, { method, headers: { Accept: 'application/json', Authorization: `Bearer ${token}` }, body },
+    (response) => response.json() as Promise<T>);
 }
 
-export async function apiTextRequest(
-  path: string,
-  token: string,
-  accept = 'text/plain',
-): Promise<string> {
-  const response = await fetch(path.startsWith('http') ? path : `${apiBaseUrl}${path}`, {
-    headers: {
-      Accept: accept,
-      Authorization: `Bearer ${token}`,
-    },
-  });
-
-  if (!response.ok) {
-    return throwApiError(response);
-  }
-
-  return response.text();
+export async function apiTextRequest(path: string, token: string, accept = 'text/plain'): Promise<string> {
+  return request(path, { headers: { Accept: accept, Authorization: `Bearer ${token}` } }, (response) => response.text());
 }
 
 export function errorMessage(error: unknown) {

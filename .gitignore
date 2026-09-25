@@ -7,4 +7,8 @@ Thumbs.db
 /.vscode/
 
 # Generated review artifacts
-/output/
+/output/*
+!/output/brand/
+/output/brand/*
+!/output/brand/source/
+/output/brand/source/node_modules/

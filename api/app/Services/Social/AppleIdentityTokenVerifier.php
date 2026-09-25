@@ -50,6 +50,7 @@ class AppleIdentityTokenVerifier
             $emailVerified,
             $name,
             null,
+            isset($claims->iat) ? (int) $claims->iat : null,
         );
     }
 }

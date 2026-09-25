@@ -23,6 +23,9 @@ class IndexExpenseRequest extends FormRequest
         return [
             'group_id' => ['sometimes', 'integer', 'exists:groups,id'],
             'expense_type' => ['sometimes', Rule::enum(ExpenseType::class)],
+            'q' => ['sometimes', 'string', 'max:120'],
+            'from' => ['sometimes', 'date'],
+            'before' => ['sometimes', 'date', Rule::when($this->filled('from'), 'after:from')],
             'per_page' => ['sometimes', 'integer', 'between:1,100'],
         ];
     }

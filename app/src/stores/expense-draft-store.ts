@@ -16,6 +16,7 @@ export type ExpenseDraftParticipant = {
 export type ExpenseDraft = {
   userId: number;
   destination: ExpenseType;
+  destinationChosen?: boolean;
   selectedGroupId: number | null;
   selectedPlaceholderId: number | null;
   selectedFriendId: number | null;

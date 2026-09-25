@@ -1,3 +1,4 @@
+import { HeaderAction } from '@/components/ui/header-action';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
@@ -33,6 +34,7 @@ export default function CreateDirectSettlementScreen() {
   const participantKey = firstParam(params.participant) ?? '';
   const currencyCode = firstParam(params.currency) ?? '';
   const token = useAuthStore((state) => state.token)!;
+  const [occurredAt] = useState(() => new Date().toISOString());
   const user = useAuthStore((state) => state.user)!;
   const queryClient = useQueryClient();
   const [amount, setAmount] = useState('');
@@ -84,7 +86,7 @@ export default function CreateDirectSettlementScreen() {
       reporting_currency_code: currencyCode,
       ...(method ? { method } : {}),
       ...(note.trim() ? { note: note.trim() } : {}),
-      occurred_at: new Date().toISOString(),
+      occurred_at: occurredAt,
     });
   }
 
@@ -96,9 +98,9 @@ export default function CreateDirectSettlementScreen() {
     <ThemedView style={styles.screen}>
       <SafeAreaView edges={['top']} style={styles.safeArea}>
         <View style={styles.header}>
-          <Pressable onPress={() => router.back()}>
+          <HeaderAction onPress={() => router.back()}>
             <ThemedText style={styles.headerAction} themeColor="textSecondary">Cancel</ThemedText>
-          </Pressable>
+          </HeaderAction>
           <ThemedText style={styles.headerTitle}>Settle 1-on-1</ThemedText>
           <View style={styles.headerSpacer} />
         </View>
@@ -124,7 +126,7 @@ export default function CreateDirectSettlementScreen() {
                 </View>
                 <ThemedText
                   style={styles.balanceAmount}
-                  themeColor={balance.balance_minor < 0 ? 'danger' : 'primary'}>
+                  themeColor={balance.balance_minor < 0 ? 'danger' : 'positive'}>
                   {formatMoney(maximumMinor, currencyCode)}
                 </ThemedText>
               </ThemedView>
@@ -201,12 +203,12 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: Spacing.four,
   },
-  headerAction: { fontSize: 14, fontWeight: '700' },
-  headerTitle: { fontSize: 17, lineHeight: 24, fontWeight: '800' },
+  headerAction: { fontSize: 14, fontWeight: '600' },
+  headerTitle: { fontSize: 17, lineHeight: 24, fontWeight: '600' },
   headerSpacer: { width: 48 },
   content: { padding: Spacing.four, paddingBottom: 80, gap: 14 },
   infoCard: { borderRadius: 18, padding: 16, gap: 3 },
-  infoTitle: { fontWeight: '800' },
+  infoTitle: { fontWeight: '600' },
   infoCopy: { fontSize: 13, lineHeight: 19 },
   balanceCard: {
     borderRadius: 20,
@@ -217,10 +219,10 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   balanceCopy: { flex: 1, gap: 2 },
-  personName: { fontSize: 18, lineHeight: 25, fontWeight: '800' },
-  balanceAmount: { fontSize: 18, lineHeight: 25, fontWeight: '900' },
+  personName: { fontSize: 18, lineHeight: 25, fontWeight: '600' },
+  balanceAmount: { fontSize: 18, lineHeight: 25, fontWeight: '600' },
   helper: { fontSize: 13, lineHeight: 19, marginTop: -7 },
-  sectionLabel: { fontSize: 14, lineHeight: 20, fontWeight: '800', marginTop: 4 },
+  sectionLabel: { fontSize: 14, lineHeight: 20, fontWeight: '600', marginTop: 4 },
   chipWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   chip: { borderRadius: 14 },
   chipInner: {
@@ -230,6 +232,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  chipLabel: { fontSize: 13, fontWeight: '800' },
+  chipLabel: { fontSize: 13, fontWeight: '600' },
   pressed: { opacity: 0.75 },
 });

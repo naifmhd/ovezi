@@ -1,9 +1,12 @@
+import { HeaderAction } from '@/components/ui/header-action';
 import { useMutation } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { SocialSignIn } from '@/components/auth/social-sign-in';
+import * as Linking from 'expo-linking';
 import { FormField } from '@/components/auth/form-field';
 import { PrimaryButton } from '@/components/auth/primary-button';
 import { ThemedText } from '@/components/themed-text';
@@ -16,7 +19,7 @@ import {
   updateEmail,
   updatePassword,
 } from '@/lib/auth-api';
-import { errorMessage } from '@/lib/api-client';
+import { apiBaseUrl, errorMessage } from '@/lib/api-client';
 import { useAuthStore } from '@/stores/auth-store';
 
 type FormSection = 'password' | 'email' | null;
@@ -37,6 +40,7 @@ export default function SecurityScreen() {
   const [confirmAllSessions, setConfirmAllSessions] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deletePassword, setDeletePassword] = useState('');
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   function clearCredentials() {
     setCurrentPassword('');
@@ -97,9 +101,9 @@ export default function SecurityScreen() {
     <ThemedView style={styles.screen}>
       <SafeAreaView edges={['top']} style={styles.safeArea}>
         <View style={styles.header}>
-          <Pressable onPress={() => router.back()}>
+          <HeaderAction onPress={() => router.back()}>
             <ThemedText style={styles.back} themeColor="primary">‹ Back</ThemedText>
-          </Pressable>
+          </HeaderAction>
           <ThemedText style={styles.headerTitle}>Security & account</ThemedText>
           <View style={styles.headerSpacer} />
         </View>
@@ -239,12 +243,23 @@ export default function SecurityScreen() {
             <SectionTitle title="Delete account" />
             <ThemedView type="backgroundElement" style={styles.formCard}>
               <ThemedText style={styles.hint} themeColor="textSecondary">
-                Your profile is soft-deleted and group history is preserved. Transfer owned groups and settle open balances first.
+                Your personal profile and sign-in access will be removed. Shared history stays under “Deleted member” to keep everyone’s balances accurate. Group ownership transfers to another member, or the group is archived. This does not cancel money owed.
               </ThemedText>
+              {deleteError ? <ThemedText themeColor="danger" accessibilityRole="alert">{deleteError}</ThemedText> : null}
               {!user.has_password ? (
-                <ThemedText style={styles.hint} themeColor="danger">
-                  Social-account deletion requires a provider reauthentication flow that is not available yet.
-                </ThemedText>
+                <View style={{ gap: 12 }}>
+                  {!confirmDelete ? <PrimaryButton label="Delete my account" onPress={() => setConfirmDelete(true)} /> : <>
+                    <ThemedText>Confirm with your connected account to permanently delete your Ovezi account.</ThemedText>
+                    <SocialSignIn providers={user.connected_providers} onError={setDeleteError} onIdentity={async (credentials) => {
+                      await deleteAccount(token, credentials);
+                      await logout();
+                    }} />
+                    <PrimaryButton label="Cancel" onPress={() => setConfirmDelete(false)} />
+                  </>}
+                  <Pressable accessibilityRole="link" style={{ minHeight: 48, justifyContent: 'center' }} onPress={() => void Linking.openURL(`${new URL(apiBaseUrl).origin}/delete-account`)}>
+                    <ThemedText themeColor="primary">Confirm deletion by email instead</ThemedText>
+                  </Pressable>
+                </View>
               ) : confirmDelete ? (
                 <>
                   <PasswordField label="Confirm your password" onChangeText={setDeletePassword} value={deletePassword} />
@@ -336,34 +351,34 @@ const styles = StyleSheet.create({
   screen: { flex: 1 },
   safeArea: { flex: 1 },
   flex: { flex: 1 },
-  header: { height: 60, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: Spacing.four },
-  back: { fontSize: 14, fontWeight: '800' },
-  headerTitle: { fontSize: 17, fontWeight: '800' },
+  header: { minHeight: 60, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: Spacing.four },
+  back: { fontSize: 14, fontWeight: '600' },
+  headerTitle: { fontSize: 17, fontWeight: '600' },
   headerSpacer: { width: 48 },
   content: { padding: Spacing.four, paddingBottom: 80, gap: 13, maxWidth: 620, width: '100%', alignSelf: 'center' },
   successCard: { borderRadius: 17, padding: 14 },
-  successText: { fontSize: 13, lineHeight: 19, fontWeight: '700' },
-  sectionTitle: { fontSize: 18, lineHeight: 25, fontWeight: '800', marginTop: 8 },
+  successText: { fontSize: 13, lineHeight: 19, fontWeight: '600' },
+  sectionTitle: { fontSize: 18, lineHeight: 25, fontWeight: '600', marginTop: 8 },
   card: { borderRadius: 20, paddingHorizontal: 16 },
   formCard: { borderRadius: 20, padding: 16, gap: 14 },
-  formTitle: { fontSize: 15, fontWeight: '800' },
+  formTitle: { fontSize: 15, fontWeight: '600' },
   settingRow: { minHeight: 66, flexDirection: 'row', alignItems: 'center', gap: 12 },
   providerRow: { minHeight: 66, flexDirection: 'row', alignItems: 'center', gap: 12 },
   rowCopy: { flex: 1, gap: 2 },
-  rowLabel: { fontSize: 14, fontWeight: '800' },
+  rowLabel: { fontSize: 14, fontWeight: '600' },
   rowValue: { fontSize: 12, lineHeight: 17 },
-  rowAction: { fontSize: 12, fontWeight: '800' },
+  rowAction: { fontSize: 12, fontWeight: '600' },
   disabled: { opacity: 0.55 },
   chevron: { fontSize: 22, fontWeight: '500' },
   divider: { height: StyleSheet.hairlineWidth, backgroundColor: '#7A8498', opacity: 0.3 },
   hint: { fontSize: 13, lineHeight: 19 },
   empty: { paddingVertical: 20, textAlign: 'center' },
   outlineButton: { height: 48, borderRadius: 15, borderWidth: 1, borderColor: '#C63E4E', alignItems: 'center', justifyContent: 'center' },
-  outlineLabel: { fontWeight: '800' },
+  outlineLabel: { fontWeight: '600' },
   dangerButton: { height: 48, borderRadius: 15, backgroundColor: '#C63E4E', alignItems: 'center', justifyContent: 'center' },
-  dangerLabel: { color: '#FFFFFF', fontWeight: '800' },
+  dangerLabel: { color: '#FFFFFF', fontWeight: '600' },
   confirmRow: { borderRadius: 15, padding: 13, gap: 9 },
-  confirmMessage: { fontSize: 13, lineHeight: 19, fontWeight: '700' },
+  confirmMessage: { fontSize: 13, lineHeight: 19, fontWeight: '600' },
   confirmActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 20 },
-  confirmLink: { fontSize: 12, fontWeight: '800' },
+  confirmLink: { fontSize: 12, fontWeight: '600' },
 });

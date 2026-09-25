@@ -43,6 +43,7 @@ class GoogleIdentityTokenVerifier
             true,
             isset($claims['name']) ? trim((string) $claims['name']) : null,
             isset($claims['picture']) ? (string) $claims['picture'] : null,
+            isset($claims['iat']) ? (int) $claims['iat'] : null,
         );
     }
 }

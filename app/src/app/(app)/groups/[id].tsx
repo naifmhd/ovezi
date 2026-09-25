@@ -1,5 +1,10 @@
+import { HeaderAction } from '@/components/ui/header-action';
+import { ActionSheet } from '@/components/ui/action-sheet';
+import { MoneyAmount } from '@/components/money-amount';
 import { useMutation, useQuery } from '@tanstack/react-query';
+import { useState } from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
+import { SymbolView } from 'expo-symbols';
 import { Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -9,11 +14,14 @@ import { GroupAvatar } from '@/components/group-avatar';
 import { QueryErrorCard } from '@/components/query-error-card';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Spacing } from '@/constants/theme';
+import { AnimatedPressable } from '@/components/ui/animated-pressable';
+import { Radius, Spacing } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
 import { fetchActivity } from '@/lib/activity-api';
 import { fetchExpenses } from '@/lib/expenses-api';
 import { formatMoney, minorAmountInput } from '@/lib/format';
 import { fetchGroup, fetchGroupBalances, fetchGroupHistoryCsv } from '@/lib/groups-api';
+import { selectionHaptic } from '@/lib/haptics';
 import { shareCsv, shareGroupHistoryPdf } from '@/lib/share-text-file';
 import { useAuthStore } from '@/stores/auth-store';
 
@@ -24,6 +32,8 @@ export default function GroupDetailScreen() {
   const validId = Number.isInteger(groupId) && groupId > 0;
   const token = useAuthStore((state) => state.token)!;
   const user = useAuthStore((state) => state.user)!;
+  const theme = useTheme();
+  const [menuOpen, setMenuOpen] = useState(false);
   const groupQuery = useQuery({
     queryKey: ['group', groupId],
     queryFn: () => fetchGroup(token, groupId),
@@ -36,12 +46,12 @@ export default function GroupDetailScreen() {
   });
   const activityQuery = useQuery({
     queryKey: ['activity', 'group', groupId],
-    queryFn: () => fetchActivity(token, groupId, 20),
+    queryFn: () => fetchActivity(token, groupId, 5),
     enabled: validId,
   });
   const expensesQuery = useQuery({
     queryKey: ['expenses', 'group', groupId],
-    queryFn: () => fetchExpenses(token, { groupId, perPage: 20 }),
+    queryFn: () => fetchExpenses(token, { groupId, perPage: 5 }),
     enabled: validId,
   });
   const group = groupQuery.data;
@@ -83,35 +93,46 @@ export default function GroupDetailScreen() {
     ]);
   }
 
+  function openGroupActions() { selectionHaptic(); setMenuOpen(true); }
+
   return (
     <ThemedView style={styles.screen}>
+      <ActionSheet title="Group actions" visible={menuOpen} onClose={() => setMenuOpen(false)} actions={[
+        ...(isOwner ? [{ label: 'Group settings', onPress: () => router.push({ pathname: '/(app)/groups/[id]/settings', params: { id: groupId } }) }] : []),
+        { label: 'Export CSV', onPress: () => exportMutation.mutate('csv') },
+        { label: 'Export PDF', onPress: () => exportMutation.mutate('pdf') },
+      ]} />
       <SafeAreaView edges={['top']} style={styles.safeArea}>
         <View style={styles.header}>
-          <Pressable onPress={() => router.back()}>
+          <HeaderAction hitSlop={8} onPress={() => router.back()} style={styles.headerTouch}>
             <ThemedText style={styles.back} themeColor="primary">
               ‹ Back
             </ThemedText>
-          </Pressable>
+          </HeaderAction>
           <ThemedText numberOfLines={1} style={styles.headerTitle}>
-            {group?.name ?? 'Group'}
+            Group details
           </ThemedText>
-          {isOwner ? (
-            <Pressable
-              onPress={() => router.push({
-                pathname: '/(app)/groups/[id]/settings',
-                params: { id: groupId },
-              })}>
-              <ThemedText style={styles.settingsLink} themeColor="primary">Settings</ThemedText>
-            </Pressable>
-          ) : (
-            <View style={styles.headerSpacer} />
-          )}
+          <AnimatedPressable
+            accessibilityLabel="Group actions"
+            accessibilityRole="button"
+            disabled={!group || exportMutation.isPending}
+            onPress={openGroupActions}
+            style={styles.headerMenu}>
+            <SymbolView
+              name={{ ios: 'ellipsis', android: 'more_horiz', web: 'more_horiz' }}
+              size={22}
+              tintColor={theme.interactive}
+              weight="bold"
+            />
+          </AnimatedPressable>
         </View>
 
         <View style={styles.scrollFrame}>
           <AppGroupContent
             activity={activityQuery.data?.data ?? []}
             balance={currentBalance}
+            balancePending={balancesQuery.isPending}
+            balanceStale={balancesQuery.isError || balancesQuery.isRefetching}
             currency={group?.reporting_currency_code}
             currentUserId={user.id}
             error={error}
@@ -120,8 +141,6 @@ export default function GroupDetailScreen() {
             participantNames={participantNames}
             refreshing={refreshing}
             settlements={balances?.suggested_settlements ?? []}
-            exporting={exportMutation.isPending ? (exportMutation.variables ?? 'csv') : null}
-            onExport={(format) => exportMutation.mutate(format)}
             onRefresh={refresh}
           />
         </View>
@@ -135,14 +154,14 @@ type ContentProps = {
   currency: string | undefined;
   currentUserId: number;
   balance: number | undefined;
+  balancePending: boolean;
+  balanceStale: boolean;
   settlements: { from: string; to: string; amount_minor: number }[];
   participantNames: Map<string, string>;
   activity: Awaited<ReturnType<typeof fetchActivity>>['data'];
   expenses: Awaited<ReturnType<typeof fetchExpenses>>['data'];
   error: Error | null;
   refreshing: boolean;
-  exporting: 'csv' | 'pdf' | null;
-  onExport: (format: 'csv' | 'pdf') => void;
   onRefresh: () => Promise<void>;
 };
 
@@ -151,16 +170,17 @@ function AppGroupContent({
   currency,
   currentUserId,
   balance,
+  balancePending,
+  balanceStale,
   settlements,
   participantNames,
   activity,
   expenses,
   error,
   refreshing,
-  exporting,
-  onExport,
   onRefresh,
 }: ContentProps) {
+  const theme = useTheme();
   return (
     <ScrollView
       contentContainerStyle={styles.content}
@@ -181,59 +201,53 @@ function AppGroupContent({
       ) : null}
       {group && currency ? (
         <>
-          <ThemedView type="backgroundElement" style={styles.balanceCard}>
-            <GroupAvatar group={group} size={72} />
-            <ThemedText themeColor="textSecondary">Your group balance</ThemedText>
-            <ThemedText
-              style={styles.balanceAmount}
-              themeColor={balance && balance !== 0 ? (balance > 0 ? 'primary' : 'danger') : 'text'}>
-              {formatMoney(Math.abs(balance ?? 0), currency)}
-            </ThemedText>
-            <ThemedText themeColor="textSecondary">
-              {(balance ?? 0) > 0 ? 'You are owed' : (balance ?? 0) < 0 ? 'You owe' : 'All settled up'}
-            </ThemedText>
+          <View style={styles.groupIdentity}>
+            <GroupAvatar group={group} size={48} />
+            <ThemedText accessibilityRole="header" style={styles.groupName}>{group.name}</ThemedText>
+            <Pressable accessibilityRole="button" onPress={() => router.push({ pathname: '/(app)/groups/[id]/members', params: { id: group.id } })} style={styles.membersLink}>
+              <ThemedText style={styles.groupMeta} themeColor="textSecondary">{group.members?.length ?? 0} people · Balances in {currency}</ThemedText>
+              <ThemedText style={styles.groupMeta} themeColor="interactive">View members ›</ThemedText>
+            </Pressable>
+          </View>
+          <ThemedView type={balance === undefined ? 'surface' : balance < 0 ? 'dangerSurface' : 'positiveSurface'} style={styles.balanceCard}>
+            <View style={styles.balanceCopy}>
+              <ThemedText style={styles.balanceLabel} themeColor="textSecondary">
+                {balance === undefined ? balancePending ? 'Loading balance…' : 'Balance unavailable' : balance > 0 ? 'You are owed' : balance < 0 ? 'You owe' : 'All settled up'}
+              </ThemedText>
+              {balance !== undefined ? <MoneyAmount minor={balance} currency={currency} tone={balance > 0 ? 'positive' : balance < 0 ? 'danger' : 'text'} /> : null}
+              {balance !== undefined && balanceStale ? <ThemedText themeColor="textSecondary">Last known balance · {balancePending ? 'Refreshing' : 'may be out of date'}</ThemedText> : null}
+            </View>
           </ThemedView>
 
           <View style={styles.actionRow}>
             {!group.is_archived ? (
-              <Pressable
+              <AnimatedPressable
+                accessibilityLabel="Add expense"
                 onPress={() =>
                   router.push({ pathname: '/(app)/expenses/create', params: { groupId: group.id } })
                 }
-                style={[styles.actionButton, styles.addExpenseButton]}>
-                <ThemedText style={styles.addExpenseLabel}>+ Expense</ThemedText>
-              </Pressable>
+                style={[styles.actionButton, { backgroundColor: theme.primary }]}>
+                <SymbolView name={{ ios: 'plus', android: 'add', web: 'add' }} size={18} tintColor={theme.primaryText} weight="bold" />
+                <ThemedText style={[styles.actionLabel, { color: theme.primaryText }]}>Add expense</ThemedText>
+              </AnimatedPressable>
             ) : null}
             {settlements.length > 0 ? (
-              <Pressable
+              <AnimatedPressable
+                accessibilityLabel="Settle up"
                 onPress={() =>
                   router.push({ pathname: '/(app)/settlements/create', params: { groupId: group.id } })
                 }
-                style={[styles.actionButton, styles.settleButton]}>
-                <ThemedText style={styles.settleLabel}>Settle up</ThemedText>
-              </Pressable>
+                style={[styles.actionButton, styles.settleButton, { backgroundColor: theme.surfaceSubtle, borderColor: theme.border }]}>
+                <SymbolView name={{ ios: 'checkmark.circle', android: 'check_circle', web: 'check_circle' }} size={18} tintColor={theme.interactive} weight="semibold" />
+                <ThemedText style={styles.actionLabel} themeColor="interactive">Settle up</ThemedText>
+              </AnimatedPressable>
             ) : null}
           </View>
-          <View style={styles.exportRow}>
-            <Pressable
-              disabled={exporting !== null}
-              onPress={() => onExport('csv')}
-              style={styles.exportAction}>
-              <ThemedText style={styles.exportLabel} themeColor="primary">
-                {exporting === 'csv' ? 'Preparing CSV…' : '↓ Export CSV'}
-              </ThemedText>
-            </Pressable>
-            <Pressable
-              disabled={exporting !== null}
-              onPress={() => onExport('pdf')}
-              style={styles.exportAction}>
-              <ThemedText style={styles.exportLabel} themeColor="primary">
-                {exporting === 'pdf' ? 'Preparing PDF…' : '↓ Export PDF'}
-              </ThemedText>
-            </Pressable>
-          </View>
 
-          <SectionTitle title="Expenses" />
+          <View style={styles.sectionHeader}>
+            <SectionTitle title="Recent expenses" inline />
+            <AnimatedPressable accessibilityLabel="View all group expenses" style={styles.headerTouch} onPress={() => router.push({ pathname: '/(app)/expenses', params: { groupId: group.id, groupName: group.name } })}><ThemedText themeColor="interactive">View all</ThemedText></AnimatedPressable>
+          </View>
           {expenses.map((expense) => {
             const payerKey = expense.payer.user_id
               ? `user:${expense.payer.user_id}`
@@ -254,28 +268,6 @@ function AppGroupContent({
             </ThemedText>
           ) : null}
 
-          <SectionTitle title={`Members · ${group.members?.length ?? 0}`} />
-          <ThemedView type="backgroundElement" style={styles.listCard}>
-            {(group.members ?? []).map((member, index) => (
-              <View key={member.id}>
-                {index > 0 ? <View style={styles.divider} /> : null}
-                <View style={styles.memberRow}>
-                  <ThemedView type="backgroundSelected" style={styles.memberAvatar}>
-                    <ThemedText style={styles.memberInitial} themeColor="primary">
-                      {(member.user?.name ?? member.placeholder?.name ?? '?').slice(0, 1)}
-                    </ThemedText>
-                  </ThemedView>
-                  <ThemedText style={styles.memberName}>
-                    {member.user?.name ?? member.placeholder?.name ?? 'Unknown member'}
-                  </ThemedText>
-                  <ThemedText style={styles.role} themeColor="textSecondary">
-                    {member.role}
-                  </ThemedText>
-                </View>
-              </View>
-            ))}
-          </ThemedView>
-
           {settlements.length > 0 ? (
             <>
               <SectionTitle title="Suggested settlements" />
@@ -291,8 +283,8 @@ function AppGroupContent({
                     {index > 0 ? <View style={styles.divider} /> : null}
                     <View style={styles.settlementRow}>
                       <View style={styles.settlementCopy}>
-                        <ThemedText style={styles.memberName}>
-                          {participantNames.get(settlement.from) ?? 'Member'} →{' '}
+                        <ThemedText style={styles.settlementName}>
+                          {participantNames.get(settlement.from) ?? 'Member'} pays{'\n'}
                           {participantNames.get(settlement.to) ?? 'Member'}
                         </ThemedText>
                         <ThemedText style={styles.role} themeColor="textSecondary">
@@ -305,6 +297,7 @@ function AppGroupContent({
                         </ThemedText>
                         {canRecord ? (
                           <Pressable
+                            hitSlop={10}
                             onPress={() => router.push({
                               pathname: '/(app)/settlements/create',
                               params: {
@@ -328,7 +321,10 @@ function AppGroupContent({
             </>
           ) : null}
 
-          <SectionTitle title="Recent activity" />
+          <View style={styles.sectionHeader}>
+            <SectionTitle title="Recent activity" inline />
+            <AnimatedPressable accessibilityLabel="View all group activity" style={styles.headerTouch} onPress={() => router.push({ pathname: '/(app)/groups/[id]/activity', params: { id: group.id } })}><ThemedText themeColor="interactive">View all</ThemedText></AnimatedPressable>
+          </View>
           {activity.map((item) => (
             <ActivityRow activity={item} key={item.id} />
           ))}
@@ -343,8 +339,8 @@ function AppGroupContent({
   );
 }
 
-function SectionTitle({ title }: { title: string }) {
-  return <ThemedText style={styles.sectionTitle}>{title}</ThemedText>;
+function SectionTitle({ title, inline = false }: { title: string; inline?: boolean }) {
+  return <ThemedText style={[styles.sectionTitle, inline && styles.inlineSectionTitle]}>{title}</ThemedText>;
 }
 
 const styles = StyleSheet.create({
@@ -352,46 +348,71 @@ const styles = StyleSheet.create({
   safeArea: { flex: 1 },
   scrollFrame: { flex: 1 },
   header: {
-    height: 60,
+    minHeight: 56,
+    paddingVertical: 8,
+    gap: 8,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: Spacing.four,
   },
-  back: { fontSize: 14, fontWeight: '800' },
-  headerTitle: { flex: 1, textAlign: 'center', fontSize: 16, fontWeight: '800' },
-  headerSpacer: { width: 48 },
-  settingsLink: { fontSize: 13, fontWeight: '800' },
-  content: { padding: Spacing.four, paddingBottom: 80, gap: 12 },
-  balanceCard: { borderRadius: 24, padding: 22, alignItems: 'center', marginBottom: 10 },
-  actionRow: { flexDirection: 'row', gap: 10 },
+  headerTouch: { minWidth: 64, minHeight: 48, justifyContent: 'center' },
+  back: { fontSize: 15, fontWeight: '600' },
+  headerTitle: { flex: 1, textAlign: 'center', fontSize: 17, fontWeight: '600' },
+  headerMenu: { width: 64, minHeight: 48, alignItems: 'flex-end', justifyContent: 'center' },
+  content: { paddingHorizontal: Spacing.four, paddingTop: 14, paddingBottom: 80, gap: 8 },
+  balanceCard: {
+    borderRadius: Radius.card,
+    minHeight: 96,
+    padding: 22,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 13,
+    marginBottom: 6,
+  },
+  groupIdentity: { gap: 12, marginBottom: 14 },
+  groupName: { fontSize: 28, lineHeight: 35, letterSpacing: -0.7, fontWeight: '600' },
+  groupMeta: { fontSize: 13, lineHeight: 20 },
+  membersLink: { minHeight: 48, justifyContent: 'center', gap: 3 },
+  balanceCopy: { flex: 1, minWidth: 0, gap: 1 },
+  balanceLabel: { fontSize: 12, lineHeight: 17, fontWeight: '600' },
+  balanceStatus: { borderRadius: Radius.pill, paddingHorizontal: 10, paddingVertical: 6 },
+  balanceStatusText: { fontSize: 11, lineHeight: 15, fontWeight: '600' },
+  actionRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   actionButton: {
     flex: 1,
-    height: 52,
-    borderRadius: 17,
+    flexBasis: 140,
+    minHeight: 48,
+    paddingVertical: 12,
+    borderRadius: Radius.control,
+    flexDirection: 'row',
+    gap: 7,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  addExpenseButton: { backgroundColor: '#00F5A0' },
-  addExpenseLabel: { color: '#061A14', fontSize: 15, fontWeight: '900' },
-  settleButton: { backgroundColor: '#DDFBF0' },
-  settleLabel: { color: '#0A6B4E', fontSize: 15, fontWeight: '900' },
-  exportRow: { flexDirection: 'row', justifyContent: 'center', gap: 20 },
-  exportAction: { minHeight: 42, alignItems: 'center', justifyContent: 'center' },
-  exportLabel: { fontSize: 13, fontWeight: '800' },
-  balanceAmount: { fontSize: 34, lineHeight: 43, fontWeight: '800', marginVertical: 3 },
-  sectionTitle: { fontSize: 17, lineHeight: 24, fontWeight: '800', marginTop: 14 },
-  listCard: { borderRadius: 20, paddingHorizontal: 16 },
+  settleButton: { borderWidth: StyleSheet.hairlineWidth },
+  actionLabel: { fontSize: 14, lineHeight: 20, fontWeight: '600' },
+  balanceAmount: { fontSize: 30, lineHeight: 39, fontVariant: ['tabular-nums'], fontWeight: '500', letterSpacing: -0.5 },
+  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8, marginTop: 10 },
+  inlineSectionTitle: { marginTop: 0, marginBottom: 0, flex: 1 },
+  sectionTitle: { fontSize: 16, lineHeight: 22, fontWeight: '600', marginTop: 18, marginBottom: 3 },
+  listCard: { borderRadius: Radius.card, paddingHorizontal: 14 },
   divider: { height: StyleSheet.hairlineWidth, backgroundColor: '#7A8498', opacity: 0.3 },
   memberRow: { minHeight: 66, flexDirection: 'row', alignItems: 'center', gap: 11 },
   memberAvatar: { width: 38, height: 38, borderRadius: 15, alignItems: 'center', justifyContent: 'center' },
-  memberInitial: { fontWeight: '800' },
-  memberName: { flex: 1, fontSize: 14, lineHeight: 20, fontWeight: '700' },
+  memberInitial: { fontWeight: '600' },
+  memberName: { flex: 1, fontSize: 14, lineHeight: 20, fontWeight: '600' },
   role: { fontSize: 12, lineHeight: 17, textTransform: 'capitalize' },
-  settlementRow: { minHeight: 68, flexDirection: 'row', alignItems: 'center', gap: 12 },
-  settlementCopy: { flex: 1 },
-  settlementAction: { alignItems: 'flex-end', gap: 3 },
-  settlementAmount: { fontSize: 15, fontWeight: '800' },
-  recordLink: { fontSize: 12, fontWeight: '800' },
+  settlementRow: {
+    minHeight: 72,
+    paddingVertical: 16,
+    alignItems: 'stretch',
+    gap: 12,
+  },
+  settlementCopy: { flex: 1, minWidth: 0, justifyContent: 'center', gap: 2 },
+  settlementName: { fontSize: 14, lineHeight: 20, fontWeight: '600' },
+  settlementAction: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
+  settlementAmount: { fontSize: 15, lineHeight: 21, fontWeight: '600' },
+  recordLink: { fontSize: 12, lineHeight: 18, fontWeight: '600', paddingVertical: 15, paddingHorizontal: 12 },
   empty: { textAlign: 'center', paddingVertical: 24 },
 });

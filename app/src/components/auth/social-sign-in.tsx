@@ -4,7 +4,7 @@ import * as Crypto from 'expo-crypto';
 import { useEffect, useState } from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { socialLogin } from '@/lib/auth-api';
+import { socialLogin, type DeletionCredentials } from '@/lib/auth-api';
 import { errorMessage } from '@/lib/api-client';
 import { useAuthStore } from '@/stores/auth-store';
 
@@ -38,12 +38,14 @@ async function configuredGoogleSignIn(): Promise<GoogleSignInModule> {
   return googleSignIn;
 }
 
-type SocialSignInProps = {
+export type SocialSignInProps = {
+  onIdentity?: (credentials: DeletionCredentials) => Promise<void>;
+  providers?: ('google' | 'apple')[];
   onError: (message: string) => void;
   onSuccess?: () => void;
 };
 
-function GoogleButton({ onError, onSuccess }: SocialSignInProps) {
+function GoogleButton({ onError, onSuccess, onIdentity }: SocialSignInProps) {
   const setSession = useAuthStore((state) => state.setSession);
   const [pending, setPending] = useState(false);
 
@@ -72,7 +74,8 @@ function GoogleButton({ onError, onSuccess }: SocialSignInProps) {
       }
 
       if (isSuccessResponse(result)) {
-        await setSession(await socialLogin('google', result.data.idToken));
+        if (onIdentity) await onIdentity({ provider: 'google', id_token: result.data.idToken });
+        else await setSession(await socialLogin('google', result.data.idToken));
         onSuccess?.();
       }
     } catch (error) {
@@ -97,7 +100,7 @@ function GoogleButton({ onError, onSuccess }: SocialSignInProps) {
   );
 }
 
-function AppleButton({ onError, onSuccess }: SocialSignInProps) {
+function AppleButton({ onError, onSuccess, onIdentity }: SocialSignInProps) {
   const setSession = useAuthStore((state) => state.setSession);
   const [available, setAvailable] = useState(false);
 
@@ -132,9 +135,13 @@ function AppleButton({ onError, onSuccess }: SocialSignInProps) {
         ? AppleAuthentication.formatFullName(credential.fullName).trim()
         : undefined;
 
-      await setSession(
+      if (!credential.authorizationCode) throw new Error('Apple did not return a confirmation code. Please try again.');
+      if (onIdentity) {
+        await onIdentity({ provider: 'apple', id_token: credential.identityToken, nonce: rawNonce, authorization_code: credential.authorizationCode });
+      } else await setSession(
         await socialLogin('apple', credential.identityToken, {
           nonce: rawNonce,
+          authorization_code: credential.authorizationCode,
           ...(name ? { name } : {}),
         }),
       );
@@ -157,7 +164,7 @@ function AppleButton({ onError, onSuccess }: SocialSignInProps) {
   );
 }
 
-export function SocialSignIn({ onError, onSuccess }: SocialSignInProps) {
+export function SocialSignIn({ onError, onSuccess, onIdentity, providers }: SocialSignInProps) {
   const googleConfigured = Boolean(
     googleWebClientId && (Platform.OS !== 'ios' || googleIosClientId),
   );
@@ -165,8 +172,8 @@ export function SocialSignIn({ onError, onSuccess }: SocialSignInProps) {
 
   return (
     <View style={styles.container}>
-      {googleAvailable ? <GoogleButton onError={onError} onSuccess={onSuccess} /> : null}
-      {Platform.OS === 'ios' ? <AppleButton onError={onError} onSuccess={onSuccess} /> : null}
+      {googleAvailable && (!providers || providers.includes('google')) ? <GoogleButton onError={onError} onSuccess={onSuccess} onIdentity={onIdentity} /> : null}
+      {Platform.OS === 'ios' && (!providers || providers.includes('apple')) ? <AppleButton onError={onError} onSuccess={onSuccess} onIdentity={onIdentity} /> : null}
       {googleConfigured && isExpoGo ? (
         <Text style={styles.developmentBuildHint}>
           Google sign-in is available in Ovezi development and release builds.
@@ -189,8 +196,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 18,
   },
-  googleGlyph: { position: 'absolute', left: 20, color: '#4285F4', fontSize: 20, fontWeight: '800' },
-  googleLabel: { color: '#182033', fontSize: 16, fontWeight: '700' },
+  googleGlyph: { position: 'absolute', left: 20, color: '#4285F4', fontSize: 20, fontWeight: '600' },
+  googleLabel: { color: '#182033', fontSize: 16, fontWeight: '600' },
   appleButton: { width: '100%', height: 52 },
   developmentBuildHint: { color: '#9AA3B5', fontSize: 12, lineHeight: 17, textAlign: 'center' },
   pressed: { opacity: 0.65 },

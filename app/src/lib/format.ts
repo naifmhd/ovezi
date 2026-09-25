@@ -1,7 +1,7 @@
 import type { Activity } from '@/types/api';
 
 export function formatMoney(minorAmount: number, currencyCode: string) {
-  const formatter = new Intl.NumberFormat('en', {
+  const formatter = new Intl.NumberFormat(undefined, {
     style: 'currency',
     currency: currencyCode,
     currencyDisplay: 'narrowSymbol',
@@ -13,7 +13,7 @@ export function formatMoney(minorAmount: number, currencyCode: string) {
 
 export function currencyFractionDigits(currencyCode: string) {
   try {
-    return new Intl.NumberFormat('en', {
+    return new Intl.NumberFormat(undefined, {
       style: 'currency',
       currency: currencyCode,
     }).resolvedOptions().maximumFractionDigits ?? 2;
@@ -23,7 +23,14 @@ export function currencyFractionDigits(currencyCode: string) {
 }
 
 export function parseDecimalToInteger(value: string, fractionDigits: number) {
-  const normalized = value.trim().replaceAll(',', '');
+  const { decimalSeparator, groupSeparator } = localeSeparators();
+  let normalized = value.trim().replace(/\s/g, '');
+  if (decimalSeparator !== '.' && normalized.includes(decimalSeparator)) {
+    if (groupSeparator) normalized = normalized.split(groupSeparator).join('');
+    normalized = normalized.replace(decimalSeparator, '.');
+  } else if (decimalSeparator === '.' && groupSeparator) {
+    normalized = normalized.split(groupSeparator).join('');
+  }
   const match = normalized.match(/^(\d+)(?:\.(\d*))?$/);
   if (!match || (match[2]?.length ?? 0) > fractionDigits) return null;
 
@@ -34,13 +41,33 @@ export function parseDecimalToInteger(value: string, fractionDigits: number) {
   return Number.isSafeInteger(result) ? result : null;
 }
 
+function localeSeparators() {
+  try {
+    const formatter = new Intl.NumberFormat(undefined);
+    if (typeof formatter.formatToParts === 'function') {
+      const parts = formatter.formatToParts(1234.5);
+      return {
+        decimalSeparator: parts.find((part) => part.type === 'decimal')?.value ?? '.',
+        groupSeparator: parts.find((part) => part.type === 'group')?.value ?? ',',
+      };
+    }
+
+    // Hermes builds without formatToParts still provide localized formatting.
+    const decimalSample = formatter.format(1.1);
+    const decimalSeparator = decimalSample.includes(',') ? ',' : '.';
+    return { decimalSeparator, groupSeparator: decimalSeparator === ',' ? '.' : ',' };
+  } catch {
+    return { decimalSeparator: '.', groupSeparator: ',' };
+  }
+}
+
 export function minorAmountInput(minorAmount: number, currencyCode: string) {
   const digits = currencyFractionDigits(currencyCode);
-  const divisor = 10 ** digits;
-  const whole = Math.floor(Math.abs(minorAmount) / divisor);
-  const fraction = String(Math.abs(minorAmount) % divisor).padStart(digits, '0');
-
-  return `${minorAmount < 0 ? '-' : ''}${whole}${digits > 0 ? `.${fraction}` : ''}`;
+  return new Intl.NumberFormat(undefined, {
+    useGrouping: false,
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits,
+  }).format(minorAmount / 10 ** digits);
 }
 
 const activityLabels: Record<string, string> = {
@@ -70,7 +97,7 @@ const activityLabels: Record<string, string> = {
 
 export function activityDescription(activity: Activity) {
   const actor = activity.actor?.name ?? 'Someone';
-  const action = activityLabels[activity.event] ?? activity.event.replaceAll('.', ' ');
+  const action = activityLabels[activity.event] ?? activity.event.split('.').join(' ');
   return `${actor} ${action}`;
 }
 
@@ -84,5 +111,5 @@ export function formatRelativeDate(value: string) {
   const hours = Math.round(elapsedMinutes / 60);
   if (hours < 24) return `${hours}h ago`;
 
-  return date.toLocaleDateString('en', { month: 'short', day: 'numeric' });
+  return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 }

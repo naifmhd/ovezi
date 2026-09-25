@@ -42,6 +42,7 @@ use App\Http\Controllers\Api\V1\SearchController;
 use App\Http\Controllers\Api\V1\SettlementController;
 use App\Http\Controllers\Api\V1\TransferGroupOwnershipController;
 use App\Http\Controllers\Api\V1\UpdateProfileController;
+use App\Http\Middleware\IdempotentFinancialWrite;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->name('api.v1.')->group(function (): void {
@@ -66,18 +67,18 @@ Route::prefix('v1')->name('api.v1.')->group(function (): void {
             ->name('email.verify');
     });
 
-    Route::middleware('auth:sanctum')->group(function (): void {
+    Route::middleware(['auth:sanctum', IdempotentFinancialWrite::class])->group(function (): void {
         Route::get('me', ProfileController::class)->name('me');
-        Route::get('me/export', PersonalDataExportController::class)->name('me.export');
+        Route::get('me/export', PersonalDataExportController::class)->middleware('throttle:exports')->name('me.export');
         Route::get('currencies', CurrencyController::class)->name('currencies.index');
         Route::delete('auth/session', [SessionController::class, 'destroy'])
             ->name('auth.session.destroy');
         Route::delete('auth/sessions', AllSessionsController::class)
             ->name('auth.sessions.destroy');
         Route::put('auth/password', UpdatePasswordController::class)
-            ->name('auth.password.update');
+            ->middleware('throttle:account-security')->name('auth.password.update');
         Route::put('auth/email', UpdateEmailController::class)
-            ->name('auth.email.update');
+            ->middleware('throttle:account-security')->name('auth.email.update');
         Route::post('auth/email/verification-notification', EmailVerificationNotificationController::class)
             ->middleware('throttle:6,1')
             ->name('auth.email.verification-notification');
@@ -86,7 +87,7 @@ Route::prefix('v1')->name('api.v1.')->group(function (): void {
         Route::patch('me', UpdateProfileController::class)
             ->name('me.update');
         Route::delete('me', DeleteAccountController::class)
-            ->name('me.destroy');
+            ->middleware('throttle:account-security')->name('me.destroy');
         Route::get('notification-preferences', [NotificationPreferenceController::class, 'show'])
             ->name('notification-preferences.show');
         Route::patch('notification-preferences', [NotificationPreferenceController::class, 'update'])
@@ -119,7 +120,7 @@ Route::prefix('v1')->name('api.v1.')->group(function (): void {
         Route::get('expenses/{expense}/receipt', [ExpenseReceiptController::class, 'show'])
             ->name('expenses.receipt.show');
         Route::post('expenses/{expense}/receipt', [ExpenseReceiptController::class, 'store'])
-            ->name('expenses.receipt.store');
+            ->middleware('throttle:uploads')->name('expenses.receipt.store');
         Route::delete('expenses/{expense}/receipt', [ExpenseReceiptController::class, 'destroy'])
             ->name('expenses.receipt.destroy');
         Route::apiResource('groups', GroupController::class)
@@ -127,7 +128,7 @@ Route::prefix('v1')->name('api.v1.')->group(function (): void {
         Route::get('groups/{group}/photo', [GroupPhotoController::class, 'show'])
             ->name('groups.photo.show');
         Route::post('groups/{group}/photo', [GroupPhotoController::class, 'store'])
-            ->name('groups.photo.store');
+            ->middleware('throttle:uploads')->name('groups.photo.store');
         Route::delete('groups/{group}/photo', [GroupPhotoController::class, 'destroy'])
             ->name('groups.photo.destroy');
         Route::post('groups/{group}/members', [GroupMemberController::class, 'store'])
@@ -143,7 +144,7 @@ Route::prefix('v1')->name('api.v1.')->group(function (): void {
         Route::get('groups/{group}/activity', GroupActivityController::class)
             ->name('groups.activity.index');
         Route::get('groups/{group}/export', GroupHistoryExportController::class)
-            ->name('groups.export');
+            ->middleware('throttle:exports')->name('groups.export');
         Route::put('groups/{group}/owner', TransferGroupOwnershipController::class)
             ->name('groups.owner.update');
         Route::get('groups/{group}/currency-rates', [GroupCurrencyRateController::class, 'index'])
@@ -157,7 +158,7 @@ Route::prefix('v1')->name('api.v1.')->group(function (): void {
         Route::post('settlements', DirectSettlementController::class)
             ->name('settlements.store');
         Route::apiResource('groups.invites', GroupInviteController::class)
-            ->only(['index', 'store', 'destroy']);
+            ->only(['index', 'store', 'destroy'])->middlewareFor('store', 'throttle:invitations');
         Route::put('groups/{group}/archive', [ArchivedGroupController::class, 'store'])
             ->name('groups.archive.store');
         Route::delete('groups/{group}/archive', [ArchivedGroupController::class, 'destroy'])

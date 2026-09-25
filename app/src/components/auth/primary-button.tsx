@@ -1,5 +1,7 @@
-import { ActivityIndicator, Pressable, StyleSheet, Text } from 'react-native';
+import { ActivityIndicator, StyleSheet, Text } from 'react-native';
 
+import { AnimatedPressable } from '@/components/ui/animated-pressable';
+import { Radius } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
 type PrimaryButtonProps = {
@@ -14,26 +16,27 @@ export function PrimaryButton({ label, onPress, loading, disabled }: PrimaryButt
   const unavailable = disabled || loading;
 
   return (
-    <Pressable
+    <AnimatedPressable
       accessibilityRole="button"
+      accessibilityState={{ disabled: Boolean(unavailable), busy: Boolean(loading) }}
       disabled={unavailable}
       onPress={onPress}
-      style={({ pressed }) => [
+      style={[
         styles.button,
         { backgroundColor: theme.primary },
-        (pressed || unavailable) && styles.dimmed,
+        unavailable && styles.dimmed,
       ]}>
       {loading ? (
         <ActivityIndicator color={theme.primaryText} />
       ) : (
         <Text style={[styles.label, { color: theme.primaryText }]}>{label}</Text>
       )}
-    </Pressable>
+    </AnimatedPressable>
   );
 }
 
 const styles = StyleSheet.create({
-  button: { height: 54, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
-  label: { fontSize: 16, fontWeight: '800' },
+  button: { minHeight: 52, paddingHorizontal: 18, paddingVertical: 14, borderRadius: Radius.control, alignItems: 'center', justifyContent: 'center' },
+  label: { fontSize: 16, fontWeight: '600', textAlign: 'center' },
   dimmed: { opacity: 0.65 },
 });

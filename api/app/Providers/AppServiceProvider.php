@@ -3,8 +3,13 @@
 namespace App\Providers;
 
 use App\Models\Expense;
+use App\Models\Friendship;
 use App\Models\Group;
+use App\Models\GroupCurrencyRate;
+use App\Models\GroupInvite;
 use App\Models\GroupMember;
+use App\Models\Placeholder;
+use App\Models\RecurringExpense;
 use App\Models\Settlement;
 use App\Models\User;
 use App\Observers\DomainChangeObserver;
@@ -36,6 +41,11 @@ class AppServiceProvider extends ServiceProvider
         Settlement::observe(DomainChangeObserver::class);
         Group::observe(DomainChangeObserver::class);
         GroupMember::observe(DomainChangeObserver::class);
+        Friendship::observe(DomainChangeObserver::class);
+        GroupInvite::observe(DomainChangeObserver::class);
+        Placeholder::observe(DomainChangeObserver::class);
+        GroupCurrencyRate::observe(DomainChangeObserver::class);
+        RecurringExpense::observe(DomainChangeObserver::class);
 
         VerifyEmail::createUrlUsing(function (User $user): string {
             $verificationUrl = URL::temporarySignedRoute(
@@ -47,19 +57,16 @@ class AppServiceProvider extends ServiceProvider
                 ],
             );
 
-            return sprintf(
-                '%s://auth/verify-email?verification_url=%s',
-                config('ovezi.deep_link_scheme'),
-                rawurlencode($verificationUrl),
-            );
+            return route('app.verify', ['verification_url' => $verificationUrl]);
         });
 
-        ResetPassword::createUrlUsing(fn (User $user, string $token): string => sprintf(
-            '%s://auth/reset-password?token=%s&email=%s',
-            config('ovezi.deep_link_scheme'),
-            rawurlencode($token),
-            rawurlencode($user->getEmailForPasswordReset()),
-        ));
+        ResetPassword::createUrlUsing(fn (User $user, string $token): string => route('app.reset', [
+            'token' => $token, 'email' => $user->getEmailForPasswordReset(),
+        ]));
+
+        foreach (['uploads' => 20, 'exports' => 6, 'invitations' => 10, 'account-security' => 6] as $name => $attempts) {
+            RateLimiter::for($name, fn (Request $request): Limit => Limit::perMinute($attempts)->by((string) ($request->user()?->id ?? $request->ip())));
+        }
 
         RateLimiter::for('registration', function (Request $request): Limit {
             return Limit::perMinute(6)->by($this->rateLimitKey($request));

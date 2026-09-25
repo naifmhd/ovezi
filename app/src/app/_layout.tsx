@@ -3,6 +3,9 @@ import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 import { useColorScheme } from 'react-native';
 
+import { AuthShell } from '@/components/auth/auth-shell';
+import { PrimaryButton } from '@/components/auth/primary-button';
+import { FormMessage } from '@/components/auth/form-message';
 import { AppProvider } from '@/providers/app-provider';
 import { initializeSentry, withSentry } from '@/lib/sentry';
 import { useAuthStore } from '@/stores/auth-store';
@@ -15,6 +18,8 @@ function RootNavigator() {
   const authStatus = useAuthStore((state) => state.status);
   const onboardingStatus = useOnboardingStore((state) => state.status);
   const token = useAuthStore((state) => state.token);
+  const hydrationError = useAuthStore((state) => state.hydrationError);
+  const hydrate = useAuthStore((state) => state.hydrate);
 
   useEffect(() => {
     if (authStatus !== 'hydrating' && onboardingStatus !== 'hydrating') {
@@ -24,6 +29,15 @@ function RootNavigator() {
 
   if (authStatus === 'hydrating' || onboardingStatus === 'hydrating') {
     return null;
+  }
+
+  if (authStatus === 'unavailable') {
+    return (
+      <AuthShell title="Let’s reconnect" subtitle="Your session is saved. We need a connection to securely open your account.">
+        {hydrationError ? <FormMessage>{hydrationError}</FormMessage> : null}
+        <PrimaryButton label="Retry connection" onPress={() => void hydrate()} />
+      </AuthShell>
+    );
   }
 
   return (

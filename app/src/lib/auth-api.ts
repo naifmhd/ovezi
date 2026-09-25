@@ -2,6 +2,7 @@ import * as Device from 'expo-device';
 import { Platform } from 'react-native';
 
 import { apiRequest, apiTextRequest } from '@/lib/api-client';
+import { useExpenseDraftStore } from '@/stores/expense-draft-store';
 import type { AuthSession, User } from '@/types/api';
 
 type DataResponse<T> = { data: T };
@@ -38,7 +39,7 @@ export async function register(
 export async function socialLogin(
   provider: 'google' | 'apple',
   idToken: string,
-  options: { nonce?: string; name?: string } = {},
+  options: { nonce?: string; name?: string; authorization_code?: string } = {},
 ) {
   const response = await apiRequest<DataResponse<AuthSession>>('/auth/social', {
     method: 'POST',
@@ -142,12 +143,16 @@ export function disconnectSocialAccount(token: string, provider: 'google' | 'app
   return apiRequest<void>(`/auth/social-accounts/${provider}`, { method: 'DELETE', token });
 }
 
-export function deleteAccount(token: string, currentPassword: string) {
-  return apiRequest<void>('/me', {
+export type DeletionCredentials = { provider: 'google' | 'apple'; id_token: string; nonce?: string; authorization_code?: string };
+
+export async function deleteAccount(token: string, credentials: string | DeletionCredentials) {
+  await apiRequest<void>('/me', {
     method: 'DELETE',
     token,
-    body: { current_password: currentPassword },
+    body: typeof credentials === 'string' ? { current_password: credentials } : credentials,
   });
+  useExpenseDraftStore.getState().clearDraft();
+  await useExpenseDraftStore.persist.clearStorage();
 }
 
 export function exportPersonalData(token: string) {

@@ -5,7 +5,6 @@ namespace App\Jobs;
 use App\Models\Expense;
 use App\NotificationType;
 use App\Services\ExpoPushService;
-use App\Services\RealtimeAudience;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 
@@ -23,18 +22,36 @@ class SendExpenseCreatedPushNotifications implements ShouldQueue
     /**
      * Execute the job.
      */
-    public function handle(ExpoPushService $pushService, RealtimeAudience $audience): void
+    public function handle(ExpoPushService $pushService): void
     {
-        $expense = Expense::query()->with(['creator:id,name', 'group:id,name'])->find($this->expenseId);
+        $expense = Expense::query()->with([
+            'creator:id,name',
+            'group:id,name',
+            'payerPlaceholder:id,claimed_by',
+            'splits:id,expense_id,user_id,placeholder_id',
+            'splits.placeholder:id,claimed_by',
+        ])->find($this->expenseId);
 
         if ($expense === null || $expense->expense_type->value === 'personal') {
             return;
         }
 
-        $userIds = array_values(array_filter(
-            $audience->for('expense', $expense->id),
-            fn (int $userId): bool => $userId !== $expense->created_by,
-        ));
+        $userIds = collect([$expense->payer_user_id, $expense->payerPlaceholder?->claimed_by])
+            ->concat($expense->splits->flatMap(fn ($split): array => [
+                $split->user_id,
+                $split->placeholder?->claimed_by,
+            ]))
+            ->filter(fn (mixed $userId): bool => is_numeric($userId)
+                && (int) $userId > 0
+                && (int) $userId !== $expense->created_by)
+            ->map(fn (mixed $userId): int => (int) $userId)
+            ->unique()
+            ->values()
+            ->all();
+
+        if ($userIds === []) {
+            return;
+        }
         $body = $expense->group === null
             ? $expense->description
             : "{$expense->description} in {$expense->group->name}";

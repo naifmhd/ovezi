@@ -6,22 +6,22 @@
         @page { margin: 34px 38px 42px; }
         * { box-sizing: border-box; }
         body { color: #0A1128; font-family: "DejaVu Sans", sans-serif; font-size: 9px; margin: 0; }
-        .header { border-bottom: 2px solid #00C984; margin-bottom: 18px; padding-bottom: 12px; }
+        .header { border-bottom: 2px solid #006A50; margin-bottom: 18px; padding-bottom: 12px; }
         .brand { color: #00A86F; font-size: 11px; font-weight: bold; letter-spacing: 1.5px; text-transform: uppercase; }
         h1 { font-size: 24px; line-height: 1.2; margin: 4px 0; }
-        .meta { color: #5C6578; font-size: 8px; }
-        .summary { background: #F1FBF7; border: 1px solid #D6EFE5; border-radius: 7px; margin-bottom: 14px; padding: 9px 11px; }
-        .summary strong { color: #087A56; }
+        .meta { color: #5D6975; font-size: 8px; }
+        .summary { background: #E0F5EC; border: 1px solid #D6EFE5; border-radius: 7px; margin-bottom: 14px; padding: 9px 11px; }
+        .summary strong { color: #17663F; }
         table { border-collapse: collapse; table-layout: fixed; width: 100%; }
         thead { display: table-header-group; }
         tr { page-break-inside: avoid; }
         th { background: #0A1128; color: #FFFFFF; font-size: 7px; letter-spacing: .35px; padding: 6px; text-align: left; text-transform: uppercase; }
         td { border-bottom: 1px solid #E1E7E5; line-height: 1.3; overflow-wrap: break-word; padding: 5px 6px; vertical-align: top; }
         tr:nth-child(even) td { background: #F8FAF9; }
-        .status-deleted { color: #C63E4E; font-weight: bold; }
+        .status-deleted { color: #AE3048; font-weight: bold; }
         .amount { font-weight: bold; white-space: nowrap; }
-        .muted { color: #5C6578; }
-        .empty { color: #5C6578; font-size: 12px; padding: 48px 0; text-align: center; }
+        .muted { color: #5D6975; }
+        .empty { color: #5D6975; font-size: 12px; padding: 48px 0; text-align: center; }
         .footer { bottom: -27px; color: #7A8498; font-size: 7px; left: 0; position: fixed; right: 0; text-align: center; }
         .c-date { width: 9%; } .c-type { width: 8%; } .c-status { width: 7%; }
         .c-description { width: 19%; } .c-from { width: 12%; } .c-to { width: 18%; }
@@ -31,7 +31,7 @@
 <body>
     <div class="footer">Ovezi - Split. Share. Settle.</div>
     <div class="header">
-        <div class="brand">Ovezi</div>
+        <div class="brand"><img src="data:image/png;base64,{{ base64_encode(file_get_contents(public_path('brand/wordmark.png'))) }}" width="100" height="29" alt="Ovezi"></div>
         <h1>{{ $group->name }} history</h1>
         <div class="meta">Generated {{ $generatedAt->format('d M Y, H:i T') }}</div>
     </div>
