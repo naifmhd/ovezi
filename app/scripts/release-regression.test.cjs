@@ -18,6 +18,67 @@ function load(name, mocks = {}, globals = {}) {
   return module.exports;
 }
 
+function incomingLinkParams(path, initial) {
+  const { redirectSystemPath } = load('../app/+native-intent');
+  const { extractExpoPathFromURL } = require('expo-router/build/fork/extractPathFromURL');
+  const { parseQueryParams } = require('expo-router/build/fork/getStateFromPath-forks');
+  return parseQueryParams(extractExpoPathFromURL([], redirectSystemPath({ path, initial })), { name: 'auth' });
+}
+
+function loadAuthApi(api) {
+  return load('auth-api', {
+    '@/lib/api-client': api,
+    'expo-device': {},
+    'react-native': { Platform: { OS: 'ios' } },
+    '@/stores/expense-draft-store': {},
+  });
+}
+
+test('verification links keep their complete signature through native routing and the API request', async () => {
+  const signed = 'https://api.example.test/api/v1/auth/email/verify/1/' + 'a'.repeat(40)
+    + '?expires=1900000000&signature=' + 'b'.repeat(64);
+  const requests = [];
+  const api = load('api-client', {}, { fetch: async (url) => {
+    requests.push(url);
+    return { ok: true, status: 204 };
+  } });
+  const { verifyEmail } = loadAuthApi(api);
+
+  for (const initial of [true, false]) {
+    for (const prefix of ['ovezi://', 'https://api.example.test/', '/']) {
+      const params = incomingLinkParams(prefix + 'auth/verify-email?verification_url=' + encodeURIComponent(signed), initial);
+      assert.equal(params.verification_url, signed);
+      assert.equal(params.signature, undefined);
+      await verifyEmail(params.verification_url);
+    }
+  }
+  assert.equal(requests.length, 6);
+  requests.forEach((url) => assert.equal(url, signed));
+});
+
+test('native password reset and invitation links preserve encoded values', () => {
+  const email = 'person+travel@example.test';
+  const token = 'a'.repeat(64);
+  const params = incomingLinkParams('ovezi://auth/reset-password?token=' + token + '&email=' + encodeURIComponent(email), false);
+  assert.equal(params.token, token);
+  assert.equal(params.email, email);
+  assert.equal(incomingLinkParams('ovezi://group-invites/accept?token=' + token, true).token, token);
+});
+
+test('native link normalization leaves unrelated and malformed paths unchanged', () => {
+  const { redirectSystemPath } = load('../app/+native-intent');
+  for (const path of ['/profile', 'ovezi://groups/42', 'thirdparty://callback?code=123', 'ovezi://[invalid', '']) {
+    assert.equal(redirectSystemPath({ path, initial: true }), path);
+  }
+});
+
+test('verification links still reject an external API origin after native routing', async () => {
+  const api = load('api-client', {}, { fetch: async () => assert.fail('Must not request another origin') });
+  const { verifyEmail } = loadAuthApi(api);
+  const params = incomingLinkParams('ovezi://auth/verify-email?verification_url=' + encodeURIComponent('https://external.example/verify?signature=123'), true);
+  await assert.rejects(verifyEmail(params.verification_url), /does not belong to Ovezi/);
+});
+
 test('appearance Auto follows the device and explicit choices override it', () => {
   const applied = [];
   const appearance = load('appearance', {
