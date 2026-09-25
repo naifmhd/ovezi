@@ -1,8 +1,8 @@
 import { HeaderAction } from '@/components/ui/header-action';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { router } from 'expo-router';
-import { useEffect, useState } from 'react';
-import { Linking, Platform, Pressable, ScrollView, StyleSheet, Switch, View } from 'react-native';
+import { useCallback, useEffect, useState } from 'react';
+import { AppState, Linking, Platform, Pressable, ScrollView, StyleSheet, Switch, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { QueryErrorCard } from '@/components/query-error-card';
@@ -16,9 +16,9 @@ import {
 } from '@/lib/notifications-api';
 import {
   hasRegisteredPushDevice,
-  notificationPermissionStatus,
+  notificationPermissionState,
   syncPushToken,
-  unregisterPushDevice,
+  disablePushDevice,
 } from '@/lib/push-notifications';
 import { errorMessage } from '@/lib/api-client';
 import { useTheme } from '@/hooks/use-theme';
@@ -32,38 +32,56 @@ export default function NotificationSettingsScreen() {
   const queryClient = useQueryClient();
   const [permission, setPermission] = useState<string>('loading');
   const [deviceRegistered, setDeviceRegistered] = useState(false);
+  const [canAskAgain, setCanAskAgain] = useState(true);
+  const [deviceError, setDeviceError] = useState<unknown>(null);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const preferencesQuery = useQuery({
     queryKey: ['notification-preferences'],
     queryFn: () => fetchNotificationPreferences(token),
   });
 
+  const refreshDevice = useCallback(() => Promise.all([
+    notificationPermissionState(), hasRegisteredPushDevice(),
+  ]).then(([nextPermission, registered]) => {
+    setPermission(nextPermission.status);
+    setCanAskAgain(nextPermission.canAskAgain);
+    setDeviceRegistered(registered);
+    setDeviceError(null);
+  }).catch((error: unknown) => {
+    setPermission('unavailable');
+    setDeviceError(error);
+  }), []);
+
   useEffect(() => {
-    void Promise.all([notificationPermissionStatus(), hasRegisteredPushDevice()]).then(
-      ([nextPermission, registered]) => {
-        setPermission(nextPermission);
-        setDeviceRegistered(registered);
-      },
-    );
-  }, []);
+    void refreshDevice();
+    const subscription = AppState.addEventListener('change', (state) => {
+      if (state === 'active') {
+        void syncPushToken(token).then(refreshDevice).catch(async (error) => {
+          await refreshDevice();
+          setDeviceError(error);
+        });
+      }
+    });
+    return () => subscription.remove();
+  }, [refreshDevice, token]);
 
   const permissionMutation = useMutation({
+    onMutate: () => setStatusMessage(null),
     mutationFn: async (enabled: boolean) => {
       if (enabled) {
         const pushToken = await syncPushToken(token, true);
 
-        if (!pushToken) throw new Error('Notification permission was not granted.');
+        if (!pushToken) throw new Error('Allow notifications for Ovezi in your phone settings, then enable alerts here.');
       } else {
-        await unregisterPushDevice(token);
+        await disablePushDevice(token);
       }
 
       return enabled;
     },
-    onSuccess: async (enabled) => {
-      setPermission(await notificationPermissionStatus());
-      setDeviceRegistered(enabled);
-      setStatusMessage(enabled ? 'This device is ready for notifications.' : 'This device was disabled.');
+    onSuccess: (enabled) => {
+      setStatusMessage(enabled ? 'Notifications are enabled on this device.' : 'Notifications are off on this device.');
     },
+    onSettled: refreshDevice,
   });
   const preferenceMutation = useMutation({
     mutationFn: (input: Partial<Pick<NotificationPreferences, ToggleKey>>) =>
@@ -77,8 +95,12 @@ export default function NotificationSettingsScreen() {
       setGroupNotificationsMuted(token, groupId, muted),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['notification-preferences'] }),
   });
-  const mutationError = permissionMutation.error ?? preferenceMutation.error ?? groupMutation.error;
-  const deviceEnabled = deviceRegistered;
+  const mutationError = deviceError ?? permissionMutation.error ?? preferenceMutation.error ?? groupMutation.error;
+  const deviceEnabled = deviceRegistered && permission === 'granted';
+
+  function openDeviceSettings() {
+    void Linking.openSettings().catch(setDeviceError);
+  }
 
   function togglePreference(key: ToggleKey, value: boolean) {
     preferenceMutation.mutate({ [key]: value });
@@ -88,7 +110,7 @@ export default function NotificationSettingsScreen() {
     <ThemedView style={styles.screen}>
       <SafeAreaView edges={['top']} style={styles.safeArea}>
         <View style={styles.header}>
-          <HeaderAction onPress={() => router.back()}>
+          <HeaderAction onPress={() => router.dismissTo('/(app)/(tabs)/profile')}>
             <ThemedText style={styles.back} themeColor="primary">‹ Back</ThemedText>
           </HeaderAction>
           <ThemedText style={styles.headerTitle}>Notifications</ThemedText>
@@ -106,24 +128,32 @@ export default function NotificationSettingsScreen() {
           <SectionTitle title="This device" />
           <ThemedView type="backgroundElement" style={styles.card}>
             <SettingRow
-              label="Push notifications"
+              label="Enable notifications"
               subtitle={Platform.OS === 'web'
                 ? 'Available in the iOS and Android apps'
                 : deviceEnabled
                   ? 'Registered to receive Ovezi alerts'
                   : permission === 'denied'
                     ? 'Permission is blocked in device settings'
+                    : permission === 'unavailable'
+                      ? 'Could not check permission. Try again.'
                     : 'Enable alerts from Ovezi'}
               value={deviceEnabled}
               disabled={permission === 'loading' || permission === 'unsupported' || permissionMutation.isPending}
-              onChange={(value) => permissionMutation.mutate(value)}
+              onChange={(value) => {
+                if (value && permission !== 'granted' && !canAskAgain) openDeviceSettings();
+                else permissionMutation.mutate(value);
+              }}
             />
-            {permission === 'denied' ? (
-              <Pressable onPress={() => Linking.openSettings()} style={styles.settingsLink}>
-                <ThemedText style={styles.action} themeColor="primary">Open device settings</ThemedText>
+            {Platform.OS !== 'web' ? (
+              <Pressable accessibilityRole="button" onPress={openDeviceSettings} style={styles.settingsLink}>
+                <ThemedText style={styles.action} themeColor="interactive">Manage phone permissions</ThemedText>
               </Pressable>
             ) : null}
           </ThemedView>
+          <ThemedText style={styles.hint} themeColor="textSecondary">
+            Turn alerts on or off for this device. To change Ovezi’s permission to send notifications, use your phone settings.
+          </ThemedText>
 
           {statusMessage ? (
             <ThemedView type="backgroundSelected" style={styles.messageCard}>

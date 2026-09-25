@@ -30,6 +30,31 @@ fs.mkdirSync(output, { recursive: true });
     } finally { await context.close(); }
   }
   try {
+    let notificationPreferences = { expense_created: true, payment_received: true, settle_up_reminders: true, groups: [] };
+    await scenario('notifications', r => {
+      if (!r.request().url().endsWith('/notification-preferences')) return null;
+      if (r.request().method() === 'PATCH') notificationPreferences = { ...notificationPreferences, ...r.request().postDataJSON() };
+      return r.fulfill({ json: { data: notificationPreferences } });
+    }, async p => {
+      await p.goto(base + '/profile');
+      await p.getByRole('button', { name: /Notifications/ }).click();
+      await p.getByText('Available in the iOS and Android apps', { exact: true }).waitFor();
+      assert.equal(await p.getByRole('switch', { name: 'Enable notifications', exact: true }).isDisabled(), true);
+      const expenses = p.getByRole('switch', { name: 'New expenses', exact: true });
+      await expenses.click();
+      await p.waitForFunction(() => document.querySelector('[aria-label="New expenses"]').checked === false);
+      await p.reload();
+      await p.getByText('Available in the iOS and Android apps', { exact: true }).waitFor();
+      assert.equal(await expenses.isChecked(), false);
+      await p.screenshot({ path: `${output}/notifications-light.png` });
+      await p.emulateMedia({ colorScheme: 'dark' });
+      await p.waitForFunction(() => document.documentElement.style.colorScheme === 'dark');
+      await p.setViewportSize({ width: 320, height: 700 });
+      assert(await p.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth));
+      await p.screenshot({ path: `${output}/notifications-dark.png` });
+      await p.getByRole('button', { name: '‹ Back', exact: true }).click();
+      await p.getByText('Enable or disable alerts and manage permissions', { exact: true }).waitFor();
+    });
     await scenario('appearance', () => null, async (p) => {
       async function scheme(expected) {
         await p.waitForFunction(value => document.documentElement.style.colorScheme === value, expected, { timeout: 10000 });

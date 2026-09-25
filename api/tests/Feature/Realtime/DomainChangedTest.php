@@ -12,6 +12,20 @@ use App\Services\RealtimeAudience;
 use Illuminate\Support\Facades\Broadcast;
 use Illuminate\Support\Facades\Event;
 
+it('queues realtime jobs on the configured worker queue', function (?string $broadcastQueue, string $expectedQueue) {
+    config()->set('queue.default', 'database');
+    config()->set('queue.connections.database.queue', 'default');
+    config()->set('broadcasting.queue', $broadcastQueue);
+
+    Broadcast::queue(new DomainChanged('expense', 'created', 42, null, [1]));
+
+    $this->assertDatabaseCount('jobs', 1);
+    $this->assertDatabaseHas('jobs', ['queue' => $expectedQueue]);
+})->with([
+    'existing default worker' => [null, 'default'],
+    'explicitly provisioned dedicated worker' => ['realtime', 'realtime'],
+]);
+
 it('dispatches a realtime change when an observed domain model changes', function () {
     $currency = Currency::factory()->mvr()->create();
     $user = User::factory()->create(['default_currency_code' => $currency->code]);
@@ -68,7 +82,7 @@ it('broadcasts an expense change only to affected users', function () {
         ->toContain("private-users.{$owner->id}", "private-users.{$member->id}")
         ->not->toContain("private-users.{$outsider->id}")
         ->and($event->broadcastAs())->toBe('domain.changed')
-        ->and($event->broadcastQueue())->toBe('broadcasts')
+        ->and($event->broadcastQueue())->toBeNull()
         ->and($event->broadcastWith())->toMatchArray([
             'version' => 1,
             'resource' => 'expense',

@@ -1,7 +1,7 @@
 import * as Notifications from 'expo-notifications';
 import { Href, router } from 'expo-router';
 import { useEffect } from 'react';
-import { Platform } from 'react-native';
+import { AppState, Platform } from 'react-native';
 
 import { syncPushToken } from '@/lib/push-notifications';
 import { useAuthStore } from '@/stores/auth-store';
@@ -20,14 +20,21 @@ export function PushNotificationSync() {
   useEffect(() => {
     if (!token || Platform.OS === 'web') return;
 
-    void syncPushToken(token).catch(() => {
+    const sync = () => void syncPushToken(token).catch(() => {
       // Permission prompts and actionable errors are handled from notification settings.
+    });
+    sync();
+    const appStateSubscription = AppState.addEventListener('change', (state) => {
+      if (state === 'active') sync();
     });
 
     const responseSubscription = Notifications.addNotificationResponseReceivedListener(openNotification);
     void Notifications.getLastNotificationResponseAsync().then(openNotification);
 
-    return () => responseSubscription.remove();
+    return () => {
+      responseSubscription.remove();
+      appStateSubscription.remove();
+    };
   }, [token]);
 
   return null;

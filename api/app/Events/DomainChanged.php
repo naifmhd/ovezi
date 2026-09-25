@@ -30,9 +30,9 @@ class DomainChanged implements ShouldBroadcast, ShouldDispatchAfterCommit
         $this->occurredAt = now()->toISOString();
     }
 
-    public function broadcastQueue(): string
+    public function broadcastQueue(): ?string
     {
-        return 'broadcasts';
+        return config('broadcasting.queue');
     }
 
     /** @return list<PrivateChannel> */

@@ -117,7 +117,7 @@ export default function ProfileScreen() {
           label="Notifications"
           tone="amber"
           onPress={() => router.push('/(app)/profile/notifications')}
-          subtitle="Device, event, and group preferences"
+          subtitle="Enable or disable alerts and manage permissions"
         />
         <View style={styles.divider} />
         <ProfileLink

@@ -34,6 +34,114 @@ function loadAuthApi(api) {
   });
 }
 
+function pushDeviceHarness() {
+  const saved = new Map();
+  const calls = { registered: 0, revoked: 0, prompted: 0 };
+  let permission = { status: 'granted', granted: true, canAskAgain: true };
+  let register = async () => { calls.registered++; };
+  let revoke = async () => { calls.revoked++; };
+  const mocks = {
+    'expo-constants': { expoConfig: { extra: { eas: { projectId: 'test-project' } } } },
+    'expo-device': { modelName: 'test-phone' },
+    'react-native': { Platform: { OS: 'ios' } },
+    'expo-secure-store': {
+      getItemAsync: async key => saved.get(key) ?? null,
+      setItemAsync: async (key, value) => { saved.set(key, value); },
+      deleteItemAsync: async key => { saved.delete(key); },
+    },
+    'expo-notifications': {
+      setNotificationHandler: () => {},
+      IosAuthorizationStatus: { PROVISIONAL: 3 },
+      getPermissionsAsync: async () => permission,
+      requestPermissionsAsync: async () => {
+        calls.prompted++;
+        permission = { status: 'granted', granted: true, canAskAgain: true };
+        return permission;
+      },
+      getExpoPushTokenAsync: async () => ({ data: 'ExponentPushToken[test-device]' }),
+    },
+    '@/lib/notifications-api': {
+      registerPushToken: (...args) => register(...args),
+      revokePushToken: (...args) => revoke(...args),
+    },
+  };
+  return {
+    calls,
+    restart: () => load('push-notifications', mocks),
+    permission: value => { permission = value; },
+    register: value => { register = value; },
+    revoke: value => { revoke = value; },
+  };
+}
+
+test('disabling push persists across restart and only explicit enabling registers again', async () => {
+  const h = pushDeviceHarness();
+  let push = h.restart();
+  await push.syncPushToken('session');
+  await push.disablePushDevice('session');
+  push = h.restart();
+  assert.equal(await push.syncPushToken('session'), null);
+  assert.equal(await push.hasRegisteredPushDevice(), false);
+  assert.equal(h.calls.registered, 1);
+  assert.equal(h.calls.revoked, 1);
+  await push.syncPushToken('session', true);
+  assert.equal(await push.hasRegisteredPushDevice(), true);
+  assert.equal(h.calls.registered, 2);
+});
+
+test('push only prompts on explicit enable and respects blocked phone permission', async () => {
+  const h = pushDeviceHarness();
+  const push = h.restart();
+  h.permission({ status: 'undetermined', granted: false, canAskAgain: true });
+  assert.equal(await push.syncPushToken('session'), null);
+  assert.equal(h.calls.prompted, 0);
+  await push.syncPushToken('session', true);
+  assert.equal(h.calls.prompted, 1);
+  h.permission({ status: 'denied', granted: false, canAskAgain: false });
+  assert.equal(await push.syncPushToken('session', true), null);
+  assert.equal(await push.hasRegisteredPushDevice(), false);
+  assert.equal(h.calls.revoked, 1);
+  assert.equal(h.calls.prompted, 1);
+});
+
+test('iOS provisional permission can register for quiet notifications', async () => {
+  const h = pushDeviceHarness();
+  h.permission({ status: 'undetermined', granted: false, canAskAgain: true, ios: { status: 3 } });
+  const push = h.restart();
+  await push.syncPushToken('session');
+  assert.equal((await push.notificationPermissionState()).status, 'granted');
+  assert.equal(await push.hasRegisteredPushDevice(), true);
+  assert.equal(h.calls.prompted, 0);
+});
+
+test('failed push registration or revocation never reports a completed setting change', async () => {
+  const h = pushDeviceHarness();
+  const push = h.restart();
+  h.register(async () => { throw new Error('Registration unavailable'); });
+  await assert.rejects(push.syncPushToken('session', true), /Registration unavailable/);
+  assert.equal(await push.hasRegisteredPushDevice(), false);
+  h.register(async () => {});
+  await push.syncPushToken('session', true);
+  h.revoke(async () => { throw new Error('Revocation unavailable'); });
+  await assert.rejects(push.disablePushDevice('session'), /Revocation unavailable/);
+  assert.equal(await push.hasRegisteredPushDevice(), true);
+});
+
+test('turning push off wins over an in-flight automatic device registration', async () => {
+  const h = pushDeviceHarness();
+  let finishRegistration;
+  h.register(() => new Promise(resolve => { finishRegistration = resolve; }));
+  const push = h.restart();
+  const syncing = push.syncPushToken('session');
+  const disabling = push.disablePushDevice('session');
+  await new Promise(resolve => setImmediate(resolve));
+  finishRegistration();
+  await Promise.all([syncing, disabling]);
+  assert.equal(await push.hasRegisteredPushDevice(), false);
+  assert.equal(await push.syncPushToken('session'), null);
+  assert.equal(h.calls.revoked, 1);
+});
+
 test('verification links keep their complete signature through native routing and the API request', async () => {
   const signed = 'https://api.example.test/api/v1/auth/email/verify/1/' + 'a'.repeat(40)
     + '?expires=1900000000&signature=' + 'b'.repeat(64);

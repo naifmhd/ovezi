@@ -3,6 +3,9 @@
 return [
     'default' => env('BROADCAST_CONNECTION', 'null'),
 
+    // Use the connection's default queue unless a dedicated queue is provisioned.
+    'queue' => env('BROADCAST_QUEUE'),
+
     'connections' => [
         'reverb' => [
             'driver' => 'reverb',
