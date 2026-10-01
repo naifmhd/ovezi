@@ -5,14 +5,14 @@ import { Platform } from 'react-native';
 export const Colors = {
   light: {
     text: '#0A1128',
-    background: '#F7F8F6',
+    background: '#F4F7F5',
     backgroundElement: '#FFFFFF',
-    backgroundSelected: '#E0F5EC',
+    backgroundSelected: '#E2F2EB',
     surface: '#FFFFFF',
     surfaceRaised: '#FFFFFF',
-    surfaceSubtle: '#E0F5EC',
-    textSecondary: '#5D6975',
-    border: '#D5DDE0',
+    surfaceSubtle: '#E2F2EB',
+    textSecondary: '#58685F',
+    border: '#D8E1DC',
     controlBorder: '#7A8B84',
     primary: '#00F5A0',
     primaryText: '#0A1128',
@@ -21,7 +21,7 @@ export const Colors = {
     danger: '#AE3048',
     warning: '#965300',
     information: '#2859C5',
-    positiveSurface: '#E0F5EC',
+    positiveSurface: '#E2F2EB',
     dangerSurface: '#FDEDEC',
     informationSurface: '#EAF0FF',
     warningSurface: '#FFF3D8',
@@ -107,8 +107,9 @@ export const Spacing = {
 } as const;
 
 export const Radius = {
-  control: 15,
-  card: 22,
+  control: 14,
+  card: 16,
+  balance: 20,
   sheet: 28,
   pill: 999,
 } as const;
@@ -124,10 +125,10 @@ export const BottomTabInset = Platform.select({ ios: 50, android: 80 }) ?? 0;
 export const MaxContentWidth = 800;
 
 export const Typography = {
-  body: { fontSize: 16, lineHeight: 24, fontWeight: '400' },
+  body: { fontSize: Platform.OS === 'ios' ? 17 : 16, lineHeight: 24, fontWeight: '400' },
   label: { fontSize: 13, lineHeight: 19, fontWeight: '500' },
-  heading: { fontSize: 28, lineHeight: 35, fontWeight: '600' },
-  amount: { fontSize: 36, lineHeight: 44, fontWeight: '500', fontVariant: ['tabular-nums'] },
+  heading: { fontSize: 32, lineHeight: 39, fontWeight: '600', letterSpacing: -0.8 },
+  amount: { fontSize: 42, lineHeight: 52, fontWeight: '500', fontVariant: ['tabular-nums'], letterSpacing: -1.2 },
 } as const;
 
 export const TouchTarget = 48;

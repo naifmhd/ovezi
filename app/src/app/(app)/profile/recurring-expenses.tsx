@@ -192,7 +192,7 @@ const styles = StyleSheet.create({
   headerTitle: { fontSize: 17, fontWeight: '600' },
   headerSpacer: { width: 48 },
   content: { padding: Spacing.four, paddingBottom: 80, gap: 14, maxWidth: 680, width: '100%', alignSelf: 'center' },
-  infoCard: { borderRadius: 20, padding: 17, gap: 5 },
+  infoCard: { borderRadius: 16, padding: 17, gap: 5 },
   copy: { fontSize: 13, lineHeight: 19 },
   centered: { textAlign: 'center', paddingVertical: 40 },
   scheduleCard: { borderRadius: 22, padding: 17, gap: 6 },

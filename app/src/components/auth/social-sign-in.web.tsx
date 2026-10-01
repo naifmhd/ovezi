@@ -1,5 +1,5 @@
-import type { DeletionCredentials } from '@/lib/auth-api';
+import type { SocialSignInProps } from './social-sign-in';
 
-export function SocialSignIn(_props: { onError: (message: string) => void; onSuccess?: () => void; onIdentity?: (credentials: DeletionCredentials) => Promise<void>; providers?: ('google' | 'apple')[] }) {
+export function SocialSignIn(_props: SocialSignInProps) {
   return null;
 }

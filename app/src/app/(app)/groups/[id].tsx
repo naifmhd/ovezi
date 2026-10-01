@@ -214,7 +214,7 @@ function AppGroupContent({
               <ThemedText style={styles.balanceLabel} themeColor="textSecondary">
                 {balance === undefined ? balancePending ? 'Loading balance…' : 'Balance unavailable' : balance > 0 ? 'You are owed' : balance < 0 ? 'You owe' : 'All settled up'}
               </ThemedText>
-              {balance !== undefined ? <MoneyAmount minor={balance} currency={currency} tone={balance > 0 ? 'positive' : balance < 0 ? 'danger' : 'text'} /> : null}
+              {balance !== undefined ? <MoneyAmount minor={balance} currency={currency} tone="text" /> : null}
               {balance !== undefined && balanceStale ? <ThemedText themeColor="textSecondary">Last known balance · {balancePending ? 'Refreshing' : 'may be out of date'}</ThemedText> : null}
             </View>
           </ThemedView>
@@ -362,7 +362,7 @@ const styles = StyleSheet.create({
   headerMenu: { width: 64, minHeight: 48, alignItems: 'flex-end', justifyContent: 'center' },
   content: { paddingHorizontal: Spacing.four, paddingTop: 14, paddingBottom: 80, gap: 8 },
   balanceCard: {
-    borderRadius: Radius.card,
+    borderRadius: Radius.balance,
     minHeight: 96,
     padding: 22,
     flexDirection: 'row',
@@ -375,7 +375,7 @@ const styles = StyleSheet.create({
   groupMeta: { fontSize: 13, lineHeight: 20 },
   membersLink: { minHeight: 48, justifyContent: 'center', gap: 3 },
   balanceCopy: { flex: 1, minWidth: 0, gap: 1 },
-  balanceLabel: { fontSize: 12, lineHeight: 17, fontWeight: '600' },
+  balanceLabel: { fontSize: 15, lineHeight: 22, fontWeight: '500' },
   balanceStatus: { borderRadius: Radius.pill, paddingHorizontal: 10, paddingVertical: 6 },
   balanceStatusText: { fontSize: 11, lineHeight: 15, fontWeight: '600' },
   actionRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
@@ -390,7 +390,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  settleButton: { borderWidth: StyleSheet.hairlineWidth },
+  settleButton: { borderWidth: 0 },
   actionLabel: { fontSize: 14, lineHeight: 20, fontWeight: '600' },
   balanceAmount: { fontSize: 30, lineHeight: 39, fontVariant: ['tabular-nums'], fontWeight: '500', letterSpacing: -0.5 },
   sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8, marginTop: 10 },

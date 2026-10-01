@@ -31,7 +31,7 @@ export function AuthShell({ title, subtitle, children, footer }: AuthShellProps)
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}>
             <View style={styles.brand}>
-              <BrandLockup size={72} tagline />
+              <BrandLockup size={40} tagline />
             </View>
 
             <View style={styles.heading}>
@@ -60,9 +60,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.four,
     paddingVertical: Spacing.five,
   },
-  brand: { alignItems: 'flex-start', marginBottom: 32 },
+  brand: { alignItems: 'flex-start', marginBottom: 40 },
   heading: { gap: Spacing.two, marginBottom: Spacing.four },
-  title: { fontSize: 28, lineHeight: 36, fontWeight: '600', letterSpacing: -0.7 },
+  title: { fontSize: 32, lineHeight: 40, fontWeight: '600', letterSpacing: -0.7 },
   form: { gap: Spacing.three },
   footer: { marginTop: 'auto', paddingTop: Spacing.five, alignItems: 'center' },
 });

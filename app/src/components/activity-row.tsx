@@ -30,8 +30,8 @@ export function ActivityRow({ activity }: { activity: Activity }) {
       disabled={!canOpen}
       onPress={openActivity}>
       <ThemedView type="backgroundElement" style={[styles.row, { backgroundColor: theme.background, borderBottomColor: theme.border, borderBottomWidth: StyleSheet.hairlineWidth }]}>
-        <View style={[styles.icon, { backgroundColor: tone.background }]}>
-          <SymbolView name={tone.symbol} size={18} tintColor={tone.foreground} weight="semibold" />
+        <View style={[styles.icon, { backgroundColor: theme.surfaceSubtle }]}>
+          <SymbolView name={tone.symbol} size={18} tintColor={theme.interactive} weight="semibold" />
         </View>
         <View style={styles.copy}>
           <ThemedText style={styles.description}>{activityDescription(activity)}</ThemedText>
@@ -75,10 +75,10 @@ function activityTone(event: string, theme: ReturnType<typeof useTheme>) {
 }
 
 const styles = StyleSheet.create({
-  row: { flexDirection: 'row', gap: 12, padding: 14, borderRadius: 18, alignItems: 'center' },
-  icon: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
+  row: { flexDirection: 'row', gap: 12, minHeight: 76, paddingVertical: 16, borderRadius: 0, alignItems: 'center' },
+  icon: { width: 40, height: 40, borderRadius: 13, alignItems: 'center', justifyContent: 'center' },
   copy: { flex: 1 },
-  description: { fontSize: 14, lineHeight: 20, fontWeight: '600' },
+  description: { fontSize: 15, lineHeight: 22, fontWeight: '600' },
   date: { fontSize: 12, lineHeight: 17 },
   chevron: { fontSize: 22, fontWeight: '500' },
 });

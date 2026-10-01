@@ -79,9 +79,9 @@ const styles = StyleSheet.create({
     width: '100%',
     alignSelf: 'center',
   },
-  eyebrow: { fontSize: 12, lineHeight: 18, fontWeight: '600', letterSpacing: 0.8, textTransform: 'uppercase' },
+  eyebrow: { fontSize: 13, lineHeight: 20, fontWeight: '500' },
   intro: { fontSize: 18, lineHeight: 27, fontWeight: '600' },
-  card: { borderRadius: 20, padding: 18, gap: 9 },
+  card: { backgroundColor: 'transparent', paddingVertical: 12, gap: 10 },
   sectionTitle: { fontSize: 16, lineHeight: 22, fontWeight: '600' },
-  paragraph: { fontSize: 14, lineHeight: 21 },
+  paragraph: { fontSize: 16, lineHeight: 26 },
 });

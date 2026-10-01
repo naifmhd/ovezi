@@ -13,6 +13,7 @@ import {
   ScrollView,
   StyleSheet,
   TextInput,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -152,6 +153,8 @@ export default function CreateExpenseScreen() {
   const [guestContactType, setGuestContactType] = useState<'email' | 'phone'>('email');
   const [guestContactValue, setGuestContactValue] = useState('');
   const [description, setDescription] = useState('');
+  const { fontScale } = useWindowDimensions();
+  const valueInputHeight = Math.max(48, Math.ceil(24 * fontScale) + 16);
   const [amount, setAmount] = useState('');
   const [currency, setCurrency] = useState(defaultCurrencyCode);
   const [category, setCategory] = useState('');
@@ -804,7 +807,7 @@ export default function CreateExpenseScreen() {
             <FormField
               autoCapitalize="sentences"
               label="What was it for?"
-              style={[styles.descriptionInput, { borderColor: theme.controlBorder, backgroundColor: 'transparent' }]}
+              style={styles.descriptionInput}
               onChangeText={setDescription}
               placeholder="Dinner, taxi, groceries…"
               returnKeyType="done"
@@ -1000,10 +1003,10 @@ export default function CreateExpenseScreen() {
                 {multiplePayers ? <View style={styles.participantCard}>
                   <ThemedText themeColor="textSecondary">Enter what each person paid toward the bill.</ThemedText>
                   {participants.map((participant) => <View key={participant.key} style={styles.participantRow}>
-                    <ThemedText style={styles.participantCopy}>{participant.name}</ThemedText>
-                    <View style={{ gap: 4, alignItems: 'flex-end' }}>
+                    <View style={[styles.participantCopy, { minHeight: valueInputHeight }]}><ThemedText style={styles.participantName}>{participant.name}</ThemedText></View>
+                    <View style={styles.valueWrap}>
                       <TextInput accessibilityLabel={`${participant.name} paid`} keyboardType="decimal-pad" placeholder="0.00" placeholderTextColor={theme.textSecondary}
-                        style={[styles.valueInput, { color: theme.text, borderColor: theme.border }]} value={participant.paidValue ?? ''} onChangeText={(value) => updatePaidValue(participant.key, value)} />
+                        style={[styles.valueInput, { height: valueInputHeight, color: theme.text, borderColor: theme.border }]} value={participant.paidValue ?? ''} onChangeText={(value) => updatePaidValue(participant.key, value)} />
                       {paymentRemainder !== null && paymentRemainder > 0 ? <Pressable accessibilityRole="button" style={styles.headerTouchTarget} onPress={() => updatePaidValue(participant.key, minorAmountInput((parseDecimalToInteger(participant.paidValue || '0', previewFractionDigits) ?? 0) + paymentRemainder, previewCurrency))}>
                         <ThemedText themeColor="interactive">Add remaining</ThemedText>
                       </Pressable> : null}
@@ -1045,6 +1048,7 @@ export default function CreateExpenseScreen() {
                     <View key={participant.key}>
                       {index > 0 ? <View style={[styles.divider, { backgroundColor: theme.border }]} /> : null}
                       <View style={styles.participantRow}>
+                        <View style={[styles.checkboxSlot, { minHeight: valueInputHeight }]}>
                           <Pressable
                             accessibilityLabel={`Include ${participant.name}`}
                             hitSlop={12}
@@ -1058,7 +1062,8 @@ export default function CreateExpenseScreen() {
                             ]}>
                             {participant.selected ? <ThemedText style={styles.check}>✓</ThemedText> : null}
                           </Pressable>
-                        <View style={styles.participantCopy}>
+                        </View>
+                        <View style={[styles.participantCopy, { minHeight: valueInputHeight }]}>
                           <ThemedText style={styles.participantName}>{participant.name}</ThemedText>
                           {participant.selected && previewAllocations.has(participant.key) ? (
                             <ThemedText style={styles.previewAmount} themeColor="textSecondary">
@@ -1077,7 +1082,7 @@ export default function CreateExpenseScreen() {
                               selectionColor={theme.primary}
                               style={[
                                 styles.valueInput,
-                                { color: theme.text, borderColor: theme.border },
+                                { height: valueInputHeight, color: theme.text, borderColor: theme.border },
                               ]}
                               value={participant.value}
                             />
@@ -1253,7 +1258,7 @@ const styles = StyleSheet.create({
   headerTitle: { fontSize: 17, lineHeight: 24, fontWeight: '600' },
   headerSpacer: { width: 48 },
   headerTouchTarget: { minWidth: 48, minHeight: 48, justifyContent: 'center' },
-  content: { padding: Spacing.four, paddingBottom: 24, gap: 14 },
+  content: { padding: Spacing.four, paddingBottom: 24, gap: 20 },
   sectionLabel: { fontSize: 14, lineHeight: 20, fontWeight: '600', marginTop: 4 },
   moneySection: { gap: 7 },
   moneyLabel: { fontSize: 13, lineHeight: 18, fontWeight: '600' },
@@ -1263,9 +1268,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 14,
   },
-  descriptionInput: { borderWidth: 0, borderBottomWidth: 1, borderRadius: 0, paddingHorizontal: 0, fontSize: 20, paddingVertical: 16 },
+  descriptionInput: { fontSize: 17 },
   moneyCurrency: { fontSize: 15, lineHeight: 20, fontWeight: '600' },
-  moneyInput: { flex: 1, fontSize: 38, lineHeight: 48, minWidth: 0, fontVariant: ['tabular-nums'], fontWeight: '500', letterSpacing: -1.2 },
+  moneyInput: { flex: 1, fontSize: 42, lineHeight: 54, minWidth: 0, fontVariant: ['tabular-nums'], fontWeight: '500', letterSpacing: -1.2 },
   disclosure: {
     minHeight: 64,
     borderRadius: Radius.card,
@@ -1280,15 +1285,15 @@ const styles = StyleSheet.create({
   disclosureChevron: { fontSize: 23, lineHeight: 27, fontWeight: '600' },
   splitSummary: {
     minHeight: 74,
-    borderWidth: 1,
+    borderWidth: 0,
     borderRadius: Radius.card,
-    padding: 14,
+    padding: 18,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 13,
   },
   splitSummaryCopy: { flex: 1, gap: 2 },
-  splitSummaryEyebrow: { fontSize: 11, lineHeight: 15, fontWeight: '500' },
+  splitSummaryEyebrow: { fontSize: 13, lineHeight: 19, fontWeight: '500' },
   splitSummaryValue: { fontSize: 14, lineHeight: 20, fontWeight: '600' },
   splitSummaryDivider: { width: StyleSheet.hairlineWidth, height: 36 },
   summaryChevron: { fontSize: 25, lineHeight: 28 },
@@ -1298,16 +1303,17 @@ const styles = StyleSheet.create({
   chip: { maxWidth: '100%', minHeight: 48, borderWidth: 1, borderRadius: Radius.pill, paddingHorizontal: 15, paddingVertical: 10, alignItems: 'center', justifyContent: 'center' },
   chipLabel: { flexShrink: 1, fontSize: 13, fontWeight: '600' },
   participantCard: { borderRadius: Radius.card, paddingHorizontal: 15 },
-  participantRow: { minHeight: 64, flexDirection: 'row', alignItems: 'center', gap: 11 },
-  participantCopy: { flex: 1, gap: 1 },
+  participantRow: { minHeight: 72, paddingVertical: 12, flexDirection: 'row', alignItems: 'flex-start', gap: 11 },
+  participantCopy: { flex: 1, minWidth: 0, justifyContent: 'center', gap: 1 },
   participantName: { fontSize: 14, fontWeight: '600' },
-  previewAmount: { fontSize: 11, lineHeight: 15 },
+  previewAmount: { fontSize: 13, lineHeight: 19 },
+  checkboxSlot: { width: 24, justifyContent: 'center' },
   checkbox: { width: 24, height: 24, borderRadius: 8, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
   check: { color: '#061A14', fontSize: 14, fontWeight: '600' },
   divider: { height: StyleSheet.hairlineWidth },
-  valueWrap: { alignItems: 'flex-end', gap: 5 },
-  valueInput: { width: 82, fontSize: 16, minHeight: 48, borderWidth: 1, borderRadius: 12, paddingHorizontal: 10, textAlign: 'right' },
-  infoCard: { borderRadius: 18, padding: 16, gap: 3 },
+  valueWrap: { alignItems: 'flex-end', gap: 4 },
+  valueInput: { width: 96, fontSize: 16, minHeight: 48, paddingVertical: 0, textAlignVertical: 'center', borderWidth: 1, borderRadius: 12, paddingHorizontal: 10, textAlign: 'right' },
+  infoCard: { borderRadius: 16, padding: 16, gap: 3 },
   guestModal: { flex: 1 },
   guestModalSafeArea: { flex: 1 },
   guestModalHeader: {
@@ -1321,11 +1327,11 @@ const styles = StyleSheet.create({
   infoTitle: { fontWeight: '600' },
   infoCopy: { fontSize: 13, lineHeight: 19 },
   helper: { fontSize: 13, lineHeight: 19 },
-  draftCard: { borderRadius: 18, padding: 15, flexDirection: 'row', alignItems: 'center', gap: 12 },
+  draftCard: { borderRadius: 16, padding: 15, flexDirection: 'row', alignItems: 'center', gap: 12 },
   draftCopy: { flex: 1, gap: 2 },
   draftActions: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   draftAction: { minHeight: 48, justifyContent: 'center', paddingHorizontal: 9 },
-  duplicateCard: { borderRadius: 18, padding: 15, gap: 12 },
+  duplicateCard: { borderRadius: 16, padding: 15, gap: 12 },
   duplicateActions: { flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center', gap: 4 },
   duplicateAction: { minHeight: 48, justifyContent: 'center', paddingHorizontal: 9 },
   bottomBar: {

@@ -32,7 +32,7 @@ export default function ProfileScreen() {
   });
 
   return (
-    <AppScreen branded title="Profile">
+    <AppScreen tabScreen branded title="Profile">
       <ThemedView type="backgroundElement" style={styles.profileCard}>
         <UserAvatar imageUrl={user.avatar_url} name={user.name} size={58} />
         <View style={styles.profileCopy}>
@@ -190,7 +190,6 @@ function ProfileLink({
   label,
   onPress,
   subtitle,
-  tone = 'mint',
 }: {
   icon: Parameters<typeof SymbolView>[0]['name'];
   label: string;
@@ -199,13 +198,7 @@ function ProfileLink({
   tone?: 'mint' | 'blue' | 'violet' | 'coral' | 'amber';
 }) {
   const theme = useTheme();
-  const colors = {
-    mint: [theme.surfaceSubtle, theme.interactive],
-    blue: [theme.accentBlueSurface, theme.accentBlue],
-    violet: [theme.accentVioletSurface, theme.accentViolet],
-    coral: [theme.accentCoralSurface, theme.accentCoral],
-    amber: [theme.accentAmberSurface, theme.accentAmber],
-  }[tone];
+  const colors = [theme.surfaceSubtle, theme.interactive];
   return (
     <AnimatedPressable accessibilityHint={subtitle} accessibilityRole="button" onPress={onPress} style={styles.menuRow}>
       <View style={[styles.menuIcon, { backgroundColor: colors[0] }]}>
@@ -234,9 +227,9 @@ const styles = StyleSheet.create({
   signOutText: { fontWeight: '600' },
   sectionLabel: { marginTop: 8, fontSize: 12, lineHeight: 17, fontWeight: '600', letterSpacing: 0.7 },
   menuCard: { borderRadius: Radius.card, paddingHorizontal: 14 },
-  menuRow: { minHeight: 68, flexDirection: 'row', alignItems: 'center', gap: 12 },
+  menuRow: { minHeight: 76, flexDirection: 'row', alignItems: 'center', gap: 12 },
   menuIcon: { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
-  menuLabel: { fontSize: 14, fontWeight: '600' },
-  menuSubtitle: { fontSize: 12, lineHeight: 17 },
+  menuLabel: { fontSize: 15, fontWeight: '600' },
+  menuSubtitle: { fontSize: 13, lineHeight: 19 },
   chevron: { fontSize: 23, fontWeight: '500' },
 });

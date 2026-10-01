@@ -188,13 +188,13 @@ export default function ExpenseDetailScreen() {
           </HeaderAction>
           <ThemedText style={styles.headerTitle}>Expense</ThemedText>
           {expense && canManage && deletedAt === null ? (
-            <Pressable
+            <HeaderAction style={{ alignItems: 'flex-end' }}
               onPress={() => router.push({
                 pathname: '/(app)/expenses/create',
                 params: { expenseId: expense.id },
               })}>
               <ThemedText style={styles.headerAction} themeColor="primary">Edit</ThemedText>
-            </Pressable>
+            </HeaderAction>
           ) : <View style={styles.headerSpacer} />}
         </View>
         <ScrollView
@@ -345,9 +345,6 @@ function ExpenseContent({
   return (
     <>
       <ThemedView type="backgroundElement" style={styles.hero}>
-        <ThemedText style={styles.eyebrow} themeColor="textSecondary">
-          {expense.category ? expense.category.split('_').join(' ') : expense.expense_type}
-        </ThemedText>
         <ThemedText style={styles.description}>{expense.description}</ThemedText>
         <ThemedText style={styles.amount}>
           {formatMoney(expense.amount_minor, expense.currency_code)}
@@ -361,6 +358,8 @@ function ExpenseContent({
 
       <SectionTitle title="Details" />
       <ThemedView type="backgroundElement" style={styles.detailCard}>
+        <DetailRow label="Category" value={expense.category ? expense.category.split('_').join(' ') : expense.expense_type} />
+        <Divider />
         <DetailRow label="Paid by" value={expensePayerLabel(expense)} />
         <Divider />
         <DetailRow
@@ -568,18 +567,17 @@ const styles = StyleSheet.create({
   headerSpacer: { width: 48 },
   content: { padding: Spacing.four, paddingBottom: 80, gap: 12, maxWidth: 680, width: '100%', alignSelf: 'center' },
   centered: { textAlign: 'center', paddingVertical: 50 },
-  recurringCard: { borderRadius: 20, padding: 16, flexDirection: 'row', alignItems: 'center', gap: 12 },
+  recurringCard: { borderRadius: 16, padding: 16, flexDirection: 'row', alignItems: 'center', gap: 12 },
   recurringCopy: { flex: 1, gap: 2 },
   recurringTitle: { fontSize: 14, fontWeight: '600' },
   recurringText: { fontSize: 12, lineHeight: 18 },
   recurringChevron: { fontSize: 25, fontWeight: '600' },
-  hero: { borderRadius: 24, padding: 22, alignItems: 'center', gap: 4 },
-  eyebrow: { fontSize: 12, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.8 },
-  description: { fontSize: 20, lineHeight: 28, fontWeight: '600', textAlign: 'center' },
-  amount: { fontSize: 36, lineHeight: 44, fontWeight: '600', marginVertical: 4 },
+  hero: { backgroundColor: 'transparent', paddingVertical: 24, alignItems: 'center', gap: 10 },
+  description: { fontSize: 24, lineHeight: 32, fontWeight: '600', textAlign: 'center' },
+  amount: { fontSize: 36, lineHeight: 46, fontWeight: '500', marginVertical: 8, fontVariant: ['tabular-nums'], textAlign: 'center' },
   impactPill: { borderRadius: 14, paddingHorizontal: 13, paddingVertical: 8, marginTop: 4 },
   impactText: { fontSize: 13, fontWeight: '600' },
-  receiptCard: { borderRadius: 20, overflow: 'hidden' },
+  receiptCard: { borderRadius: 16, overflow: 'hidden' },
   receiptImage: { width: '100%', aspectRatio: 4 / 3 },
   receiptEmpty: { minHeight: 146, alignItems: 'center', justifyContent: 'center', gap: 5, padding: 20 },
   receiptEmptyTitle: { fontSize: 15, fontWeight: '600' },
@@ -591,7 +589,7 @@ const styles = StyleSheet.create({
   receiptActionText: { fontSize: 14, fontWeight: '600' },
   receiptError: { fontSize: 13, lineHeight: 18, textAlign: 'center', padding: 6 },
   sectionTitle: { fontSize: 17, lineHeight: 24, fontWeight: '600', marginTop: 10 },
-  detailCard: { borderRadius: 20, paddingHorizontal: 16 },
+  detailCard: { borderRadius: 16, paddingHorizontal: 16 },
   detailRow: { minHeight: 58, flexDirection: 'row', alignItems: 'center', gap: 16 },
   detailLabel: { fontSize: 13, flex: 1 },
   detailValue: { fontSize: 13, fontWeight: '600', textAlign: 'right', flex: 2 },
@@ -605,7 +603,7 @@ const styles = StyleSheet.create({
   groupLinkText: { fontSize: 14, fontWeight: '600' },
   deleteButton: { minHeight: 48, alignItems: 'center', justifyContent: 'center', marginTop: 10 },
   deleteText: { fontSize: 14, fontWeight: '600' },
-  confirmCard: { borderRadius: 20, padding: 18, gap: 8, marginTop: 8 },
+  confirmCard: { borderRadius: 16, padding: 18, gap: 8, marginTop: 8 },
   confirmTitle: { fontSize: 17, lineHeight: 23, fontWeight: '600' },
   confirmActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 12, marginTop: 6 },
   confirmButton: { minHeight: 42, justifyContent: 'center', paddingHorizontal: 12 },

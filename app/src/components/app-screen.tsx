@@ -1,26 +1,34 @@
 import { PropsWithChildren, ReactNode } from 'react';
 import { ScrollView, ScrollViewProps, StyleSheet, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { BrandMark } from '@/components/brand-mark';
+import { BrandLockup } from '@/components/brand-mark';
+import { TabExpenseAction, tabContentBottomPadding } from '@/components/tab-expense-action';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Spacing } from '@/constants/theme';
+import { Spacing, Typography } from '@/constants/theme';
 
 type AppScreenProps = PropsWithChildren<{
   title: string;
   eyebrow?: string;
   action?: ReactNode;
   branded?: boolean;
+  tabScreen?: boolean;
   scrollProps?: ScrollViewProps;
 }>;
 
-export function AppScreen({ title, eyebrow, action, branded = false, children, scrollProps }: AppScreenProps) {
+export function AppScreen({ title, eyebrow, action, branded = false, tabScreen = false, children, scrollProps }: AppScreenProps) {
+  const insets = useSafeAreaInsets();
   return (
     <ThemedView style={styles.screen}>
       <SafeAreaView edges={['top']} style={styles.safeArea}>
-        <View style={styles.header}>
-          {branded ? <BrandMark decorative finish="soft" size={36} /> : null}
+        {branded ? <View style={styles.brandBar}><BrandLockup size={24} />{action}</View> : null}
+        <ScrollView
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+          {...scrollProps}
+          contentContainerStyle={[styles.content, { paddingBottom: tabScreen ? tabContentBottomPadding : insets.bottom + 32 }, scrollProps?.contentContainerStyle]}>
+          <View style={styles.header}>
           <View style={styles.heading}>
             {eyebrow ? (
               <ThemedText style={styles.eyebrow} themeColor="textSecondary">
@@ -29,15 +37,11 @@ export function AppScreen({ title, eyebrow, action, branded = false, children, s
             ) : null}
             <ThemedText accessibilityRole="header" style={styles.title}>{title}</ThemedText>
           </View>
-          {action}
-        </View>
-        <ScrollView
-          contentContainerStyle={styles.content}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-          {...scrollProps}>
+          {!branded ? action : null}
+          </View>
           {children}
         </ScrollView>
+        {tabScreen ? <TabExpenseAction /> : null}
       </SafeAreaView>
     </ThemedView>
   );
@@ -48,21 +52,20 @@ const styles = StyleSheet.create({
   safeArea: { flex: 1 },
   brandBar: { paddingHorizontal: Spacing.four, paddingTop: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 16, minHeight: 56 },
   header: {
-    minHeight: 82,
-    paddingHorizontal: Spacing.four,
-    paddingVertical: Spacing.three,
+    minHeight: 72,
+    paddingTop: Spacing.three,
+    paddingBottom: Spacing.three,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: Spacing.three,
   },
   heading: { flex: 1 },
-  eyebrow: { fontSize: 13, lineHeight: 18, fontWeight: '600' },
-  title: { fontSize: 28, lineHeight: 36, fontWeight: '600', letterSpacing: -0.7 },
+  eyebrow: { fontSize: 14, lineHeight: 20, marginBottom: 6 },
+  title: { ...Typography.heading },
   content: {
     flexGrow: 1,
     paddingHorizontal: Spacing.four,
-    paddingBottom: 120,
-    gap: Spacing.three,
+    gap: 12,
   },
 });

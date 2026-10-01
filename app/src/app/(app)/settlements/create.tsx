@@ -266,7 +266,7 @@ const styles = StyleSheet.create({
   safeArea: { flex: 1 },
   flex: { flex: 1 },
   header: {
-    height: 60,
+    minHeight: 60,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -276,7 +276,7 @@ const styles = StyleSheet.create({
   headerTitle: { fontSize: 17, lineHeight: 24, fontWeight: '600' },
   headerSpacer: { width: 48 },
   content: { padding: Spacing.four, paddingBottom: 80, gap: 14 },
-  infoCard: { borderRadius: 18, padding: 16, gap: 3 },
+  infoCard: { borderRadius: 16, padding: 16, gap: 3 },
   infoTitle: { fontWeight: '600' },
   infoCopy: { fontSize: 13, lineHeight: 19 },
   sectionLabel: { fontSize: 14, lineHeight: 20, fontWeight: '600', marginTop: 4 },

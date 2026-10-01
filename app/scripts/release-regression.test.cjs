@@ -484,3 +484,66 @@ test('Android creates a channel before asking permission and explains missing Fi
   assert.equal(await push.hasRegisteredPushDevice(), false);
   assert.equal(h.calls.registered, 0);
 });
+
+test('connecting a provider uses the authenticated linking endpoint with password confirmation', async () => {
+  let sent;
+  const user = { id: 7, connected_providers: ['google'] };
+  const api = loadAuthApi({ apiRequest: async (...args) => { sent = args; return { data: user }; } });
+  assert.equal(await api.connectSocialAccount('existing-session', { provider: 'google', id_token: 'provider-proof' }, 'password'), user);
+  assert.equal(sent[0], '/auth/social-accounts');
+  assert.equal(sent[1].token, 'existing-session');
+  assert.equal(sent[1].method, 'POST');
+  assert.deepEqual(JSON.parse(JSON.stringify(sent[1].body)), { provider: 'google', id_token: 'provider-proof', current_password: 'password' });
+});
+
+function connectionHarness(request) {
+  let state = { token: 'original-token', user: { id: 7 }, sessionVersion: 1 };
+  const module = load('connect-social-account', {
+    '@/lib/auth-api': { connectSocialAccount: request },
+    '@/stores/auth-store': { useAuthStore: {
+      getState: () => state,
+      setState: update => { state = { ...state, ...update }; },
+    } },
+  });
+  return {
+    connect: () => module.connectCurrentSocialAccount({ token: 'original-token', userId: 7, sessionVersion: 1 }, { provider: 'apple', id_token: 'proof', nonce: 'nonce', authorization_code: 'code' }),
+    change: update => { state = { ...state, ...update }; },
+    state: () => state,
+  };
+}
+
+test('connecting updates the current profile without replacing its session', async () => {
+  const linkedUser = { id: 7, connected_providers: ['apple'] };
+  const h = connectionHarness(async () => linkedUser);
+  assert.equal(await h.connect(), true);
+  assert.equal(h.state().user, linkedUser);
+  assert.equal(h.state().token, 'original-token');
+  assert.equal(h.state().sessionVersion, 1);
+});
+
+test('provider proof is never submitted after the originating session changes', async () => {
+  let calls = 0;
+  const h = connectionHarness(async () => { calls++; });
+  h.change({ sessionVersion: 2 });
+  await assert.rejects(h.connect(), /session changed/);
+  assert.equal(calls, 0);
+});
+
+test('a delayed linking response cannot overwrite a newly signed-in account', async () => {
+  let resolve;
+  const h = connectionHarness(() => new Promise(done => { resolve = done; }));
+  const pending = h.connect();
+  const newUser = { id: 8 };
+  h.change({ token: 'new-token', user: newUser, sessionVersion: 2 });
+  resolve({ id: 7, connected_providers: ['apple'] });
+  assert.equal(await pending, false);
+  assert.equal(h.state().user, newUser);
+  assert.equal(h.state().token, 'new-token');
+});
+
+test('a failed provider connection leaves the existing account unchanged', async () => {
+  const h = connectionHarness(async () => { throw new Error('Already connected elsewhere'); });
+  const original = h.state();
+  await assert.rejects(h.connect(), /Already connected elsewhere/);
+  assert.equal(h.state(), original);
+});

@@ -260,7 +260,7 @@ const styles = StyleSheet.create({
   headerSpacer: { width: 48 },
   content: { padding: Spacing.four, paddingBottom: 80, gap: 13, maxWidth: 620, width: '100%', alignSelf: 'center' },
   sectionTitle: { fontSize: 18, lineHeight: 25, fontWeight: '600', marginTop: 8 },
-  card: { borderRadius: 20, paddingHorizontal: 16 },
+  card: { borderRadius: 16, paddingHorizontal: 16 },
   row: { minHeight: 72, flexDirection: 'row', alignItems: 'center', gap: 12 },
   rowCopy: { flex: 1, gap: 2 },
   rowLabel: { fontSize: 14, fontWeight: '600' },

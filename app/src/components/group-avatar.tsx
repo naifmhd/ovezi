@@ -9,7 +9,7 @@ import { useTheme } from '@/hooks/use-theme';
 import { useAuthStore } from '@/stores/auth-store';
 import type { Group } from '@/types/api';
 
-export function GroupAvatar({ group, size = 46 }: { group: Group; size?: number }) {
+export function GroupAvatar({ group, size = 40 }: { group: Group; size?: number }) {
   const token = useAuthStore((state) => state.token)!;
 
   return (
@@ -26,7 +26,7 @@ function AvatarContent({ group, size, token }: { group: Group; size: number; tok
   const [imageFailed, setImageFailed] = useState(false);
   const reduceMotion = useReducedMotion();
   const theme = useTheme();
-  const tone = groupTone(group.name, theme);
+  const tone = groupTone(theme);
 
   return (
     <ThemedView
@@ -60,21 +60,8 @@ function AvatarContent({ group, size, token }: { group: Group; size: number; tok
   );
 }
 
-function groupTone(name: string, theme: ReturnType<typeof useTheme>) {
-  const normalized = name.toLowerCase();
-  if (/trip|travel|holiday|vacation|bali/.test(normalized)) {
-    return { background: theme.accentBlueSurface, foreground: theme.accentBlue };
-  }
-  if (/home|house|family|apartment/.test(normalized)) {
-    return { background: theme.accentVioletSurface, foreground: theme.accentViolet };
-  }
-  if (/work|office|team/.test(normalized)) {
-    return { background: theme.accentVioletSurface, foreground: theme.accentViolet };
-  }
-  if (/food|dinner|lunch|cafe|coffee|grocer/.test(normalized)) {
-    return { background: theme.accentCoralSurface, foreground: theme.accentCoral };
-  }
-  return { background: theme.accentVioletSurface, foreground: theme.accentViolet };
+function groupTone(theme: ReturnType<typeof useTheme>) {
+  return { background: theme.surfaceSubtle, foreground: theme.interactive };
 }
 
 function groupSymbol(name: string): Parameters<typeof SymbolView>[0]['name'] {

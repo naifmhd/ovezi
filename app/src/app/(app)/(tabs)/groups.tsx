@@ -26,7 +26,7 @@ export default function GroupsScreen() {
   const groups = query.data?.data ?? [];
 
   return (
-    <AppScreen branded
+    <AppScreen tabScreen branded
       title="Groups"
       action={
         <Pressable accessibilityRole="button" style={[styles.newButton, { backgroundColor: theme.surfaceSubtle }]} onPress={() => router.push('/(app)/groups/create')}>
@@ -59,11 +59,11 @@ export default function GroupsScreen() {
               style={[
                 styles.filter,
                 {
-                  backgroundColor: selected ? theme.primary : theme.backgroundElement,
-                  borderColor: selected ? theme.primary : theme.border,
+                  backgroundColor: selected ? theme.surfaceSubtle : theme.backgroundElement,
+                  borderColor: selected ? theme.interactive : theme.border,
                 },
               ]}>
-              <ThemedText style={[styles.filterLabel, selected && { color: theme.primaryText }]}>
+              <ThemedText style={[styles.filterLabel, selected && { color: theme.interactive }]}>
                 {item === 'active' ? 'Active' : 'Archived'}
               </ThemedText>
             </Pressable>
@@ -93,6 +93,6 @@ const styles = StyleSheet.create({
   copy: { fontSize: 14, lineHeight: 21, marginBottom: 8 },
   loading: { textAlign: 'center', marginTop: 60 },
   filterRow: { flexDirection: 'row', gap: 8 },
-  filter: { minHeight: 48, paddingVertical: 10, paddingHorizontal: 16, borderRadius: 14, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+  filter: { minHeight: 48, paddingVertical: 10, paddingHorizontal: 16, borderRadius: 24, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
   filterLabel: { fontSize: 13, fontWeight: '600', textTransform: 'capitalize' },
 });

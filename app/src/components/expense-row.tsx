@@ -22,7 +22,7 @@ export function ExpenseRow({ expense, payerName, currentUserId, onPress }: Expen
   const stacked = width < 360 || fontScale > 1.2;
   const directSummary = directExpenseSummary(expense, currentUserId);
   const symbol = categorySymbol(expense.category);
-  const tone = categoryTone(expense.category, theme);
+  const tone = categoryTone(theme);
 
   return (
     <AnimatedPressable accessibilityRole={onPress ? "button" : undefined} disabled={!onPress} onPress={onPress}>
@@ -54,21 +54,8 @@ export function ExpenseRow({ expense, payerName, currentUserId, onPress }: Expen
   );
 }
 
-function categoryTone(category: string | null, theme: ReturnType<typeof useTheme>) {
-  const normalized = category?.toLowerCase() ?? '';
-  if (/food|dinner|lunch|cafe|restaurant|grocer/.test(normalized)) {
-    return { background: theme.accentCoralSurface, foreground: theme.accentCoral };
-  }
-  if (/transport|taxi|car|fuel|travel|flight|hotel/.test(normalized)) {
-    return { background: theme.accentBlueSurface, foreground: theme.accentBlue };
-  }
-  if (/home|house|rent|utility/.test(normalized)) {
-    return { background: theme.accentVioletSurface, foreground: theme.accentViolet };
-  }
-  if (/shop|purchase/.test(normalized)) {
-    return { background: theme.accentAmberSurface, foreground: theme.accentAmber };
-  }
-  return { background: theme.backgroundSelected, foreground: theme.interactive };
+function categoryTone(theme: ReturnType<typeof useTheme>) {
+  return { background: theme.surfaceSubtle, foreground: theme.interactive };
 }
 
 function categorySymbol(category: string | null): Parameters<typeof SymbolView>[0]['name'] {
@@ -93,19 +80,19 @@ function categorySymbol(category: string | null): Parameters<typeof SymbolView>[
 
 const styles = StyleSheet.create({
   card: {
-    minHeight: 64,
+    minHeight: 76,
     backgroundColor: 'transparent',
     borderBottomWidth: StyleSheet.hairlineWidth,
-    paddingVertical: 14,
+    paddingVertical: 16,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
   },
-  icon: { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  icon: { width: 40, height: 40, borderRadius: 13, alignItems: 'center', justifyContent: 'center' },
   content: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 12 },
   contentStacked: { flexDirection: 'column', alignItems: 'stretch' },
   copy: { flex: 1, minWidth: 0, gap: 3 },
-  title: { fontSize: 14, lineHeight: 20, fontWeight: '600' },
+  title: { fontSize: 15, lineHeight: 22, fontWeight: '600' },
   meta: { fontSize: 12, lineHeight: 17 },
   amount: { maxWidth: '44%', fontSize: 14, lineHeight: 21, fontWeight: '500', fontVariant: ['tabular-nums'], textAlign: 'right' },
   amountStacked: { maxWidth: '100%', textAlign: 'left' },

@@ -91,7 +91,7 @@ const styles = StyleSheet.create({
   safeArea: { flex: 1 },
   keyboard: { flex: 1 },
   header: {
-    height: 60,
+    minHeight: 60,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',

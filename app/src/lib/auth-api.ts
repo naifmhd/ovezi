@@ -143,7 +143,18 @@ export function disconnectSocialAccount(token: string, provider: 'google' | 'app
   return apiRequest<void>(`/auth/social-accounts/${provider}`, { method: 'DELETE', token });
 }
 
-export type DeletionCredentials = { provider: 'google' | 'apple'; id_token: string; nonce?: string; authorization_code?: string };
+export type SocialIdentityCredentials = { provider: 'google' | 'apple'; id_token: string; nonce?: string; authorization_code?: string };
+
+export type DeletionCredentials = SocialIdentityCredentials;
+
+export async function connectSocialAccount(token: string, credentials: SocialIdentityCredentials, currentPassword?: string) {
+  const response = await apiRequest<DataResponse<User>>('/auth/social-accounts', {
+    method: 'POST',
+    token,
+    body: { ...credentials, ...(currentPassword ? { current_password: currentPassword } : {}) },
+  });
+  return response.data;
+}
 
 export async function deleteAccount(token: string, credentials: string | DeletionCredentials) {
   await apiRequest<void>('/me', {

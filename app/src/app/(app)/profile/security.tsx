@@ -19,6 +19,7 @@ import {
   updateEmail,
   updatePassword,
 } from '@/lib/auth-api';
+import { connectCurrentSocialAccount } from '@/lib/connect-social-account';
 import { apiBaseUrl, errorMessage } from '@/lib/api-client';
 import { useAuthStore } from '@/stores/auth-store';
 
@@ -29,6 +30,11 @@ export default function SecurityScreen() {
   const user = useAuthStore((state) => state.user)!;
   const refreshUser = useAuthStore((state) => state.refreshUser);
   const logout = useAuthStore((state) => state.logout);
+  const sessionVersion = useAuthStore((state) => state.sessionVersion);
+  const [connectTarget, setConnectTarget] = useState<'google' | 'apple' | null>(null);
+  const [connectPassword, setConnectPassword] = useState('');
+  const [connectError, setConnectError] = useState<string | null>(null);
+  const [connecting, setConnecting] = useState(false);
   const [section, setSection] = useState<FormSection>(null);
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -96,6 +102,8 @@ export default function SecurityScreen() {
     ?? sessionsMutation.error
     ?? disconnectMutation.error
     ?? deleteMutation.error;
+
+  const connectionProviders: ('google' | 'apple')[] = Platform.OS === 'ios' ? ['google', 'apple'] : ['google'];
 
   return (
     <ThemedView style={styles.screen}>
@@ -196,8 +204,10 @@ export default function SecurityScreen() {
                         <ThemedText style={styles.rowValue} themeColor="textSecondary">Connected</ThemedText>
                       </View>
                       <Pressable
-                        disabled={!canDisconnect}
-                        onPress={() => setDisconnectTarget(provider)}>
+                        accessibilityRole="button"
+                        style={styles.providerAction}
+                        disabled={!canDisconnect || connecting || disconnectMutation.isPending}
+                        onPress={() => { setConnectTarget(null); setConnectPassword(''); setDisconnectTarget(provider); }}>
                         <ThemedText
                           style={[styles.rowAction, !canDisconnect && styles.disabled]}
                           themeColor={canDisconnect ? 'danger' : 'textSecondary'}>
@@ -218,6 +228,55 @@ export default function SecurityScreen() {
                 );
               })}
             </ThemedView>
+
+            {Platform.OS === 'web' && user.connected_providers.length < 2 ? (
+              <ThemedText style={styles.hint} themeColor="textSecondary">Connect Google or Apple from the Ovezi mobile app.</ThemedText>
+            ) : null}
+            {Platform.OS !== 'web' ? connectionProviders.filter((provider) => !user.connected_providers.includes(provider)).map((provider) => (
+              <Pressable
+                key={provider}
+                accessibilityRole="button"
+                disabled={connecting || disconnectMutation.isPending}
+                style={styles.connectButton}
+                onPress={() => {
+                  setConnectTarget(provider);
+                  setConnectPassword('');
+                  setConnectError(null);
+                  setDisconnectTarget(null);
+                  setSuccess(null);
+                }}>
+                <ThemedText themeColor="primary" style={styles.rowLabel}>Connect {provider === 'google' ? 'Google' : 'Apple'}</ThemedText>
+              </Pressable>
+            )) : null}
+            {connectTarget ? (
+              <ThemedView type="backgroundElement" style={styles.formCard}>
+                <ThemedText style={styles.formTitle}>Connect {connectTarget === 'google' ? 'Google' : 'Apple'}</ThemedText>
+                <ThemedText style={styles.hint} themeColor="textSecondary">
+                  Use this provider to sign in to your existing Ovezi account. A different email is fine; your Ovezi email and expenses stay the same.
+                </ThemedText>
+                {user.has_password ? <FormField label="Current Ovezi password" secureTextEntry autoComplete="current-password" editable={!connecting} value={connectPassword} onChangeText={setConnectPassword} /> : null}
+                {connectError ? <ThemedText accessibilityRole="alert" themeColor="danger">{connectError}</ThemedText> : null}
+                <SocialSignIn
+                  key={connectTarget}
+                  mode="connect"
+                  providers={[connectTarget]}
+                  disabled={user.has_password && !connectPassword}
+                  onBusyChange={(busy) => { setConnecting(busy); if (busy) setConnectError(null); }}
+                  onError={setConnectError}
+                  onIdentity={async (credentials) => {
+                    const connected = await connectCurrentSocialAccount({ token, userId: user.id, sessionVersion }, credentials, connectPassword);
+                    if (connected) {
+                      setConnectTarget(null);
+                      setConnectPassword('');
+                      setSuccess(`${credentials.provider === 'google' ? 'Google' : 'Apple'} is connected. You can now use it to sign in.`);
+                    }
+                  }}
+                />
+                <Pressable accessibilityRole="button" disabled={connecting} style={styles.cancelConnect} onPress={() => { setConnectTarget(null); setConnectPassword(''); setConnectError(null); }}>
+                  <ThemedText themeColor="textSecondary">Cancel</ThemedText>
+                </Pressable>
+              </ThemedView>
+            ) : null}
 
             <SectionTitle title="Sessions" />
             <ThemedView type="backgroundElement" style={styles.formCard}>
@@ -359,10 +418,13 @@ const styles = StyleSheet.create({
   successCard: { borderRadius: 17, padding: 14 },
   successText: { fontSize: 13, lineHeight: 19, fontWeight: '600' },
   sectionTitle: { fontSize: 18, lineHeight: 25, fontWeight: '600', marginTop: 8 },
-  card: { borderRadius: 20, paddingHorizontal: 16 },
+  card: { borderRadius: 16, paddingHorizontal: 16 },
   formCard: { borderRadius: 20, padding: 16, gap: 14 },
   formTitle: { fontSize: 15, fontWeight: '600' },
   settingRow: { minHeight: 66, flexDirection: 'row', alignItems: 'center', gap: 12 },
+  providerAction: { minHeight: 48, justifyContent: 'center', paddingLeft: 8 },
+  connectButton: { minHeight: 48, justifyContent: 'center', paddingHorizontal: 16 },
+  cancelConnect: { minHeight: 48, justifyContent: 'center', alignItems: 'center' },
   providerRow: { minHeight: 66, flexDirection: 'row', alignItems: 'center', gap: 12 },
   rowCopy: { flex: 1, gap: 2 },
   rowLabel: { fontSize: 14, fontWeight: '600' },

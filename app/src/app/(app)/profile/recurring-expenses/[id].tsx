@@ -257,7 +257,7 @@ const styles = StyleSheet.create({
   headerSpacer: { width: 48 },
   content: { padding: Spacing.four, paddingBottom: 80, gap: 14, maxWidth: 680, width: '100%', alignSelf: 'center' },
   centered: { textAlign: 'center', paddingVertical: 40 },
-  infoCard: { borderRadius: 20, padding: 17, gap: 5 },
+  infoCard: { borderRadius: 16, padding: 17, gap: 5 },
   title: { fontSize: 15, lineHeight: 21, fontWeight: '600' },
   copy: { fontSize: 13, lineHeight: 19 },
   sectionLabel: { fontSize: 14, lineHeight: 20, fontWeight: '600' },

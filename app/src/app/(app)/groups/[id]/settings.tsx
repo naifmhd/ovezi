@@ -527,7 +527,7 @@ const styles = StyleSheet.create({
   centered: { textAlign: 'center', paddingVertical: 40 },
   sectionTitle: { fontSize: 18, lineHeight: 25, fontWeight: '600', marginTop: 8 },
   copy: { fontSize: 13, lineHeight: 19 },
-  card: { borderRadius: 20, padding: 17, gap: 10 },
+  card: { borderRadius: 16, padding: 17, gap: 10 },
   photoCard: { borderRadius: 20, padding: 18, alignItems: 'center', gap: 12 },
   photoActions: { width: '100%', flexDirection: 'row', gap: 8 },
   photoAction: { flex: 1, minHeight: 48, alignItems: 'center', justifyContent: 'center' },

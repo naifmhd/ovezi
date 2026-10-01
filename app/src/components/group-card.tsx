@@ -56,11 +56,11 @@ export function GroupCard({ group, balanceMinor }: GroupCardProps) {
 }
 
 const styles = StyleSheet.create({
-  card: { flexDirection: 'row', alignItems: 'center', paddingVertical: 15, borderBottomWidth: StyleSheet.hairlineWidth, backgroundColor: 'transparent', gap: 12 },
+  card: { flexDirection: 'row', alignItems: 'center', minHeight: 76, paddingVertical: 16, borderBottomWidth: StyleSheet.hairlineWidth, backgroundColor: 'transparent', gap: 12 },
   content: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 10 },
   contentStacked: { flexDirection: 'column', alignItems: 'stretch' },
   copy: { flex: 1, minWidth: 0 },
-  name: { fontSize: 15, lineHeight: 22, fontWeight: '500' },
+  name: { fontSize: 15, lineHeight: 22, fontWeight: '600' },
   meta: { fontSize: 12, lineHeight: 18, marginTop: 3 },
   balance: { alignItems: 'flex-end', maxWidth: '45%' },
   balanceStacked: { alignItems: 'flex-start', maxWidth: '100%' },

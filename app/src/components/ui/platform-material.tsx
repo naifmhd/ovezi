@@ -85,10 +85,10 @@ export function PlatformMaterial({
 const styles = StyleSheet.create({
   clip: { overflow: 'hidden', borderRadius: Radius.card },
   fallback: {
-    elevation: 5,
+    elevation: 2,
     shadowColor: '#000000',
     shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.14,
+    shadowOpacity: 0.08,
     shadowRadius: 18,
   },
   fallbackBorder: { borderWidth: StyleSheet.hairlineWidth },

@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\V1\AcceptGroupInviteController;
 use App\Http\Controllers\Api\V1\ActivityController;
 use App\Http\Controllers\Api\V1\ArchivedGroupController;
 use App\Http\Controllers\Api\V1\Auth\AllSessionsController;
+use App\Http\Controllers\Api\V1\Auth\ConnectSocialAccountController;
 use App\Http\Controllers\Api\V1\Auth\DisconnectSocialAccountController;
 use App\Http\Controllers\Api\V1\Auth\EmailVerificationNotificationController;
 use App\Http\Controllers\Api\V1\Auth\ForgotPasswordController;
@@ -82,6 +83,8 @@ Route::prefix('v1')->name('api.v1.')->group(function (): void {
         Route::post('auth/email/verification-notification', EmailVerificationNotificationController::class)
             ->middleware('throttle:6,1')
             ->name('auth.email.verification-notification');
+        Route::post('auth/social-accounts', ConnectSocialAccountController::class)
+            ->middleware('throttle:account-security')->name('auth.social-accounts.store');
         Route::delete('auth/social-accounts/{provider}', DisconnectSocialAccountController::class)
             ->name('auth.social-accounts.destroy');
         Route::patch('me', UpdateProfileController::class)

@@ -35,7 +35,7 @@ export function QueryErrorCard({
 }
 
 const styles = StyleSheet.create({
-  card: { borderRadius: 20, padding: 17, flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 14 },
+  card: { borderRadius: 16, padding: 17, flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 14 },
   copy: { flex: 1, gap: 3 },
   title: { fontSize: 15, lineHeight: 21, fontWeight: '600' },
   message: { fontSize: 13, lineHeight: 19 },

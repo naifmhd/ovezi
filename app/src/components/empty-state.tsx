@@ -24,7 +24,7 @@ export function EmptyState({ title, description, action }: EmptyStateProps) {
 }
 
 const styles = StyleSheet.create({
-  card: { padding: 24, gap: 12, borderRadius: Radius.card },
+  card: { backgroundColor: 'transparent', paddingVertical: 32, paddingHorizontal: 12, gap: 16, borderRadius: Radius.card },
   title: { fontSize: 20, lineHeight: 27, fontWeight: '600' },
   description: { fontSize: 15, lineHeight: 23, marginBottom: 6 },
 });
