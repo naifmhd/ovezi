@@ -29,7 +29,7 @@ class UpdateRecurringExpense
      *     description: string,
      *     category?: string|null,
      *     split_type?: SplitType|null,
-     *     participants?: list<array{user_id?: int|null, placeholder_id?: int|null, value?: int}>,
+     *     participants?: list<array{user_id?: int|null, placeholder_id?: int|null, value?: int, included_in_split?: bool, amount_paid_minor?: int|null}>,
      *     frequency: RecurrenceFrequency,
      *     ends_on?: CarbonImmutable|null
      * } $data
@@ -89,7 +89,9 @@ class UpdateRecurringExpense
                 $recurringExpense->splits()->create([
                     'user_id' => $participant['user_id'] ?? null,
                     'placeholder_id' => $participant['placeholder_id'] ?? null,
-                    'split_value' => ($data['split_type'] ?? SplitType::Equal) === SplitType::Equal
+                    'included_in_split' => $participant['included_in_split'] ?? true,
+                    'amount_paid_minor' => $participant['amount_paid_minor'] ?? null,
+                    'split_value' => ! ($participant['included_in_split'] ?? true) || ($data['split_type'] ?? SplitType::Equal) === SplitType::Equal
                         ? null
                         : $participant['value'],
                 ]);

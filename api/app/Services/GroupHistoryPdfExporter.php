@@ -30,8 +30,8 @@ class GroupHistoryPdfExporter
                 'type' => 'Expense',
                 'status' => $expense->trashed() ? 'Deleted' : 'Active',
                 'description' => $expense->description,
-                'from' => $expense->payerUser?->name ?? $expense->payerPlaceholder?->name ?? 'Unknown',
-                'to' => $expense->splits->map(function ($split): string {
+                'from' => $expense->splits->where('amount_paid_minor', '>', 0)->map(fn ($split): string => ($split->user?->name ?? $split->placeholder?->name ?? 'Unknown').' ('.$this->money($split->amount_paid_minor, $expense->currency_code, $expense->currency).')')->implode(', ') ?: ($expense->payerUser?->name ?? $expense->payerPlaceholder?->name) ?? 'Unknown',
+                'to' => $expense->splits->where('included_in_split', '!=', false)->map(function ($split): string {
                     return $split->user?->name ?? $split->placeholder?->name ?? 'Unknown';
                 })->implode(', '),
                 'amount' => $this->money($expense->amount_minor, $expense->currency_code, $expense->currency),

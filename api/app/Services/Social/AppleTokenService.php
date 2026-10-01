@@ -2,6 +2,7 @@
 
 namespace App\Services\Social;
 
+use App\Exceptions\SocialProviderUnavailable;
 use Firebase\JWT\JWT;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Validation\ValidationException;
@@ -45,7 +46,7 @@ class AppleTokenService
         $keyId = config('ovezi.social.apple_key_id');
         $key = str_replace('\\n', "\n", (string) config('ovezi.social.apple_private_key'));
         if (! $team || ! $keyId || ! $key || ! $clientId) {
-            throw new RuntimeException('Apple server credentials are not configured.');
+            throw new SocialProviderUnavailable('Apple server credentials are not configured.');
         }
 
         return JWT::encode(['iss' => $team, 'iat' => time(), 'exp' => time() + 300,

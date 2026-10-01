@@ -13,8 +13,9 @@ import { QueryErrorCard } from '@/components/query-error-card';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
+import { remainingAllocation } from '@/lib/expense-split';
 import { errorMessage } from '@/lib/api-client';
-import { currencyFractionDigits, minorAmountInput, parseDecimalToInteger } from '@/lib/format';
+import { currencyFractionDigits, formatMoney, minorAmountInput, parseDecimalToInteger } from '@/lib/format';
 import {
   fetchRecurringExpense,
   type RecurringExpenseInput,
@@ -36,6 +37,8 @@ export default function EditRecurringExpenseScreen() {
   const [frequency, setFrequency] = useState<RecurrenceFrequency>('monthly');
   const [endsOn, setEndsOn] = useState('');
   const [formError, setFormError] = useState<string | null>(null);
+  const [paymentValues, setPaymentValues] = useState<Record<number, string>>({});
+  const [exactValues, setExactValues] = useState<Record<number, string>>({});
   const [initialized, setInitialized] = useState(false);
   const scheduleQuery = useQuery({
     queryKey: ['recurring-expenses', recurringExpenseId],
@@ -43,6 +46,8 @@ export default function EditRecurringExpenseScreen() {
     enabled: Number.isInteger(recurringExpenseId) && recurringExpenseId > 0,
   });
   const schedule = scheduleQuery.data;
+  const multiplePayers = (schedule?.splits.filter((split) => (split.amount_paid_minor ?? 0) > 0).length ?? 0) > 1;
+  const paymentRemainder = remainingAllocation(parseDecimalToInteger(amount, currencyFractionDigits(currency)), Object.values(paymentValues), currencyFractionDigits(currency));
 
   useEffect(() => {
     if (!schedule || initialized) return;
@@ -54,6 +59,8 @@ export default function EditRecurringExpenseScreen() {
       setCategory(schedule.category ?? '');
       setFrequency(schedule.frequency);
       setEndsOn(schedule.ends_on?.slice(0, 10) ?? '');
+      setPaymentValues(Object.fromEntries(schedule.splits.map((split) => [split.id, minorAmountInput(split.amount_paid_minor ?? 0, schedule.currency_code)])));
+      setExactValues(Object.fromEntries(schedule.splits.map((split) => [split.id, minorAmountInput(Number(split.split_value ?? 0), schedule.currency_code)])));
       setInitialized(true);
     }, 0);
 
@@ -86,12 +93,29 @@ export default function EditRecurringExpenseScreen() {
       return setFormError('The end date must be after the first expense date.');
     }
 
+    if (multiplePayers && paymentRemainder !== 0) return setFormError('Update the payment amounts so they match the new total.');
+    const participants = schedule.splits.map((split) => ({
+      included_in_split: split.included_in_split !== false,
+      ...(split.amount_paid_minor == null ? {} : { amount_paid_minor: multiplePayers
+        ? parseDecimalToInteger(paymentValues[split.id] || '0', currencyFractionDigits(currencyCode))!
+        : (split.amount_paid_minor > 0 ? amountMinor : 0) }),
+      ...(split.user_id ? { user_id: split.user_id } : {}),
+      ...(split.placeholder_id ? { placeholder_id: split.placeholder_id } : {}),
+      ...(split.split_value === null ? {} : { value: schedule.split_type === 'exact'
+        ? parseDecimalToInteger(exactValues[split.id] || '0', currencyFractionDigits(currencyCode)) ?? -1
+        : Number(split.split_value) }),
+    }));
+    if (schedule.split_type === 'exact' && (participants.some((p) => (p.value ?? 0) < 0) || participants.reduce((sum, p) => sum + (p.value ?? 0), 0) !== amountMinor)) {
+      return setFormError('Update the exact shares so they match the new total.');
+    }
+    const payer = multiplePayers ? participants.find((p) => (p.amount_paid_minor ?? 0) > 0)! : schedule.payer;
+
     mutation.mutate({
       expense_type: schedule.expense_type,
       ...(schedule.group_id ? { group_id: schedule.group_id } : {}),
-      ...(schedule.payer.user_id ? { payer_user_id: schedule.payer.user_id } : {}),
-      ...(schedule.payer.placeholder_id
-        ? { payer_placeholder_id: schedule.payer.placeholder_id }
+      ...(payer.user_id ? { payer_user_id: payer.user_id } : {}),
+      ...(payer.placeholder_id
+        ? { payer_placeholder_id: payer.placeholder_id }
         : {}),
       amount_minor: amountMinor,
       currency_code: currencyCode,
@@ -101,11 +125,7 @@ export default function EditRecurringExpenseScreen() {
       ...(schedule.split_type ? { split_type: schedule.split_type } : {}),
       ...(schedule.expense_type !== 'personal'
         ? {
-            participants: schedule.splits.map((split) => ({
-              ...(split.user_id ? { user_id: split.user_id } : {}),
-              ...(split.placeholder_id ? { placeholder_id: split.placeholder_id } : {}),
-              ...(split.split_value === null ? {} : { value: Number(split.split_value) }),
-            })),
+            participants,
           }
         : {}),
       frequency,
@@ -143,7 +163,7 @@ export default function EditRecurringExpenseScreen() {
                 </ThemedText>
               </ThemedView>
             ) : null}
-            {schedule?.can_manage ? (
+            {schedule?.can_manage && initialized ? (
               <>
                 <ThemedView type="backgroundSelected" style={styles.infoCard}>
                   <ThemedText style={styles.title}>Future occurrences only</ThemedText>
@@ -163,6 +183,17 @@ export default function EditRecurringExpenseScreen() {
                   onChangeText={setAmount}
                   value={amount}
                 />
+                {multiplePayers ? <>
+                  <ThemedText style={styles.sectionLabel}>Paid by</ThemedText>
+                  {schedule.splits.map((split) => <FormField key={split.id} label={`${split.name ?? 'Person'} pays`} keyboardType="decimal-pad" value={paymentValues[split.id] ?? ''} onChangeText={(value) => setPaymentValues((current) => ({ ...current, [split.id]: value }))} />)}
+                  <ThemedText accessibilityLiveRegion="polite" themeColor={paymentRemainder !== null && paymentRemainder < 0 ? 'danger' : 'textSecondary'}>
+                    {paymentRemainder === null ? 'Enter valid payment amounts' : paymentRemainder === 0 ? 'Payments match the total' : `${formatMoney(Math.abs(paymentRemainder), currency)} ${paymentRemainder < 0 ? 'over the total' : 'still to record'}`}
+                  </ThemedText>
+                </> : null}
+                {schedule.split_type === 'exact' ? <>
+                  <ThemedText style={styles.sectionLabel}>Exact shares</ThemedText>
+                  {schedule.splits.filter((split) => split.included_in_split !== false).map((split) => <FormField key={split.id} label={`${split.name ?? 'Person'} owes`} keyboardType="decimal-pad" value={exactValues[split.id] ?? ''} onChangeText={(value) => setExactValues((current) => ({ ...current, [split.id]: value }))} />)}
+                </> : null}
                 <CurrencyPicker label="Currency" onChange={setCurrency} value={currency} />
                 <FormField
                   autoCapitalize="words"

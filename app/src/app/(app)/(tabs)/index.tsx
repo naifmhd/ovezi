@@ -47,7 +47,6 @@ export default function HomeScreen() {
     .sort((a, b) => new Date(b.occurred_at).getTime() - new Date(a.occurred_at).getTime() || b.id - a.id).slice(0, 5);
   const refreshing = groupsQuery.isRefetching || expensesQuery.isRefetching || directExpensesQuery.isRefetching || balancesQuery.isRefetching;
   const firstError = groupsQuery.error ?? expensesQuery.error ?? directExpensesQuery.error ?? balancesQuery.error;
-  const startingFresh = groupsQuery.isSuccess && expensesQuery.isSuccess && directExpensesQuery.isSuccess && balancesQuery.isSuccess && groups.length === 0 && recentPersonalExpenses.length === 0 && directBalances.length === 0;
 
   async function refresh() {
     await Promise.all([
@@ -122,29 +121,8 @@ export default function HomeScreen() {
       ) : null}
 
       <View style={styles.sectionHeading}>
-        <ThemedText style={styles.sectionTitle}>Groups</ThemedText>
-        <Pressable onPress={() => router.push('/(app)/(tabs)/groups')}>
-          <ThemedText style={styles.seeAll} themeColor="primary">
-            See all
-          </ThemedText>
-        </Pressable>
-      </View>
-      {groupsQuery.isLoading ? (
-        <ThemedText style={styles.emptyActivity} themeColor="textSecondary">
-          Loading groups…
-        </ThemedText>
-      ) : null}
-      {groups.slice(0, 3).map((group) => (
-        <GroupCard key={group.id} balanceMinor={balanceByGroup.get(group.id)} group={group} />
-      ))}
-      {!groupsQuery.isLoading && !groupsQuery.error && groups.length === 0 ? (
-        <EmptyState title="Good times start here" description="Create a group for a trip, a home, or your everyday plans. Add your first expense together." action={{ label: 'Create a group', onPress: () => router.push('/(app)/groups/create') }} />
-      ) : null}
-
-      {!startingFresh ? <>
-      <View style={styles.sectionHeading}>
         <ThemedText style={styles.sectionTitle}>1-on-1 balances</ThemedText>
-        <Pressable accessibilityRole="button" onPress={() => router.push('/(app)/friends')}><ThemedText style={styles.seeAll} themeColor="interactive">Friends</ThemedText></Pressable>
+        <Pressable accessibilityRole="button" onPress={() => router.push('/(app)/friends')}><ThemedText style={styles.seeAll} themeColor="interactive">Manage friends</ThemedText></Pressable>
       </View>
       {balancesQuery.isLoading ? (
         <ThemedText style={styles.emptyActivity} themeColor="textSecondary">
@@ -186,8 +164,28 @@ export default function HomeScreen() {
       ))}
       {!balancesQuery.isLoading && !balancesQuery.error && directBalances.length === 0 ? (
         <ThemedText style={styles.emptyActivity} themeColor="textSecondary">
-          No open 1-on-1 balances.
+          You’re settled up. Add an expense to track who owes whom.
         </ThemedText>
+      ) : null}
+
+      <View style={styles.sectionHeading}>
+        <ThemedText style={styles.sectionTitle}>Groups</ThemedText>
+        <Pressable onPress={() => router.push('/(app)/(tabs)/groups')}>
+          <ThemedText style={styles.seeAll} themeColor="primary">
+            See all
+          </ThemedText>
+        </Pressable>
+      </View>
+      {groupsQuery.isLoading ? (
+        <ThemedText style={styles.emptyActivity} themeColor="textSecondary">
+          Loading groups…
+        </ThemedText>
+      ) : null}
+      {groups.slice(0, 3).map((group) => (
+        <GroupCard key={group.id} balanceMinor={balanceByGroup.get(group.id)} group={group} />
+      ))}
+      {!groupsQuery.isLoading && !groupsQuery.error && groups.length === 0 ? (
+        <EmptyState title="Good times start here" description="Create a group for a trip, a home, or your everyday plans. Add your first expense together." action={{ label: 'Create a group', onPress: () => router.push('/(app)/groups/create') }} />
       ) : null}
 
       <View style={styles.sectionHeading}>
@@ -217,7 +215,7 @@ export default function HomeScreen() {
         </ThemedText>
       ) : null}
 
-      </> : <Pressable accessibilityRole="button" onPress={() => router.push('/(app)/friends')}><ThemedText style={styles.seeAll} themeColor="interactive">Or add a friend for 1-on-1 expenses</ThemedText></Pressable>}
+
     </AppScreen>
   );
 }

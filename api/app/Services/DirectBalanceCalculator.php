@@ -39,7 +39,7 @@ class DirectBalanceCalculator
                 'payerUser:id,name',
                 'payerPlaceholder:id,name,claimed_by',
                 'payerPlaceholder.claimedBy:id,name',
-                'splits:id,expense_id,user_id,placeholder_id,reporting_amount_owed_minor',
+                'splits:id,expense_id,user_id,placeholder_id,reporting_amount_owed_minor,reporting_amount_paid_minor',
                 'splits.user:id,name',
                 'splits.placeholder:id,name,claimed_by',
                 'splits.placeholder.claimedBy:id,name',
@@ -55,6 +55,25 @@ class DirectBalanceCalculator
                     $expense->payerPlaceholder?->claimed_by,
                     $expense->payerPlaceholder?->claimedBy?->name,
                 );
+
+                if ($expense->splits->contains(fn ($split): bool => $split->reporting_amount_paid_minor !== null)) {
+                    $participants = [];
+                    $netBalances = [];
+                    foreach ($expense->splits as $split) {
+                        $participant = $this->participant(
+                            $split->user_id, $split->placeholder_id, $split->user?->name,
+                            $split->placeholder?->name, $split->placeholder?->claimed_by, $split->placeholder?->claimedBy?->name,
+                        );
+                        $key = $participant['key'];
+                        $participants[$key] = $participant;
+                        $netBalances[$key] = ($netBalances[$key] ?? 0) + ($split->reporting_amount_paid_minor ?? 0) - $split->reporting_amount_owed_minor;
+                    }
+                    foreach (app(DebtSimplifier::class)->simplify($netBalances) as $transfer) {
+                        $this->applyTransfer($balances, $user->id, $participants[$transfer['to']], $participants[$transfer['from']], $expense->reporting_currency_code, $transfer['amount_minor']);
+                    }
+
+                    return;
+                }
 
                 foreach ($expense->splits as $split) {
                     $debtor = $this->participant(

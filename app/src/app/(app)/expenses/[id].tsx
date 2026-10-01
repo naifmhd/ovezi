@@ -1,3 +1,4 @@
+import { expenseNetForUser, expensePayerLabel } from '@/lib/expense-impact';
 import { HeaderAction } from '@/components/ui/header-action';
 import { Disclosure } from '@/components/ui/disclosure';
 import { useReducedMotion } from 'react-native-reanimated';
@@ -336,17 +337,10 @@ function ExpenseContent({
   token: string;
 }) {
   const reduceMotion = useReducedMotion();
-  const ownSplit = expense.splits.find(
-    (split) => (split.user_id ?? split.claimed_user_id) === currentUserId,
-  );
-  const paidByCurrentUser = (expense.payer.user_id ?? expense.payer.claimed_user_id) === currentUserId;
-  const personalImpact = expense.expense_type === 'personal'
-    ? 'Personal tracking entry · no balance impact'
-    : paidByCurrentUser
-      ? `You lent ${formatMoney(Math.max(0, expense.amount_minor - (ownSplit?.amount_owed_minor ?? 0)), expense.currency_code)}`
-      : ownSplit
-        ? `Your share is ${formatMoney(ownSplit.amount_owed_minor, expense.currency_code)}`
-        : null;
+  const net = expenseNetForUser(expense, currentUserId);
+  const personalImpact = expense.expense_type === 'personal' ? 'Personal tracking entry · no balance impact'
+    : net > 0 ? `You are owed ${formatMoney(net, expense.currency_code)}`
+    : net < 0 ? `You owe ${formatMoney(-net, expense.currency_code)}` : 'No balance change for you';
 
   return (
     <>
@@ -367,7 +361,7 @@ function ExpenseContent({
 
       <SectionTitle title="Details" />
       <ThemedView type="backgroundElement" style={styles.detailCard}>
-        <DetailRow label="Paid by" value={expense.payer.name ?? 'Unknown'} />
+        <DetailRow label="Paid by" value={expensePayerLabel(expense)} />
         <Divider />
         <DetailRow
           label="Date"
@@ -388,7 +382,7 @@ function ExpenseContent({
         <>
           <SectionTitle title={`Split · ${splitTypeLabel(expense.splits[0].split_type)}`} />
           <ThemedView type="backgroundElement" style={styles.detailCard}>
-            {expense.splits.map((split, index) => (
+            {expense.splits.filter((split) => split.included_in_split !== false).map((split, index) => (
               <View key={split.id}>
                 {index > 0 ? <Divider /> : null}
                 <View style={styles.splitRow}>

@@ -5,6 +5,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { AnimatedPressable } from '@/components/ui/animated-pressable';
 import { useTheme } from '@/hooks/use-theme';
+import { directExpenseSummary, expensePayerLabel } from '@/lib/expense-impact';
 import { formatMoney } from '@/lib/format';
 import type { Expense } from '@/types/api';
 
@@ -35,7 +36,7 @@ export function ExpenseRow({ expense, payerName, currentUserId, onPress }: Expen
             {expense.description}
           </ThemedText>
           <ThemedText style={styles.meta} themeColor="textSecondary">
-            {directSummary ?? (payerName || expense.payer.name ? `${payerName ?? expense.payer.name} paid · ` : '')}
+            {directSummary ?? `${expense.splits.filter((split) => (split.amount_paid_minor ?? 0) > 0).length > 1 ? expensePayerLabel(expense) : payerName ?? expense.payer.name ?? 'Unknown'} paid · `}
             {directSummary ? ' · ' : ''}
             {new Date(expense.occurred_at).toLocaleDateString(undefined, {
               month: 'short',
@@ -88,24 +89,6 @@ function categorySymbol(category: string | null): Parameters<typeof SymbolView>[
     return { ios: 'bag.fill', android: 'shopping_bag', web: 'shopping_bag' };
   }
   return { ios: 'receipt.fill', android: 'receipt_long', web: 'receipt_long' };
-}
-
-function directExpenseSummary(expense: Expense, currentUserId?: number) {
-  if (expense.expense_type !== 'direct' || currentUserId === undefined) return null;
-
-  const ownSplit = expense.splits.find(
-    (split) => (split.user_id ?? split.claimed_user_id) === currentUserId,
-  );
-  const otherSplit = expense.splits.find(
-    (split) => (split.user_id ?? split.claimed_user_id) !== currentUserId,
-  );
-  if (!ownSplit || !otherSplit) return null;
-
-  if ((expense.payer.user_id ?? expense.payer.claimed_user_id) === currentUserId) {
-    return `${otherSplit.name ?? 'They'} owe you ${formatMoney(otherSplit.amount_owed_minor, expense.currency_code)}`;
-  }
-
-  return `You owe ${expense.payer.name ?? 'them'} ${formatMoney(ownSplit.amount_owed_minor, expense.currency_code)}`;
 }
 
 const styles = StyleSheet.create({

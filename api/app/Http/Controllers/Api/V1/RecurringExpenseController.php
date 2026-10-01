@@ -229,6 +229,8 @@ class RecurringExpenseController extends Controller
         return array_map(fn (array $participant): array => [
             'user_id' => isset($participant['user_id']) ? (int) $participant['user_id'] : null,
             'placeholder_id' => isset($participant['placeholder_id']) ? (int) $participant['placeholder_id'] : null,
+            'included_in_split' => (bool) ($participant['included_in_split'] ?? true),
+            ...(isset($participant['amount_paid_minor']) ? ['amount_paid_minor' => (int) $participant['amount_paid_minor']] : []),
             ...(array_key_exists('value', $participant) ? ['value' => (int) $participant['value']] : []),
         ], $participants);
     }

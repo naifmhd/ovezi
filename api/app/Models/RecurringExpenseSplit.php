@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use InvalidArgumentException;
 
-#[Fillable(['recurring_expense_id', 'user_id', 'placeholder_id', 'split_value'])]
+#[Fillable(['recurring_expense_id', 'user_id', 'placeholder_id', 'split_value', 'amount_paid_minor', 'included_in_split'])]
 class RecurringExpenseSplit extends Model
 {
     /** @use HasFactory<RecurringExpenseSplitFactory> */
@@ -41,6 +41,6 @@ class RecurringExpenseSplit extends Model
 
     protected function casts(): array
     {
-        return ['split_value' => 'decimal:8'];
+        return ['split_value' => 'decimal:8', 'amount_paid_minor' => 'integer', 'included_in_split' => 'boolean'];
     }
 }

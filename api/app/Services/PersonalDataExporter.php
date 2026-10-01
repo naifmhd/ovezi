@@ -169,8 +169,11 @@ class PersonalDataExporter
                     'participant_name' => $split->user?->name ?? $split->placeholder?->name,
                     'amount_owed_minor' => $split->amount_owed_minor,
                     'reporting_amount_owed_minor' => $split->reporting_amount_owed_minor,
+                    'reporting_amount_paid_minor' => $split->reporting_amount_paid_minor,
                     'split_type' => $split->split_type->value,
                     'split_value' => $split->split_value,
+                    'included_in_split' => $split->included_in_split,
+                    'amount_paid_minor' => $split->amount_paid_minor,
                 ])->all(),
             ])->all();
     }
@@ -228,6 +231,8 @@ class PersonalDataExporter
                     'placeholder_id' => $split->placeholder_id,
                     'participant_name' => $split->user?->name ?? $split->placeholder?->name,
                     'split_value' => $split->split_value,
+                    'included_in_split' => $split->included_in_split,
+                    'amount_paid_minor' => $split->amount_paid_minor,
                 ])->all(),
             ])->all();
     }

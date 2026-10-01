@@ -11,10 +11,9 @@ use App\Models\Group;
 use App\Models\Placeholder;
 use App\Models\User;
 use App\Services\ExchangeRateResolver;
+use App\Services\ExpenseAllocation;
 use App\Services\MoneyConverter;
-use App\Services\ReportingSplitAllocator;
 use App\Services\ResolvedExchangeRate;
-use App\Services\SplitCalculator;
 use App\SplitType;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
@@ -23,10 +22,9 @@ use Illuminate\Validation\ValidationException;
 class UpdateExpense
 {
     public function __construct(
-        private readonly SplitCalculator $splitCalculator,
+        private readonly ExpenseAllocation $expenseAllocation,
         private readonly ExchangeRateResolver $exchangeRateResolver,
         private readonly MoneyConverter $moneyConverter,
-        private readonly ReportingSplitAllocator $reportingSplitAllocator,
     ) {}
 
     /**
@@ -39,7 +37,7 @@ class UpdateExpense
      *     category?: string|null,
      *     occurred_at: CarbonImmutable,
      *     split_type?: SplitType,
-     *     participants?: list<array{user_id?: int|null, placeholder_id?: int|null, value?: int}>,
+     *     participants?: list<array{user_id?: int|null, placeholder_id?: int|null, value?: int, included_in_split?: bool, amount_paid_minor?: int|null}>,
      *     expense_rate?: string|null,
      *     recalculate_rate?: bool
      * } $data
@@ -105,24 +103,10 @@ class UpdateExpense
                 $resolvedRate->rate,
             );
 
-        $allocations = [];
-        $reportingAllocations = [];
         $splitType = $data['split_type'] ?? SplitType::Equal;
-
-        if ($expenseType !== ExpenseType::Personal) {
-            $splitValues = $this->participantValues($participants, $splitType);
-            $allocations = $this->splitCalculator->calculate(
-                $data['amount_minor'],
-                $splitType,
-                $splitValues,
-                $this->participantKey($payerUserId, $payerPlaceholderId),
-            );
-            $reportingAllocations = $this->reportingSplitAllocator->allocate(
-                $reportingAmountMinor,
-                $allocations,
-                $this->participantKey($payerUserId, $payerPlaceholderId),
-            );
-        }
+        $splitRows = $expenseType === ExpenseType::Personal ? [] : $this->expenseAllocation->calculate(
+            $data['amount_minor'], $reportingAmountMinor, $splitType, $participants, $payerUserId, $payerPlaceholderId,
+        );
 
         return DB::transaction(function () use (
             $editor,
@@ -133,10 +117,7 @@ class UpdateExpense
             $reportingCurrency,
             $reportingAmountMinor,
             $resolvedRate,
-            $participants,
-            $allocations,
-            $reportingAllocations,
-            $splitType,
+            $splitRows,
             $recalculateRate,
         ): Expense {
             $expense->update([
@@ -156,20 +137,8 @@ class UpdateExpense
 
             $expense->splits()->delete();
 
-            foreach ($participants as $participant) {
-                $participantKey = $this->participantKey(
-                    $participant['user_id'] ?? null,
-                    $participant['placeholder_id'] ?? null,
-                );
-
-                $expense->splits()->create([
-                    'user_id' => $participant['user_id'] ?? null,
-                    'placeholder_id' => $participant['placeholder_id'] ?? null,
-                    'amount_owed_minor' => $allocations[$participantKey],
-                    'reporting_amount_owed_minor' => $reportingAllocations[$participantKey],
-                    'split_type' => $splitType,
-                    'split_value' => $splitType === SplitType::Equal ? null : $participant['value'],
-                ]);
+            foreach ($splitRows as $splitRow) {
+                $expense->splits()->create($splitRow);
             }
 
             ActivityLog::query()->create([
@@ -190,7 +159,7 @@ class UpdateExpense
     }
 
     /**
-     * @param  list<array{user_id?: int|null, placeholder_id?: int|null, value?: int}>  $participants
+     * @param  list<array{user_id?: int|null, placeholder_id?: int|null, value?: int, included_in_split?: bool, amount_paid_minor?: int|null}>  $participants
      */
     private function validateContext(
         User $editor,
@@ -245,14 +214,7 @@ class UpdateExpense
             return;
         }
 
-        $participantKeys = array_map(fn (array $participant): string => $this->participantKey(
-            $participant['user_id'] ?? null,
-            $participant['placeholder_id'] ?? null,
-        ), $participants);
-
-        if (! in_array("user:{$expense->created_by}", $participantKeys, true)) {
-            throw ValidationException::withMessages(['participants' => 'The expense creator must participate in a direct expense.']);
-        }
+        $participants[] = ['user_id' => $payerUserId, 'placeholder_id' => $payerPlaceholderId];
 
         foreach ($participants as $participant) {
             $participantUserId = $participant['user_id'] ?? null;
@@ -273,34 +235,6 @@ class UpdateExpense
                 throw ValidationException::withMessages(['participants' => 'A placeholder must belong to the expense creator.']);
             }
         }
-    }
-
-    /**
-     * @param  list<array{user_id?: int|null, placeholder_id?: int|null, value?: int}>  $participants
-     * @return array<string, int>
-     */
-    private function participantValues(array $participants, SplitType $splitType): array
-    {
-        $values = [];
-
-        foreach ($participants as $participant) {
-            $key = $this->participantKey(
-                $participant['user_id'] ?? null,
-                $participant['placeholder_id'] ?? null,
-            );
-
-            if (array_key_exists($key, $values)) {
-                throw ValidationException::withMessages(['participants' => 'Each participant may only appear once.']);
-            }
-
-            if ($splitType !== SplitType::Equal && ! array_key_exists('value', $participant)) {
-                throw new InvalidSplit('A split value is required for each participant.');
-            }
-
-            $values[$key] = $participant['value'] ?? 1;
-        }
-
-        return $values;
     }
 
     private function participantKey(?int $userId, ?int $placeholderId): string

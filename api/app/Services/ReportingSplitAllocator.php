@@ -18,7 +18,7 @@ class ReportingSplitAllocator
         }
 
         if (! array_key_exists($payerKey, $baseAllocations)) {
-            throw new InvalidArgumentException('The payer must be included in reporting allocations.');
+            $payerKey = array_key_first($baseAllocations);
         }
 
         $baseTotal = BigInteger::zero();

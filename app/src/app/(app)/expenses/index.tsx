@@ -30,8 +30,9 @@ const filters: { value: ExpenseFilter; label: string }[] = [
 ];
 
 export default function ExpensesScreen() {
-  const params = useLocalSearchParams<{ groupId?: string; groupName?: string }>();
+  const params = useLocalSearchParams<{ groupId?: string; groupName?: string; friendId?: string; friendName?: string }>();
   const groupId = Number(params.groupId) > 0 ? Number(params.groupId) : undefined;
+  const friendId = Number(params.friendId) > 0 ? Number(params.friendId) : undefined;
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [from, setFrom] = useState('');
@@ -48,12 +49,12 @@ export default function ExpensesScreen() {
   const theme = useTheme();
   const [filter, setFilter] = useState<ExpenseFilter>('all');
   const query = useInfiniteQuery({
-    queryKey: ['expenses', 'ledger', groupId, filter, debouncedSearch, from, until],
+    queryKey: ['expenses', 'ledger', groupId, friendId, filter, debouncedSearch, from, until],
     enabled: !rangeInvalid,
     initialPageParam: 1,
     queryFn: ({ pageParam }) => fetchExpenses(token, {
       ...(filter === 'all' ? {} : { expenseType: filter }),
-      groupId, search: debouncedSearch, from: boundary(from), before: boundary(until, true),
+      groupId, friendId, search: debouncedSearch, from: boundary(from), before: boundary(until, true),
       page: pageParam,
       perPage: 30,
     }),
@@ -70,8 +71,8 @@ export default function ExpensesScreen() {
           <HeaderAction hitSlop={10} onPress={() => router.back()} style={styles.headerTouch}>
             <ThemedText style={styles.headerAction} themeColor="interactive">‹ Back</ThemedText>
           </HeaderAction>
-          <ThemedText style={styles.headerTitle}>{groupId ? 'Group expenses' : 'Expenses'}</ThemedText>
-          <Pressable hitSlop={10} onPress={() => router.push({ pathname: '/(app)/expenses/create', params: groupId ? { groupId } : {} })} style={styles.headerTouch}>
+          <ThemedText style={styles.headerTitle}>{friendId ? '1-on-1 expenses' : groupId ? 'Group expenses' : 'Expenses'}</ThemedText>
+          <Pressable hitSlop={10} onPress={() => router.push({ pathname: '/(app)/expenses/create', params: friendId ? { friendId } : groupId ? { groupId } : {} })} style={styles.headerTouch}>
             <ThemedText style={styles.headerAction} themeColor="interactive">+ Add</ThemedText>
           </Pressable>
         </View>
@@ -82,6 +83,7 @@ export default function ExpensesScreen() {
           keyExtractor={(expense) => String(expense.id)}
           ListHeaderComponent={(
             <View style={styles.listHeader}>
+              {params.friendName ? <ThemedText>{params.friendName}</ThemedText> : null}
               {params.groupName ? <ThemedText>{params.groupName}</ThemedText> : null}
               <FormField label="Search expenses" placeholder="Description or category" value={search} onChangeText={setSearch} maxLength={120} />
               <Disclosure title={from || until ? `Dates · ${from || 'Any'} to ${until || 'Any'}` : 'Filter by date'}>
@@ -90,7 +92,7 @@ export default function ExpensesScreen() {
                 <AnimatedPressable style={styles.headerTouch} onPress={() => { setFrom(''); setUntil(''); }}><ThemedText themeColor="interactive">Clear dates</ThemedText></AnimatedPressable>
               </Disclosure>
               {rangeInvalid ? <ThemedText themeColor="danger">The end date must be on or after the start date.</ThemedText> : null}
-              {!groupId ? <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              {!groupId && !friendId ? <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                 <View style={styles.filterRow}>
                   {filters.map((item) => {
                     const selected = filter === item.value;
@@ -133,7 +135,7 @@ export default function ExpensesScreen() {
               <ThemedText style={styles.emptyCopy} themeColor="textSecondary">
                 Add an expense or choose another filter.
               </ThemedText>
-              <Pressable onPress={() => router.push({ pathname: '/(app)/expenses/create', params: groupId ? { groupId } : {} })}>
+              <Pressable onPress={() => router.push({ pathname: '/(app)/expenses/create', params: friendId ? { friendId } : groupId ? { groupId } : {} })}>
                 <ThemedText style={styles.emptyAction} themeColor="interactive">Add expense</ThemedText>
               </Pressable>
             </ThemedView>

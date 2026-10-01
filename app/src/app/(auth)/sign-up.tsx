@@ -1,12 +1,14 @@
 import { useMutation } from '@tanstack/react-query';
 import { Link, router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
-import { StyleSheet } from 'react-native';
+import { Platform, StyleSheet } from 'react-native';
 
 import { AuthShell } from '@/components/auth/auth-shell';
 import { FormField } from '@/components/auth/form-field';
 import { FormMessage } from '@/components/auth/form-message';
 import { PrimaryButton } from '@/components/auth/primary-button';
+import { SocialSignIn } from '@/components/auth/social-sign-in';
+import { registrationValidationMessage } from '@/lib/registration-validation';
 import { ThemedText } from '@/components/themed-text';
 import { register } from '@/lib/auth-api';
 import { errorMessage } from '@/lib/api-client';
@@ -17,6 +19,8 @@ export default function SignUpScreen() {
   const rawRedirect = Array.isArray(params.redirect) ? params.redirect[0] : params.redirect;
   const redirect = rawRedirect?.startsWith('/') ? rawRedirect : '/(app)';
   const setSession = useAuthStore((state) => state.setSession);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [socialError, setSocialError] = useState('');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -28,6 +32,12 @@ export default function SignUpScreen() {
       router.replace(redirect as never);
     },
   });
+
+  function submit() {
+    const message = registrationValidationMessage(name, email, password, confirmation);
+    setFormError(message);
+    if (!message) mutation.mutate();
+  }
 
   return (
     <AuthShell
@@ -75,13 +85,13 @@ export default function SignUpScreen() {
         secureTextEntry
         value={confirmation}
       />
-      {mutation.error ? <FormMessage>{errorMessage(mutation.error)}</FormMessage> : null}
+      {formError || socialError || mutation.error ? <FormMessage>{formError || socialError || errorMessage(mutation.error)}</FormMessage> : null}
       <PrimaryButton
-        disabled={!name || !email || !password || password !== confirmation}
         label="Create account"
         loading={mutation.isPending}
-        onPress={() => mutation.mutate()}
+        onPress={submit}
       />
+      {Platform.OS !== 'web' ? <SocialSignIn onError={setSocialError} onSuccess={() => router.replace(redirect as never)} /> : null}
     </AuthShell>
   );
 }

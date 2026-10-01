@@ -80,6 +80,8 @@ class GenerateRecurringExpenseOccurrences implements ShouldBeUnique, ShouldQueue
                             'participants' => $recurringExpense->splits->map(fn ($split): array => [
                                 'user_id' => $split->user_id,
                                 'placeholder_id' => $split->placeholder_id,
+                                'included_in_split' => $split->included_in_split,
+                                ...($split->amount_paid_minor === null ? [] : ['amount_paid_minor' => $split->amount_paid_minor]),
                                 ...($split->split_value === null ? [] : ['value' => (int) $split->split_value]),
                             ])->all(),
                         ]);

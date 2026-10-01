@@ -8,6 +8,8 @@ export type ExpenseParticipantInput = {
   user_id?: number;
   placeholder_id?: number;
   value?: number;
+  included_in_split?: boolean;
+  amount_paid_minor?: number;
 };
 
 export type CreateExpenseInput = {
@@ -32,9 +34,10 @@ export type UpdateExpenseInput = CreateExpenseInput & {
 
 export function fetchExpenses(
   token: string,
-  options: { groupId?: number; expenseType?: ExpenseType; perPage?: number; page?: number; search?: string; from?: string; before?: string } = {},
+  options: { friendId?: number; groupId?: number; expenseType?: ExpenseType; perPage?: number; page?: number; search?: string; from?: string; before?: string } = {},
 ) {
   const params = new URLSearchParams();
+  if (options.friendId) params.set('friend_id', String(options.friendId));
   if (options.groupId) params.set('group_id', String(options.groupId));
   if (options.expenseType) params.set('expense_type', options.expenseType);
   if (options.search) params.set('q', options.search);

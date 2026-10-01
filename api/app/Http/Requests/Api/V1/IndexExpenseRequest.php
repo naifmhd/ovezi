@@ -21,6 +21,7 @@ class IndexExpenseRequest extends FormRequest
     public function rules(): array
     {
         return [
+            'friend_id' => ['sometimes', 'integer', 'min:1'],
             'group_id' => ['sometimes', 'integer', 'exists:groups,id'],
             'expense_type' => ['sometimes', Rule::enum(ExpenseType::class)],
             'q' => ['sometimes', 'string', 'max:120'],

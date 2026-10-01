@@ -38,7 +38,7 @@ class FindDuplicateExpense
             ->where('amount_minor', $amountMinor)
             ->where('currency_code', $currencyCode)
             ->whereDate('occurred_at', $occurredAt->toDateString())
-            ->with('splits:id,expense_id,user_id,placeholder_id')
+            ->with('splits:id,expense_id,user_id,placeholder_id,included_in_split')
             ->latest('id')
             ->get()
             ->first(function (Expense $expense) use ($normalizedDescription, $participantKeys): bool {
@@ -54,6 +54,7 @@ class FindDuplicateExpense
     private function participantKeys(iterable $participants): array
     {
         return Collection::make($participants)
+            ->filter(fn (array|object $participant): bool => is_array($participant) ? ($participant['included_in_split'] ?? true) : ($participant->included_in_split ?? true))
             ->map(function (array|object $participant): string {
                 $userId = is_array($participant) ? ($participant['user_id'] ?? null) : $participant->user_id;
                 $placeholderId = is_array($participant)

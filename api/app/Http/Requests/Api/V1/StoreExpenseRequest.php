@@ -2,13 +2,16 @@
 
 namespace App\Http\Requests\Api\V1;
 
+use App\Exceptions\InvalidSplit;
 use App\ExpenseType;
 use App\Models\Expense;
 use App\Models\Group;
+use App\Services\ExpenseAllocation;
 use App\SplitType;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Illuminate\Validation\Validator;
 
 class StoreExpenseRequest extends FormRequest
@@ -41,10 +44,6 @@ class StoreExpenseRequest extends FormRequest
     public function rules(): array
     {
         $expenseType = $this->input('expense_type');
-        $splitType = $this->input('split_type');
-        $splitValueMinimum = in_array($splitType, [SplitType::Percentage->value, SplitType::Shares->value], true)
-            ? 1
-            : 0;
 
         return [
             'expense_type' => ['required', Rule::enum(ExpenseType::class)],
@@ -77,17 +76,19 @@ class StoreExpenseRequest extends FormRequest
                 'array',
                 'min:1',
             ],
+            'participants.*' => ['array:user_id,placeholder_id,value,amount_paid_minor,included_in_split'],
             'participants.*.user_id' => [
                 'nullable',
                 'integer',
                 Rule::exists('users', 'id')->whereNull('deleted_at'),
             ],
             'participants.*.placeholder_id' => ['nullable', 'integer', 'exists:placeholders,id'],
+            'participants.*.included_in_split' => ['sometimes', 'boolean'],
+            'participants.*.amount_paid_minor' => ['nullable', 'integer', 'min:0', 'max:'.PHP_INT_MAX],
             'participants.*.value' => [
-                Rule::requiredIf($splitType !== SplitType::Equal->value),
                 'nullable',
                 'integer',
-                "min:{$splitValueMinimum}",
+                'min:0',
             ],
             'expense_rate' => [
                 'nullable',
@@ -106,14 +107,7 @@ class StoreExpenseRequest extends FormRequest
     public function after(): array
     {
         return [function (Validator $validator): void {
-            if ($validator->errors()->hasAny([
-                'expense_type',
-                'payer_user_id',
-                'payer_placeholder_id',
-                'amount_minor',
-                'split_type',
-                'participants',
-            ])) {
+            if ($validator->errors()->isNotEmpty()) {
                 return;
             }
 
@@ -136,65 +130,30 @@ class StoreExpenseRequest extends FormRequest
                 return;
             }
 
-            $participantKeys = [];
-            $splitTotal = 0;
-            $canValidateSplitTotal = true;
-
-            foreach ($this->input('participants', []) as $index => $participant) {
-                if (! is_array($participant)) {
-                    $canValidateSplitTotal = false;
-
-                    continue;
-                }
-
-                $participantKey = $this->participantKey(
-                    $participant['user_id'] ?? null,
-                    $participant['placeholder_id'] ?? null,
+            try {
+                app(ExpenseAllocation::class)->calculate(
+                    $this->integer('amount_minor'), $this->integer('amount_minor'),
+                    SplitType::from($this->input('split_type')),
+                    array_map(fn (array $participant): array => [
+                        'user_id' => isset($participant['user_id']) ? (int) $participant['user_id'] : null,
+                        'placeholder_id' => isset($participant['placeholder_id']) ? (int) $participant['placeholder_id'] : null,
+                        'included_in_split' => (bool) ($participant['included_in_split'] ?? true),
+                        ...(isset($participant['value']) ? ['value' => (int) $participant['value']] : []),
+                        ...(isset($participant['amount_paid_minor']) ? ['amount_paid_minor' => (int) $participant['amount_paid_minor']] : []),
+                    ], $this->input('participants', [])),
+                    $this->filled('payer_user_id') ? $this->integer('payer_user_id') : null,
+                    $this->filled('payer_placeholder_id') ? $this->integer('payer_placeholder_id') : null,
                 );
-
-                if ($participantKey === null) {
-                    $validator->errors()->add(
-                        "participants.{$index}.user_id",
-                        'Select exactly one user or placeholder for each participant.',
-                    );
-
-                    $canValidateSplitTotal = false;
-
-                    continue;
-                }
-
-                if (in_array($participantKey, $participantKeys, true)) {
-                    $validator->errors()->add('participants', 'Each participant may only appear once.');
-                }
-
-                $participantKeys[] = $participantKey;
-
-                if (isset($participant['value'])) {
-                    $validatedInteger = filter_var($participant['value'], FILTER_VALIDATE_INT);
-
-                    if ($validatedInteger === false) {
-                        $canValidateSplitTotal = false;
-                    } else {
-                        $splitTotal += $validatedInteger;
+            } catch (InvalidSplit $exception) {
+                $validator->errors()->add('participants', $exception->getMessage());
+            } catch (ValidationException $exception) {
+                foreach ($exception->errors() as $key => $messages) {
+                    foreach ($messages as $message) {
+                        $validator->errors()->add($key, $message);
                     }
                 }
             }
 
-            if (! in_array($payerKey, $participantKeys, true)) {
-                $validator->errors()->add('participants', 'The payer must be included in the split.');
-            }
-
-            if ($canValidateSplitTotal
-                && $this->input('split_type') === SplitType::Exact->value
-                && $splitTotal !== $this->integer('amount_minor')) {
-                $validator->errors()->add('participants', 'Exact split amounts must equal the expense amount.');
-            }
-
-            if ($canValidateSplitTotal
-                && $this->input('split_type') === SplitType::Percentage->value
-                && $splitTotal !== 10_000) {
-                $validator->errors()->add('participants', 'Percentage splits must total 100.00%.');
-            }
         }];
     }
 

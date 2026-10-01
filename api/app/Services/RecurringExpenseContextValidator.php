@@ -12,7 +12,7 @@ use Illuminate\Validation\ValidationException;
 class RecurringExpenseContextValidator
 {
     /**
-     * @param  list<array{user_id?: int|null, placeholder_id?: int|null, value?: int}>  $participants
+     * @param  list<array{user_id?: int|null, placeholder_id?: int|null, value?: int, included_in_split?: bool, amount_paid_minor?: int|null}>  $participants
      */
     public function validate(
         User $editor,
@@ -66,16 +66,7 @@ class RecurringExpenseContextValidator
             return;
         }
 
-        $participantKeys = array_map(fn (array $participant): string => $this->participantKey(
-            $participant['user_id'] ?? null,
-            $participant['placeholder_id'] ?? null,
-        ), $participants);
-
-        if (! in_array("user:{$recurringExpense->created_by}", $participantKeys, true)) {
-            throw ValidationException::withMessages([
-                'participants' => 'The schedule creator must participate in a direct expense.',
-            ]);
-        }
+        $participants[] = ['user_id' => $payerUserId, 'placeholder_id' => $payerPlaceholderId];
 
         foreach ($participants as $participant) {
             $participantUserId = $participant['user_id'] ?? null;

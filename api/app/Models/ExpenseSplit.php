@@ -12,7 +12,7 @@ use InvalidArgumentException;
 
 #[Fillable([
     'expense_id', 'user_id', 'placeholder_id', 'amount_owed_minor', 'reporting_amount_owed_minor',
-    'split_type', 'split_value',
+    'split_type', 'split_value', 'amount_paid_minor', 'reporting_amount_paid_minor', 'included_in_split',
 ])]
 class ExpenseSplit extends Model
 {
@@ -47,6 +47,9 @@ class ExpenseSplit extends Model
     {
         return [
             'amount_owed_minor' => 'integer',
+            'amount_paid_minor' => 'integer',
+            'reporting_amount_paid_minor' => 'integer',
+            'included_in_split' => 'boolean',
             'reporting_amount_owed_minor' => 'integer',
             'split_type' => SplitType::class,
             'split_value' => 'decimal:8',

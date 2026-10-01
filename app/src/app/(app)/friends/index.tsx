@@ -75,8 +75,8 @@ export default function FriendsScreen() {
             keyboardShouldPersistTaps="handled"
             refreshControl={(
               <RefreshControl
-                refreshing={friendsQuery.isRefetching}
-                onRefresh={() => void friendsQuery.refetch()}
+                refreshing={friendsQuery.isRefetching || balancesQuery.isRefetching}
+                onRefresh={() => void Promise.all([friendsQuery.refetch(), balancesQuery.refetch()])}
               />
             )}
             showsVerticalScrollIndicator={false}>
@@ -89,6 +89,7 @@ export default function FriendsScreen() {
                 retrying={friendsQuery.isRefetching}
               />
             ) : null}
+            {balancesQuery.error ? <QueryErrorCard title="Friend balances could not refresh" error={balancesQuery.error} onRetry={() => void balancesQuery.refetch()} /> : null}
             {mutationError ? <ThemedText themeColor="danger">{errorMessage(mutationError)}</ThemedText> : null}
             {friendsQuery.isLoading ? (
               <ThemedText style={styles.centered} themeColor="textSecondary">Loading friends…</ThemedText>
@@ -116,6 +117,7 @@ export default function FriendsScreen() {
                 removeLabel="Remove"
                 actionLabel="Add expense"
                 onAction={() => router.push({ pathname: '/(app)/expenses/create', params: { friendId: friendship.friend.id } })}
+                balancesLoaded={balancesQuery.isSuccess && !balancesQuery.isRefetchError}
                 balances={balancesQuery.isError ? [] : (balancesQuery.data?.direct ?? []).filter((balance) => balance.participant.key === `user:${friendship.friend.id}`).map((balance) => ({ currency: balance.currency_code, minor: balance.balance_minor }))}
               />
             ))}
@@ -176,6 +178,7 @@ function FriendRow({
   onRemove,
   removeLabel,
   balances = [],
+  balancesLoaded = false,
 }: {
   actionLabel?: string;
   friendship: Friendship;
@@ -183,6 +186,7 @@ function FriendRow({
   onAction?: () => void;
   onRemove: () => void;
   removeLabel: string;
+  balancesLoaded?: boolean;
   balances?: { currency: string; minor: number }[];
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -198,11 +202,15 @@ function FriendRow({
       <View style={styles.friendCopy}>
         <ThemedText style={styles.friendName}>{friendship.friend.name}</ThemedText>
         <ThemedText style={styles.email} themeColor="textSecondary">{friendship.friend.email}</ThemedText>
+        {friendship.status === 'accepted' && balancesLoaded && balances.length === 0 ? <ThemedText themeColor="textSecondary">Settled up · no money owed</ThemedText> : null}
         {balances.map((balance) => <AnimatedPressable key={balance.currency} style={{ minHeight: 48, justifyContent: 'center' }} onPress={() => router.push({ pathname: '/(app)/settlements/direct', params: { participant: `user:${friendship.friend.id}`, currency: balance.currency } })}>
-          <ThemedText style={styles.email} themeColor={balance.minor >= 0 ? 'positive' : 'danger'}>{balance.minor > 0 ? 'You are owed' : balance.minor < 0 ? 'You owe' : 'Settled'} · {formatMoney(Math.abs(balance.minor), balance.currency)}</ThemedText>
+          <ThemedText style={styles.email} themeColor={balance.minor >= 0 ? 'positive' : 'danger'}>{balance.minor > 0 ? 'Owes you' : balance.minor < 0 ? 'You owe' : 'Settled'} · {formatMoney(Math.abs(balance.minor), balance.currency)} · Settle up</ThemedText>
         </AnimatedPressable>)}
       </View>
       <View style={styles.rowActions}>
+        {friendship.status === 'accepted' ? <Pressable accessibilityRole="button" style={styles.rowButton} onPress={() => router.push({ pathname: '/(app)/expenses', params: { friendId: friendship.friend.id, friendName: friendship.friend.name } })}>
+          <ThemedText style={styles.rowAction} themeColor="interactive">Expenses</ThemedText>
+        </Pressable> : null}
         {onAction && actionLabel ? (
           <Pressable disabled={loading} onPress={onAction} style={styles.rowButton}>
             <ThemedText style={styles.rowAction} themeColor="primary">

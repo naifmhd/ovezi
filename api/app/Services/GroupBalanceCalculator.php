@@ -18,7 +18,7 @@ class GroupBalanceCalculator
         $group->expenses()
             ->with([
                 'payerPlaceholder:id,claimed_by',
-                'splits:id,expense_id,user_id,placeholder_id,reporting_amount_owed_minor',
+                'splits:id,expense_id,user_id,placeholder_id,reporting_amount_owed_minor,reporting_amount_paid_minor',
                 'splits.placeholder:id,claimed_by',
             ])
             ->select(['id', 'payer_user_id', 'payer_placeholder_id', 'reporting_amount_minor'])
@@ -29,7 +29,10 @@ class GroupBalanceCalculator
                     $expense->payer_placeholder_id,
                     $expense->payerPlaceholder?->claimed_by,
                 );
-                $balances[$payerKey] = ($balances[$payerKey] ?? 0) + $expense->reporting_amount_minor;
+                $hasContributions = $expense->splits->contains(fn ($split): bool => $split->reporting_amount_paid_minor !== null);
+                if (! $hasContributions) {
+                    $balances[$payerKey] = ($balances[$payerKey] ?? 0) + $expense->reporting_amount_minor;
+                }
 
                 foreach ($expense->splits as $split) {
                     $participantKey = $this->canonicalParticipantKey(
@@ -38,7 +41,7 @@ class GroupBalanceCalculator
                         $split->placeholder?->claimed_by,
                     );
                     $balances[$participantKey] = ($balances[$participantKey] ?? 0)
-                        - $split->reporting_amount_owed_minor;
+                        + ($split->reporting_amount_paid_minor ?? 0) - $split->reporting_amount_owed_minor;
                 }
             });
 

@@ -14,7 +14,7 @@ function load(name, mocks = {}, globals = {}) {
   vm.runInNewContext(code, { module, exports: module.exports, require: (id) => {
     if (id in mocks) return mocks[id];
     throw new Error('Unexpected import: ' + id);
-  }, URL, Headers, AbortController, setTimeout, clearTimeout, process: { env: { EXPO_PUBLIC_API_URL: 'https://api.example.test/api/v1' } }, ...globals });
+  }, Error, URL, Headers, AbortController, setTimeout, clearTimeout, process: { env: { EXPO_PUBLIC_API_URL: 'https://api.example.test/api/v1' } }, ...globals });
   return module.exports;
 }
 
@@ -37,6 +37,7 @@ function loadAuthApi(api) {
 function pushDeviceHarness() {
   const saved = new Map();
   const calls = { registered: 0, revoked: 0, prompted: 0 };
+  const steps = [];
   let permission = { status: 'granted', granted: true, canAskAgain: true };
   let register = async () => { calls.registered++; };
   let revoke = async () => { calls.revoked++; };
@@ -52,8 +53,11 @@ function pushDeviceHarness() {
     'expo-notifications': {
       setNotificationHandler: () => {},
       IosAuthorizationStatus: { PROVISIONAL: 3 },
+      AndroidImportance: { DEFAULT: 3 },
+      setNotificationChannelAsync: async () => { steps.push('channel'); },
       getPermissionsAsync: async () => permission,
       requestPermissionsAsync: async () => {
+        steps.push('permission');
         calls.prompted++;
         permission = { status: 'granted', granted: true, canAskAgain: true };
         return permission;
@@ -66,7 +70,9 @@ function pushDeviceHarness() {
     },
   };
   return {
-    calls,
+    calls, steps,
+    platform: value => { mocks['react-native'].Platform.OS = value; },
+    pushToken: value => { mocks['expo-notifications'].getExpoPushTokenAsync = value; },
     restart: () => load('push-notifications', mocks),
     permission: value => { permission = value; },
     register: value => { register = value; },
@@ -374,4 +380,107 @@ test('expired replay receipts remain protected from another submission', async (
   const original = [...h.storage.values()][0];
   await assert.rejects(h.api().financialRequest('/settlements', 'session-a', { amount_minor: 1250 }));
   assert.equal([...h.storage.values()][0], original);
+});
+
+test('signup always explains missing fields and mismatched passwords before submission', () => {
+  const { registrationValidationMessage: validate } = load('registration-validation');
+  assert.match(validate(' ', '', '', ''), /name/);
+  assert.match(validate('Naif', 'bad', '', ''), /valid email/);
+  assert.match(validate('Naif', 'naif@example.test', '123', '123'), /8 characters/);
+  assert.match(validate('Naif', 'naif@example.test', 'password123', ''), /Repeat your password/);
+  assert.match(validate('Naif', 'naif@example.test', 'password123', 'different'), /do not match/);
+  assert.equal(validate(' Naif ', 'naif@example.test', 'password123', 'password123'), null);
+});
+
+test('an embedded release manifest does not hide native Google sign-in', () => {
+  const constants = { executionEnvironment: 'standalone', expoGoConfig: { name: 'Ovezi' }, expoConfig: { extra: { googleWebClientId: 'public-web-id' } } };
+  const config = load('social-auth-config', { 'expo-constants': { __esModule: true, default: constants, ExecutionEnvironment: { StoreClient: 'storeClient' } } });
+  assert.equal(config.isExpoGo, false);
+  assert.equal(config.googleWebClientId, 'public-web-id');
+  constants.executionEnvironment = 'storeClient';
+  assert.equal(load('social-auth-config', { 'expo-constants': { __esModule: true, default: constants, ExecutionEnvironment: { StoreClient: 'storeClient' } } }).isExpoGo, true);
+});
+
+function splitHelpers() {
+  return load('expense-split', { '@/lib/format': load('format') });
+}
+
+test('exact split helpers preserve entered values and distribute only unassigned amounts', () => {
+  const { remainingAllocation, distributeUnassigned } = splitHelpers();
+  assert.equal(remainingAllocation(10001, ['40.00', '', ''], 2), 6001);
+  assert.equal(JSON.stringify(distributeUnassigned(10001, ['40.00', '', ''], 2)), JSON.stringify([4000, 3001, 3000]));
+  assert.equal(remainingAllocation(100, ['2.00', ''], 2), -100);
+  assert.equal(distributeUnassigned(100, ['2.00', ''], 2), null);
+  assert.equal(remainingAllocation(100, ['invalid'], 2), null);
+  assert.equal(distributeUnassigned(100, ['1.00'], 2), null);
+  assert.equal(JSON.stringify(distributeUnassigned(101, ['50', '', ''], 0)), JSON.stringify([50, 26, 25]));
+  assert.equal(JSON.stringify(distributeUnassigned(1000, ['0.125', ''], 3)), JSON.stringify([125, 875]));
+});
+
+test('a payer can be excluded from the preview and rounding stays with a beneficiary', () => {
+  const { splitAllocationPreview } = splitHelpers();
+  const participants = [{ key: 'user:2', value: '60', selected: true }, { key: 'user:3', value: '40', selected: true }];
+  const equal = splitAllocationPreview(101, 'equal', participants, 'user:1', 2);
+  assert.equal(equal.get('user:2'), 51);
+  assert.equal(equal.get('user:3'), 50);
+  assert.equal(equal.has('user:1'), false);
+  const percentage = splitAllocationPreview(101, 'percentage', participants, 'user:1', 2);
+  assert.equal(percentage.get('user:2'), 61);
+  assert.equal(percentage.get('user:3'), 40);
+});
+
+test('expense summaries use contributions and preserve older sole-payer expenses', () => {
+  const { expenseNetForUser, directExpenseSummary } = load('expense-impact', { '@/lib/format': load('format') });
+  const expense = { expense_type: 'direct', currency_code: 'MVR', amount_minor: 10000, payer: { user_id: 1, name: 'You' }, splits: [
+    { user_id: 1, name: 'You', amount_paid_minor: 7000, amount_owed_minor: 5000 },
+    { user_id: 2, name: 'Friend', amount_paid_minor: 3000, amount_owed_minor: 5000 },
+  ] };
+  assert.equal(expenseNetForUser(expense, 1), 2000);
+  assert.equal(expenseNetForUser(expense, 2), -2000);
+  assert.match(directExpenseSummary(expense, 1), /Friend owes you/);
+  expense.splits.forEach(s => { delete s.amount_paid_minor; });
+  assert.equal(expenseNetForUser(expense, 1), 5000);
+  expense.splits = [expense.splits[1]];
+  expense.splits[0].amount_owed_minor = 10000;
+  assert.equal(expenseNetForUser(expense, 1), 10000);
+});
+
+test('Android build requires Firebase configuration and embeds public OAuth IDs', () => {
+  const env = {
+    EAS_BUILD_PROFILE: 'production', EAS_BUILD_PLATFORM: 'android',
+    EXPO_PUBLIC_API_URL: 'https://example.test/api/v1', EXPO_PUBLIC_EAS_PROJECT_ID: 'project-id',
+    EXPO_IOS_BUNDLE_IDENTIFIER: 'com.ovezi.app', EXPO_ANDROID_PACKAGE: 'com.ovezi.app',
+    EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID: 'test-ios.apps.googleusercontent.com', EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID: 'test-web.apps.googleusercontent.com',
+    EXPO_PUBLIC_REVERB_APP_KEY: 'public', EXPO_PUBLIC_REVERB_HOST: 'example.test', EXPO_PUBLIC_SENTRY_DSN: 'test-dsn', SENTRY_ORG: 'test', SENTRY_PROJECT: 'test',
+  };
+  function config(extra, firebase) {
+    const module = { exports: {} };
+    vm.runInNewContext(fs.readFileSync(path.join(__dirname, '../app.config.js'), 'utf8'), {
+      module, __dirname: path.join(__dirname, '..'), process: { env: { ...env, ...extra } },
+      require: (id) => id === 'node:fs' ? { existsSync: () => Boolean(firebase), readFileSync: () => JSON.stringify(firebase) }
+        : id === './app.json' ? require('../app.json') : require(id),
+      URL,
+    });
+    return module.exports();
+  }
+  assert.throws(() => config({}), /GOOGLE_SERVICES_JSON/);
+  const firebase = { client: [{ client_info: { android_client_info: { package_name: 'com.ovezi.app' } } }] };
+  const built = config({ GOOGLE_SERVICES_JSON: '/tmp/firebase-test.json' }, firebase);
+  assert.equal(built.android.googleServicesFile, '/tmp/firebase-test.json');
+  assert.equal(built.extra.googleWebClientId, env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID);
+  assert.throws(() => config({ GOOGLE_SERVICES_JSON: '/tmp/firebase-test.json' }, { client: [] }), /does not contain/);
+  assert.doesNotThrow(() => config({ EAS_BUILD_PLATFORM: 'ios' }));
+});
+
+
+test('Android creates a channel before asking permission and explains missing Firebase', async () => {
+  const h = pushDeviceHarness();
+  h.platform('android');
+  h.permission({ status: 'undetermined', granted: false, canAskAgain: true });
+  h.pushToken(async () => { throw new Error('Unable to get Firebase messaging instance. Did you configure googleServicesFile?'); });
+  const push = h.restart();
+  await assert.rejects(push.syncPushToken('session', true), /Notifications are unavailable in this Android version/);
+  assert.deepEqual(h.steps, ['channel', 'permission']);
+  assert.equal(await push.hasRegisteredPushDevice(), false);
+  assert.equal(h.calls.registered, 0);
 });

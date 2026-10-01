@@ -23,7 +23,7 @@ class SplitCalculator
         }
 
         if (! array_key_exists($payerKey, $values)) {
-            throw new InvalidSplit('The payer must be included in the split.');
+            $payerKey = array_key_first($values);
         }
 
         return match ($splitType) {

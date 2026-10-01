@@ -54,6 +54,14 @@ class ExpenseController extends Controller
                         });
                 });
             })
+            ->when($request->filled('friend_id'), fn (Builder $query): Builder => $query
+                ->where('expense_type', ExpenseType::Direct)
+                ->where(fn (Builder $participant): Builder => $participant
+                    ->where('payer_user_id', $request->integer('friend_id'))
+                    ->orWhereHas('payerPlaceholder', fn (Builder $placeholder): Builder => $placeholder->where('claimed_by', $request->integer('friend_id')))
+                    ->orWhereHas('splits', fn (Builder $split): Builder => $split
+                        ->where('user_id', $request->integer('friend_id'))
+                        ->orWhereHas('placeholder', fn (Builder $placeholder): Builder => $placeholder->where('claimed_by', $request->integer('friend_id'))))))
             ->when($request->filled('group_id'), fn (Builder $query): Builder => $query
                 ->where('group_id', $request->integer('group_id')))
             ->when($request->filled('expense_type'), fn (Builder $query): Builder => $query
@@ -107,6 +115,8 @@ class ExpenseController extends Controller
         $participants = array_map(fn (array $participant): array => [
             'user_id' => isset($participant['user_id']) ? (int) $participant['user_id'] : null,
             'placeholder_id' => isset($participant['placeholder_id']) ? (int) $participant['placeholder_id'] : null,
+            'included_in_split' => (bool) ($participant['included_in_split'] ?? true),
+            ...(isset($participant['amount_paid_minor']) ? ['amount_paid_minor' => (int) $participant['amount_paid_minor']] : []),
             ...(array_key_exists('value', $participant) ? ['value' => (int) $participant['value']] : []),
         ], $validated['participants'] ?? []);
         $expenseType = ExpenseType::from($validated['expense_type']);
@@ -178,6 +188,8 @@ class ExpenseController extends Controller
         $participants = array_map(fn (array $participant): array => [
             'user_id' => isset($participant['user_id']) ? (int) $participant['user_id'] : null,
             'placeholder_id' => isset($participant['placeholder_id']) ? (int) $participant['placeholder_id'] : null,
+            'included_in_split' => (bool) ($participant['included_in_split'] ?? true),
+            ...(isset($participant['amount_paid_minor']) ? ['amount_paid_minor' => (int) $participant['amount_paid_minor']] : []),
             ...(array_key_exists('value', $participant) ? ['value' => (int) $participant['value']] : []),
         ], $validated['participants'] ?? []);
         $updatedExpense = $updateExpense->execute($request->user(), $expense, [

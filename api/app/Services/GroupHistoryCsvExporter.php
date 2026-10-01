@@ -31,8 +31,8 @@ class GroupHistoryCsvExporter
                     $expense->trashed() ? 'deleted' : 'active',
                     $expense->occurred_at->toIso8601String(),
                     $expense->description,
-                    $expense->payerUser?->name ?? $expense->payerPlaceholder?->name,
-                    $expense->splits->map(function ($split) use ($expense): string {
+                    $expense->splits->where('amount_paid_minor', '>', 0)->map(fn ($split): string => ($split->user?->name ?? $split->placeholder?->name ?? 'Unknown').' ('.$this->decimalAmount($split->amount_paid_minor, $expense->currency).' '.$expense->currency_code.')')->implode(', ') ?: ($expense->payerUser?->name ?? $expense->payerPlaceholder?->name),
+                    $expense->splits->where('included_in_split', '!=', false)->map(function ($split) use ($expense): string {
                         $name = $split->user?->name ?? $split->placeholder?->name ?? 'Unknown';
 
                         return "{$name}: {$this->decimalAmount($split->amount_owed_minor, $expense->currency)} {$expense->currency_code}";

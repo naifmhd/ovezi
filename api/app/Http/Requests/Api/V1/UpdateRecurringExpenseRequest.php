@@ -35,6 +35,11 @@ class UpdateRecurringExpenseRequest extends StoreRecurringExpenseRequest
                     return;
                 }
 
+                if (($recurringExpense->splits()->where('amount_paid_minor', '>', 0)->count() > 1 || $recurringExpense->splits()->where('included_in_split', false)->exists())
+                    && ! collect($this->input('participants', []))->contains(fn ($participant): bool => is_array($participant) && isset($participant['amount_paid_minor']))) {
+                    $validator->errors()->add('participants', 'Update Ovezi to edit this expense’s payments and shares.');
+                }
+
                 if ($this->input('expense_type') !== $recurringExpense->expense_type->value) {
                     $validator->errors()->add('expense_type', 'A recurring expense cannot be moved to another type.');
                 }

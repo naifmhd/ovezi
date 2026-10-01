@@ -139,3 +139,17 @@ it('requires a nonce for Apple and validates supported providers', function () {
         'device_name' => 'Phone',
     ])->assertUnprocessable()->assertJsonValidationErrors('provider');
 });
+
+it('returns a recoverable 503 without creating a session when Apple server credentials are missing', function () {
+    config(['ovezi.social.apple_client_id' => 'com.ovezi.app', 'ovezi.social.apple_team_id' => null, 'ovezi.social.apple_key_id' => null, 'ovezi.social.apple_private_key' => null]);
+    $identity = new VerifiedSocialIdentity(ConnectedAccountProvider::Apple, 'apple-subject', 'apple@example.com', true, 'Apple User', null);
+    $this->mock(SocialIdentityVerifier::class)->shouldReceive('verify')->once()->andReturn($identity);
+
+    $this->postJson('/api/v1/auth/social', [
+        'provider' => 'apple', 'id_token' => 'verified-token', 'nonce' => str_repeat('a', 32),
+        'authorization_code' => 'single-use-code', 'device_name' => 'iPhone',
+    ])->assertServiceUnavailable()->assertJsonPath('message', 'Apple sign-in is temporarily unavailable. Please try again later or use another sign-in method.');
+
+    $this->assertDatabaseCount('users', 0);
+    $this->assertDatabaseCount('personal_access_tokens', 0);
+});

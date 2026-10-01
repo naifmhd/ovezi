@@ -34,6 +34,11 @@ class UpdateExpenseRequest extends StoreExpenseRequest
                     return;
                 }
 
+                if (($expense->splits()->where('amount_paid_minor', '>', 0)->count() > 1 || $expense->splits()->where('included_in_split', false)->exists())
+                    && ! collect($this->input('participants', []))->contains(fn ($participant): bool => is_array($participant) && isset($participant['amount_paid_minor']))) {
+                    $validator->errors()->add('participants', 'Update Ovezi to edit this expense’s payments and shares.');
+                }
+
                 if ($this->input('expense_type') !== $expense->expense_type->value) {
                     $validator->errors()->add('expense_type', 'An expense cannot be moved to another type.');
                 }

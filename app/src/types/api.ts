@@ -188,6 +188,9 @@ export type ExpenseSplit = {
   reporting_amount_owed_minor: number;
   split_type: SplitType;
   split_value: string | null;
+  included_in_split?: boolean;
+  amount_paid_minor?: number | null;
+  reporting_amount_paid_minor?: number | null;
 };
 
 export type Expense = {
@@ -227,6 +230,9 @@ export type RecurringExpenseSplit = {
   claimed_user_id: number | null;
   name: string | null;
   split_value: string | null;
+  included_in_split?: boolean;
+  amount_paid_minor?: number | null;
+  reporting_amount_paid_minor?: number | null;
 };
 
 export type RecurringExpense = {

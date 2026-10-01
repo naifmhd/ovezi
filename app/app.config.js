@@ -1,3 +1,5 @@
+const fs = require('node:fs');
+const path = require('node:path');
 const staticConfig = require('./app.json');
 
 function requiredBuildValue(name, value, buildProfile) {
@@ -37,12 +39,26 @@ module.exports = () => {
     process.env.EXPO_ANDROID_PACKAGE,
     buildProfile,
   );
+  const googleServicesFile = process.env.GOOGLE_SERVICES_JSON?.trim()
+    || (fs.existsSync(path.join(__dirname, 'google-services.json')) ? './google-services.json' : undefined);
+  if (buildProfile && process.env.EAS_BUILD_PLATFORM === 'android' && !googleServicesFile) {
+    throw new Error('GOOGLE_SERVICES_JSON must point to the Firebase google-services.json file for Android builds. Set it as an EAS file environment variable.');
+  }
+  if (googleServicesFile && fs.existsSync(path.resolve(__dirname, googleServicesFile))) {
+    const firebase = JSON.parse(fs.readFileSync(path.resolve(__dirname, googleServicesFile), 'utf8'));
+    const packageName = androidPackage || staticConfig.expo.android.package;
+    if (!firebase.client?.some((client) => client.client_info?.android_client_info?.package_name === packageName)) {
+      throw new Error('The Firebase google-services.json file does not contain this Android package.');
+    }
+  } else if (googleServicesFile && process.env.EAS_BUILD === 'true' && process.env.EAS_BUILD_PLATFORM === 'android') {
+    throw new Error('GOOGLE_SERVICES_JSON does not point to an existing file on the Android build worker.');
+  }
   const googleIosClientId = requiredBuildValue(
     'EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID',
     process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
     buildProfile,
   );
-  requiredBuildValue(
+  const googleWebClientId = requiredBuildValue(
     'EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID',
     process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
     buildProfile,
@@ -106,12 +122,15 @@ module.exports = () => {
     },
     android: {
       ...staticConfig.expo.android,
+      ...(googleServicesFile ? { googleServicesFile } : {}),
       ...(linkHost && apiUrl.startsWith('https://') ? { intentFilters: [{ action: 'VIEW', autoVerify: true, category: ['BROWSABLE', 'DEFAULT'], data: linkPaths.map((pathPrefix) => ({ scheme: 'https', host: linkHost, pathPrefix })) }] } : {}),
       ...(androidPackage ? { package: androidPackage } : {}),
     },
     plugins,
     extra: {
       ...staticConfig.expo.extra,
+      googleWebClientId,
+      googleIosClientId,
       ...(easProjectId
         ? {
             eas: {

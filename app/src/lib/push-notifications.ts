@@ -80,7 +80,15 @@ async function registerDevice(apiToken: string, requestPermission: boolean) {
     throw new Error('Notifications are not configured in this app build. Please update Ovezi or contact support.');
   }
 
-  const expoPushToken = (await Notifications.getExpoPushTokenAsync({ projectId: easProjectId })).data;
+  let expoPushToken: string;
+  try {
+    expoPushToken = (await Notifications.getExpoPushTokenAsync({ projectId: easProjectId })).data;
+  } catch (error) {
+    if (Platform.OS === 'android' && error instanceof Error && /firebase|google.?services|messaging instance/i.test(error.message)) {
+      throw new Error('Notifications are unavailable in this Android version of Ovezi. Please update the app or contact support. Your expenses are still saved.');
+    }
+    throw error;
+  }
   const platform = Platform.OS === 'ios' ? 'ios' : 'android';
   const deviceName = `${platform}:${Device.modelName ?? 'device'}`;
 

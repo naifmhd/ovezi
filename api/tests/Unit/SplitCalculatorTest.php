@@ -63,5 +63,10 @@ it('rejects invalid split inputs', function (SplitType $type, array $values, str
     'exact total mismatch' => [SplitType::Exact, ['user:1' => 99], 'user:1'],
     'percentage total mismatch' => [SplitType::Percentage, ['user:1' => 9999], 'user:1'],
     'zero shares' => [SplitType::Shares, ['user:1' => 0], 'user:1'],
-    'payer omitted' => [SplitType::Equal, ['user:2' => 1], 'user:1'],
+    'no beneficiaries' => [SplitType::Equal, [], 'user:1'],
 ])->throws(InvalidSplit::class);
+
+it('assigns rounding to the first beneficiary when the payer owes no share', function () {
+    expect((new SplitCalculator)->calculate(101, SplitType::Equal, ['user:2' => 1, 'user:3' => 1], 'user:1'))
+        ->toBe(['user:2' => 51, 'user:3' => 50]);
+});

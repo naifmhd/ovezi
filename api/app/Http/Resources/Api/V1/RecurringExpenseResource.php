@@ -42,6 +42,8 @@ class RecurringExpenseResource extends JsonResource
                 'claimed_user_id' => $split->placeholder?->claimed_by,
                 'name' => $split->user?->name ?? $split->placeholder?->name,
                 'split_value' => $split->split_value,
+                'included_in_split' => $split->included_in_split,
+                'amount_paid_minor' => $split->amount_paid_minor,
             ])),
             'created_by' => $this->created_by,
             'paused_at' => $this->paused_at,

@@ -35,6 +35,7 @@ import {
   type UpdateExpenseInput,
   updateExpense,
 } from '@/lib/expenses-api';
+import { splitAllocationPreview, remainingAllocation, distributeUnassigned } from '@/lib/expense-split';
 import { currencyFractionDigits, formatMoney, minorAmountInput, parseDecimalToInteger } from '@/lib/format';
 import { fetchFriends } from '@/lib/friends-api';
 import { fetchGroup, fetchGroups } from '@/lib/groups-api';
@@ -112,56 +113,6 @@ function memberDraft(member: GroupMember): ParticipantDraft {
   };
 }
 
-function splitAllocationPreview(
-  amountMinor: number | null,
-  splitType: SplitType,
-  participants: ParticipantDraft[],
-  payerKey: string,
-  fractionDigits: number,
-) {
-  if (!amountMinor || amountMinor < 1 || participants.length === 0) return new Map<string, number>();
-  if (!participants.some((participant) => participant.key === payerKey)) return new Map<string, number>();
-
-  if (splitType === 'equal') {
-    const share = Math.floor(amountMinor / participants.length);
-    const allocations = new Map(participants.map((participant) => [participant.key, share]));
-    allocations.set(payerKey, share + (amountMinor % participants.length));
-    return allocations;
-  }
-
-  const values = participants.map((participant) => {
-    if (splitType === 'exact') return parseDecimalToInteger(participant.value, fractionDigits);
-    if (splitType === 'percentage') return parseDecimalToInteger(participant.value, 2);
-
-    const shares = Number(participant.value);
-    return Number.isInteger(shares) && shares > 0 ? shares : null;
-  });
-  if (values.some((value) => value === null)) return new Map<string, number>();
-
-  const integerValues = values as number[];
-  if (splitType !== 'exact' && integerValues.some((value) => value <= 0)) {
-    return new Map<string, number>();
-  }
-  const total = integerValues.reduce((sum, value) => sum + value, 0);
-  if (splitType === 'exact') {
-    if (total !== amountMinor) return new Map<string, number>();
-    return new Map(participants.map((participant, index) => [participant.key, integerValues[index]]));
-  }
-  if (total < 1 || (splitType === 'percentage' && total !== 10_000)) {
-    return new Map<string, number>();
-  }
-
-  let allocated = 0;
-  const allocations = new Map(participants.map((participant, index) => {
-    const value = Math.floor((amountMinor * integerValues[index]) / total);
-    allocated += value;
-    return [participant.key, value] as const;
-  }));
-  allocations.set(payerKey, (allocations.get(payerKey) ?? 0) + amountMinor - allocated);
-
-  return allocations;
-}
-
 export default function CreateExpenseScreen() {
   const params = useLocalSearchParams<{
     expenseId?: string | string[];
@@ -208,6 +159,7 @@ export default function CreateExpenseScreen() {
   const [splitType, setSplitType] = useState<SplitType>('equal');
   const [participantOverrides, setParticipantOverrides] = useState<ParticipantDraft[] | null>(null);
   const [payerKey, setPayerKey] = useState('');
+  const [multiplePayers, setMultiplePayers] = useState(false);
   const [currencyTouched, setCurrencyTouched] = useState(false);
   const [expenseRate, setExpenseRate] = useState('');
   const [recalculateRate, setRecalculateRate] = useState(false);
@@ -282,9 +234,12 @@ export default function CreateExpenseScreen() {
           },
     ];
   }
-  const participants = participantOverrides ?? defaultParticipants;
+  const participants = participantOverrides ? [
+    ...participantOverrides,
+    ...defaultParticipants.filter((participant) => !participantOverrides.some((saved) => saved.key === participant.key)).map((participant) => ({ ...participant, selected: false })),
+  ] : defaultParticipants;
   const selectedParticipants = participants.filter((participant) => participant.selected);
-  const effectivePayerKey = payerKey || (
+  const effectivePayerKey = (multiplePayers ? participants.find((participant) => (parseDecimalToInteger(participant.paidValue ?? '', currencyFractionDigits(currency)) ?? 0) > 0)?.key : payerKey) || (
     participants.find((participant) => participant.userId === user.id)?.key
       ?? participants[0]?.key
       ?? ''
@@ -309,9 +264,13 @@ export default function CreateExpenseScreen() {
     effectivePayerKey,
     previewFractionDigits,
   );
-  const payerName = selectedParticipants.find(
+  const payerName = participants.find(
     (participant) => participant.key === effectivePayerKey,
   )?.name;
+  const previewAmount = parseDecimalToInteger(amount, previewFractionDigits);
+  const splitRemainder = remainingAllocation(splitType === 'percentage' ? 10_000 : previewAmount, selectedParticipants.map((p) => p.value), splitType === 'percentage' ? 2 : previewFractionDigits);
+  const paymentRemainder = remainingAllocation(previewAmount, participants.map((p) => p.paidValue ?? ''), previewFractionDigits);
+  const roundingName = selectedParticipants.find((p) => p.key === effectivePayerKey)?.name ?? selectedParticipants[0]?.name;
   const draftBelongsToAnotherUser = Boolean(
     draftHydrated && savedDraft && savedDraft.userId !== user.id,
   );
@@ -344,7 +303,8 @@ export default function CreateExpenseScreen() {
         name: split.name ?? 'Unknown',
         ...(split.user_id ? { userId: split.user_id } : {}),
         ...(split.placeholder_id ? { placeholderId: split.placeholder_id } : {}),
-        selected: true,
+        selected: split.included_in_split !== false,
+        paidValue: split.amount_paid_minor == null ? '' : minorAmountInput(split.amount_paid_minor, editingExpense.currency_code),
         value: split.split_value === null
           ? ''
           : existingSplitType === 'exact'
@@ -353,6 +313,7 @@ export default function CreateExpenseScreen() {
               ? String(Number(split.split_value) / 100)
               : String(Number(split.split_value)),
       })));
+      setMultiplePayers(editingExpense.splits.filter((split) => (split.amount_paid_minor ?? 0) > 0).length > 1);
       setPayerKey(
         editingExpense.payer.user_id
           ? `user:${editingExpense.payer.user_id}`
@@ -416,6 +377,7 @@ export default function CreateExpenseScreen() {
         splitType,
         participants: participantOverrides,
         payerKey,
+        multiplePayers,
         expenseRate,
         recalculateRate,
         recurrenceFrequency,
@@ -441,6 +403,7 @@ export default function CreateExpenseScreen() {
     occurredOn,
     participantOverrides,
     payerKey,
+    multiplePayers,
     recalculateRate,
     recurrenceEndsOn,
     recurrenceFrequency,
@@ -470,6 +433,7 @@ export default function CreateExpenseScreen() {
     setSplitType(savedDraft.splitType);
     setParticipantOverrides(savedDraft.participants);
     setPayerKey(savedDraft.payerKey);
+    setMultiplePayers(savedDraft.multiplePayers ?? false);
     setExpenseRate(savedDraft.expenseRate);
     setRecalculateRate(savedDraft.recalculateRate);
     setRecurrenceFrequency(savedDraft.recurrenceFrequency ?? null);
@@ -544,6 +508,7 @@ export default function CreateExpenseScreen() {
     setParticipantOverrides(null);
     setSplitType('equal');
     setPayerKey('');
+    setMultiplePayers(false);
     setCurrency(defaultCurrencyCode);
     setCurrencyTouched(false);
     setExpenseRate('');
@@ -558,6 +523,7 @@ export default function CreateExpenseScreen() {
     setSelectedFriendId(null);
     setParticipantOverrides(null);
     setPayerKey('');
+    setMultiplePayers(false);
     setFormError(null);
   }
 
@@ -566,6 +532,7 @@ export default function CreateExpenseScreen() {
     setSelectedPlaceholderId(null);
     setParticipantOverrides(null);
     setPayerKey('');
+    setMultiplePayers(false);
     setFormError(null);
   }
 
@@ -584,38 +551,52 @@ export default function CreateExpenseScreen() {
         ? { ...participant, selected: !participant.selected, value: '' }
         : participant,
     );
-    const selected = next.filter((participant) => participant.selected);
-    if (!selected.some((participant) => participant.key === effectivePayerKey)) {
-      setPayerKey(selected[0]?.key ?? '');
-    }
     setParticipantOverrides(next);
   }
 
   function updateParticipantValue(key: string, value: string) {
-    setParticipantOverrides((current) =>
-      (current ?? defaultParticipants).map((participant) =>
+    setParticipantOverrides(
+      participants.map((participant) =>
         participant.key === key ? { ...participant, value } : participant,
       ),
     );
   }
 
+  function updatePaidValue(key: string, paidValue: string) {
+    setParticipantOverrides(participants.map((participant) => participant.key === key ? { ...participant, paidValue } : participant));
+  }
+
+  function fillRemainingSplits() {
+    const total = splitType === 'percentage' ? 10_000 : previewAmount;
+    if (total === null) return;
+    const digits = splitType === 'percentage' ? 2 : previewFractionDigits;
+    const values = distributeUnassigned(total, selectedParticipants.map((p) => p.value), digits);
+    if (!values) return;
+    const byKey = new Map(selectedParticipants.map((p, i) => [p.key, splitType === 'percentage' ? String(values[i] / 100) : minorAmountInput(values[i], previewCurrency)]));
+    setParticipantOverrides(participants.map((p) => ({ ...p, value: byKey.get(p.key) ?? p.value })));
+  }
+
   function buildParticipants(fractionDigits: number): ExpenseParticipantInput[] | null {
     const result: ExpenseParticipantInput[] = [];
 
-    for (const participant of selectedParticipants) {
+    for (const participant of participants.filter((p) => p.selected || multiplePayers || p.key === effectivePayerKey)) {
       let value: number | undefined;
-      if (splitType === 'exact') value = parseDecimalToInteger(participant.value, fractionDigits) ?? undefined;
-      if (splitType === 'percentage') {
+      if (participant.selected && splitType === 'exact') value = parseDecimalToInteger(participant.value, fractionDigits) ?? undefined;
+      if (participant.selected && splitType === 'percentage') {
         const percentage = parseDecimalToInteger(participant.value, 2);
         value = percentage !== null && percentage > 0 ? percentage : undefined;
       }
-      if (splitType === 'shares') {
+      if (participant.selected && splitType === 'shares') {
         const parsed = Number(participant.value);
-        value = Number.isInteger(parsed) && parsed > 0 ? parsed : undefined;
+        value = Number.isSafeInteger(parsed) && parsed > 0 ? parsed : undefined;
       }
-      if (splitType !== 'equal' && value === undefined) return null;
+      if (participant.selected && splitType !== 'equal' && value === undefined) return null;
+      const paidAmount = multiplePayers ? parseDecimalToInteger(participant.paidValue?.trim() || '0', fractionDigits) : participant.key === effectivePayerKey ? parseDecimalToInteger(amount, fractionDigits) : 0;
+      if (multiplePayers && paidAmount === null) return null;
 
       result.push({
+        included_in_split: participant.selected,
+        amount_paid_minor: paidAmount!,
         ...(participant.userId ? { user_id: participant.userId } : {}),
         ...(participant.placeholderId ? { placeholder_id: participant.placeholderId } : {}),
         ...(value === undefined ? {} : { value }),
@@ -672,17 +653,20 @@ export default function CreateExpenseScreen() {
       return setFormError('Choose or add the person sharing this expense.');
     }
     if (selectedParticipants.length === 0) return setFormError('Select at least one participant.');
-    const payer = selectedParticipants.find((participant) => participant.key === effectivePayerKey);
-    if (!payer) return setFormError('Select a payer included in the split.');
+    const payer = participants.find((participant) => participant.key === effectivePayerKey);
+    if (!payer) return setFormError('Select who paid for this expense.');
     const participantInput = buildParticipants(fractionDigits);
-    if (!participantInput) return setFormError(`Enter a valid value for every ${splitType} split.`);
+    if (!participantInput) { setShowSplitEditor(true); return setFormError(`Enter a valid value for every ${splitType} split. Use Fill unassigned to divide the remaining amount.`); }
     const valueTotal = participantInput.reduce((total, participant) => total + (participant.value ?? 0), 0);
     if (splitType === 'exact' && valueTotal !== amountMinor) {
-      return setFormError('Exact split amounts must equal the expense total.');
+      setShowSplitEditor(true);
+      return setFormError(`${formatMoney(Math.abs(amountMinor - valueTotal), currencyCode)} ${valueTotal > amountMinor ? 'over the total' : 'still to assign'}. Adjust the shares below.`);
     }
     if (splitType === 'percentage' && valueTotal !== 10_000) {
       return setFormError('Percentage splits must total 100%.');
     }
+
+    if (multiplePayers && paymentRemainder !== 0) return setFormError('The amounts paid must equal the expense total. Check the remaining amount under Paid by.');
 
     mutation.mutate({
       expense_type: destination,
@@ -982,7 +966,7 @@ export default function CreateExpenseScreen() {
                     <ThemedText style={styles.splitSummaryEyebrow} themeColor="textSecondary">
                       Paid by
                     </ThemedText>
-                    <ThemedText style={styles.splitSummaryValue}>{effectivePayerKey === `user:${user.id}` ? 'you' : payerName ?? 'Choose payer'}</ThemedText>
+                    <ThemedText style={styles.splitSummaryValue}>{multiplePayers ? `${participants.filter((p) => (parseDecimalToInteger(p.paidValue ?? '', previewFractionDigits) ?? 0) > 0).length} people` : effectivePayerKey === `user:${user.id}` ? 'you' : payerName ?? 'Choose payer'}</ThemedText>
                   </View>
                   <View style={[styles.splitSummaryDivider, { backgroundColor: theme.border }]} />
                   <View style={styles.splitSummaryCopy}>
@@ -990,7 +974,7 @@ export default function CreateExpenseScreen() {
                       Split
                     </ThemedText>
                     <ThemedText style={styles.splitSummaryValue}>
-                      {splitType === 'equal' ? 'Equally' : splitOptions.find((option) => option.value === splitType)?.label} between {selectedParticipants.length} people
+                      {selectedParticipants.length === 1 ? `For ${selectedParticipants[0].name} only` : `${splitType === 'equal' ? 'Equally' : splitOptions.find((option) => option.value === splitType)?.label} between ${selectedParticipants.length} people`}
                     </ThemedText>
                   </View>
                   <ThemedText style={styles.summaryChevron} themeColor="interactive">›</ThemedText>
@@ -1007,17 +991,31 @@ export default function CreateExpenseScreen() {
                   <ThemedText themeColor="textSecondary">Loading members…</ThemedText>
                 ) : null}
                 <View style={styles.chipWrap}>
-                  {selectedParticipants.map((participant) => (
-                    <ChoiceChip
-                      active={effectivePayerKey === participant.key}
-                      key={participant.key}
-                      label={participant.name}
-                      onPress={() => setPayerKey(participant.key)}
-                    />
+                  {participants.map((participant) => (
+                    <ChoiceChip active={!multiplePayers && effectivePayerKey === participant.key} key={participant.key} label={participant.userId === user.id ? 'You' : participant.name}
+                      onPress={() => { setMultiplePayers(false); setPayerKey(participant.key); }} />
                   ))}
+                  <ChoiceChip active={multiplePayers} label="Multiple people" onPress={() => setMultiplePayers(true)} />
                 </View>
+                {multiplePayers ? <View style={styles.participantCard}>
+                  <ThemedText themeColor="textSecondary">Enter what each person paid toward the bill.</ThemedText>
+                  {participants.map((participant) => <View key={participant.key} style={styles.participantRow}>
+                    <ThemedText style={styles.participantCopy}>{participant.name}</ThemedText>
+                    <View style={{ gap: 4, alignItems: 'flex-end' }}>
+                      <TextInput accessibilityLabel={`${participant.name} paid`} keyboardType="decimal-pad" placeholder="0.00" placeholderTextColor={theme.textSecondary}
+                        style={[styles.valueInput, { color: theme.text, borderColor: theme.border }]} value={participant.paidValue ?? ''} onChangeText={(value) => updatePaidValue(participant.key, value)} />
+                      {paymentRemainder !== null && paymentRemainder > 0 ? <Pressable accessibilityRole="button" style={styles.headerTouchTarget} onPress={() => updatePaidValue(participant.key, minorAmountInput((parseDecimalToInteger(participant.paidValue || '0', previewFractionDigits) ?? 0) + paymentRemainder, previewCurrency))}>
+                        <ThemedText themeColor="interactive">Add remaining</ThemedText>
+                      </Pressable> : null}
+                    </View>
+                  </View>)}
+                  <ThemedText accessibilityLiveRegion="polite" themeColor={paymentRemainder !== null && paymentRemainder < 0 ? 'danger' : 'textSecondary'}>
+                    {paymentRemainder === null ? 'Enter valid payment amounts' : paymentRemainder === 0 ? 'Payments match the total' : `${formatMoney(Math.abs(paymentRemainder), previewCurrency)} ${paymentRemainder < 0 ? 'over the total' : 'still to record'}`}
+                  </ThemedText>
+                </View> : null}
 
-                <SectionLabel label="Split" />
+                <SectionLabel label="Who is this expense for?" />
+                <ThemedText themeColor="textSecondary">Uncheck anyone who does not owe a share, including yourself.</ThemedText>
                 <View style={styles.segmentRow}>
                   {splitOptions.map((option) => (
                     <ChoiceChip
@@ -1027,19 +1025,26 @@ export default function CreateExpenseScreen() {
                       onPress={() => {
                         setSplitType(option.value);
                         setParticipantOverrides((current) =>
-                          (current ?? defaultParticipants).map((item) => ({ ...item, value: '' })),
+                          (current ?? participants).map((item) => ({ ...item, value: '' })),
                         );
                       }}
                     />
                   ))}
                 </View>
 
+                {splitType === 'exact' || splitType === 'percentage' ? <View style={{ gap: 8 }}>
+                  <ThemedText accessibilityLiveRegion="polite" themeColor={splitRemainder !== null && splitRemainder < 0 ? 'danger' : 'textSecondary'}>
+                    {splitRemainder === null ? 'Enter valid amounts for the split' : splitRemainder === 0 ? 'All assigned' : `${splitType === 'percentage' ? `${Math.abs(splitRemainder) / 100}%` : formatMoney(Math.abs(splitRemainder), previewCurrency)} ${splitRemainder < 0 ? 'over the total' : 'remaining to assign'}`}
+                  </ThemedText>
+                  {splitRemainder !== null && splitRemainder >= 0 && selectedParticipants.some((p) => !p.value.trim()) ? <Pressable accessibilityRole="button" style={styles.headerTouchTarget} onPress={fillRemainingSplits}>
+                    <ThemedText themeColor="interactive">Fill unassigned</ThemedText>
+                  </Pressable> : null}
+                </View> : null}
                 <ThemedView type="backgroundElement" style={styles.participantCard}>
                   {participants.map((participant, index) => (
                     <View key={participant.key}>
                       {index > 0 ? <View style={[styles.divider, { backgroundColor: theme.border }]} /> : null}
                       <View style={styles.participantRow}>
-                        {destination === 'group' ? (
                           <Pressable
                             accessibilityLabel={`Include ${participant.name}`}
                             hitSlop={12}
@@ -1053,11 +1058,6 @@ export default function CreateExpenseScreen() {
                             ]}>
                             {participant.selected ? <ThemedText style={styles.check}>✓</ThemedText> : null}
                           </Pressable>
-                        ) : (
-                          <View style={[styles.checkbox, { borderColor: theme.primary, backgroundColor: theme.primary }]}>
-                            <ThemedText style={styles.check}>✓</ThemedText>
-                          </View>
-                        )}
                         <View style={styles.participantCopy}>
                           <ThemedText style={styles.participantName}>{participant.name}</ThemedText>
                           {participant.selected && previewAllocations.has(participant.key) ? (
@@ -1081,6 +1081,12 @@ export default function CreateExpenseScreen() {
                               ]}
                               value={participant.value}
                             />
+                            {(splitType === 'exact' || splitType === 'percentage') && splitRemainder !== null && splitRemainder !== 0 && (parseDecimalToInteger(participant.value || '0', splitType === 'percentage' ? 2 : previewFractionDigits) ?? 0) + splitRemainder >= 0 ? (
+                              <Pressable accessibilityRole="button" accessibilityLabel={`Assign remaining to ${participant.name}`} style={styles.headerTouchTarget} onPress={() => {
+                                const value = (parseDecimalToInteger(participant.value || '0', splitType === 'percentage' ? 2 : previewFractionDigits) ?? 0) + splitRemainder;
+                                updateParticipantValue(participant.key, splitType === 'percentage' ? String(value / 100) : minorAmountInput(value, previewCurrency));
+                              }}><ThemedText themeColor="interactive">Remaining</ThemedText></Pressable>
+                            ) : null}
                             {splitType === 'percentage' ? (
                               <ThemedText themeColor="textSecondary">%</ThemedText>
                             ) : null}
@@ -1090,9 +1096,9 @@ export default function CreateExpenseScreen() {
                     </View>
                   ))}
                 </ThemedView>
-                {payerName && splitType !== 'exact' ? (
+                {roundingName && splitType !== 'exact' ? (
                   <ThemedText style={styles.helper} themeColor="textSecondary">
-                    Any smallest-unit rounding remainder is assigned to {payerName}, the payer.
+                    Any rounding difference goes to {roundingName}.
                   </ThemedText>
                 ) : null}
                   </>
@@ -1108,27 +1114,6 @@ export default function CreateExpenseScreen() {
               </ThemedView>
             ) : null}
 
-            <AnimatedPressable
-              accessibilityRole="button"
-              accessibilityState={{ expanded: showDetails }}
-              onPress={() => {
-                selectionHaptic();
-                setShowDetails((current) => !current);
-              }}
-              style={[styles.disclosure, { backgroundColor: theme.surfaceSubtle }]}>
-              <View>
-                <ThemedText style={styles.disclosureTitle}>More details</ThemedText>
-                <ThemedText style={styles.disclosureCopy} themeColor="textSecondary">
-                  {category || new Date(`${occurredOn}T12:00:00`).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} · {recurrenceFrequency ? `Repeats ${recurrenceFrequency}` : 'One time'}
-                </ThemedText>
-              </View>
-              <ThemedText style={styles.disclosureChevron} themeColor="interactive">
-                {showDetails ? '−' : '+'}
-              </ThemedText>
-            </AnimatedPressable>
-
-            {showDetails ? (
-              <>
                 <SectionLabel label="Category (optional)" />
                 <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                   <View style={styles.chipRow}>
@@ -1142,6 +1127,28 @@ export default function CreateExpenseScreen() {
                     ))}
                   </View>
                 </ScrollView>
+
+            <AnimatedPressable
+              accessibilityRole="button"
+              accessibilityState={{ expanded: showDetails }}
+              onPress={() => {
+                selectionHaptic();
+                setShowDetails((current) => !current);
+              }}
+              style={[styles.disclosure, { backgroundColor: theme.surfaceSubtle }]}>
+              <View>
+                <ThemedText style={styles.disclosureTitle}>More details</ThemedText>
+                <ThemedText style={styles.disclosureCopy} themeColor="textSecondary">
+                  {new Date(`${occurredOn}T12:00:00`).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} · {recurrenceFrequency ? `Repeats ${recurrenceFrequency}` : 'One time'}
+                </ThemedText>
+              </View>
+              <ThemedText style={styles.disclosureChevron} themeColor="interactive">
+                {showDetails ? '−' : '+'}
+              </ThemedText>
+            </AnimatedPressable>
+
+            {showDetails ? (
+              <>
                 <NativeDateField
                   label="Date"
                   onChange={setOccurredOn}
@@ -1298,8 +1305,8 @@ const styles = StyleSheet.create({
   checkbox: { width: 24, height: 24, borderRadius: 8, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
   check: { color: '#061A14', fontSize: 14, fontWeight: '600' },
   divider: { height: StyleSheet.hairlineWidth },
-  valueWrap: { flexDirection: 'row', alignItems: 'center', gap: 5 },
-  valueInput: { width: 82, minHeight: 48, borderWidth: 1, borderRadius: 12, paddingHorizontal: 10, textAlign: 'right' },
+  valueWrap: { alignItems: 'flex-end', gap: 5 },
+  valueInput: { width: 82, fontSize: 16, minHeight: 48, borderWidth: 1, borderRadius: 12, paddingHorizontal: 10, textAlign: 'right' },
   infoCard: { borderRadius: 18, padding: 16, gap: 3 },
   guestModal: { flex: 1 },
   guestModalSafeArea: { flex: 1 },

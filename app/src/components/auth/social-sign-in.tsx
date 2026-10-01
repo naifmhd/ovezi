@@ -1,5 +1,5 @@
+import { googleWebClientId, googleIosClientId, isExpoGo } from '@/lib/social-auth-config';
 import * as AppleAuthentication from 'expo-apple-authentication';
-import Constants from 'expo-constants';
 import * as Crypto from 'expo-crypto';
 import { useEffect, useState } from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
@@ -7,10 +7,6 @@ import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { socialLogin, type DeletionCredentials } from '@/lib/auth-api';
 import { errorMessage } from '@/lib/api-client';
 import { useAuthStore } from '@/stores/auth-store';
-
-const googleWebClientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID;
-const googleIosClientId = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID;
-const isExpoGo = Constants.expoGoConfig !== null;
 
 type GoogleSignInModule = typeof import('react-native-nitro-google-signin');
 

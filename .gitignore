@@ -6,6 +6,9 @@ Thumbs.db
 /.idea/
 /.vscode/
 
+# Local service credentials
+/creds/
+
 # Generated review artifacts
 /output/*
 !/output/brand/

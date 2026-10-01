@@ -11,6 +11,7 @@ export type ExpenseDraftParticipant = {
   placeholderId?: number;
   selected: boolean;
   value: string;
+  paidValue?: string;
 };
 
 export type ExpenseDraft = {
@@ -28,6 +29,7 @@ export type ExpenseDraft = {
   splitType: SplitType;
   participants: ExpenseDraftParticipant[] | null;
   payerKey: string;
+  multiplePayers?: boolean;
   expenseRate: string;
   recalculateRate: boolean;
   recurrenceFrequency: RecurrenceFrequency | null;
