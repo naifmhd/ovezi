@@ -6,6 +6,7 @@ import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { socialLogin, type SocialIdentityCredentials } from '@/lib/auth-api';
 import { errorMessage } from '@/lib/api-client';
+import { requestGoogleIdToken } from '@/lib/google-sign-in';
 import { ThemedText } from '@/components/themed-text';
 import { useAuthStore } from '@/stores/auth-store';
 
@@ -54,39 +55,17 @@ function GoogleButton({ onError, onSuccess, onIdentity, mode, disabled, onBusyCh
     if (disabled || busy.current) return;
     busy.current = true;
     onBusyChange?.(true);
-    let googleSignIn: GoogleSignInModule | undefined;
 
     try {
       setPending(true);
-      googleSignIn = await configuredGoogleSignIn();
-      const {
-        GoogleOneTapSignIn,
-        isCancelledResponse,
-        isNoSavedCredentialFoundResponse,
-        isSuccessResponse,
-      } = googleSignIn;
-
-      await GoogleOneTapSignIn.checkPlayServices();
-      let result = await GoogleOneTapSignIn.signIn();
-
-      if (isNoSavedCredentialFoundResponse(result)) {
-        result = await GoogleOneTapSignIn.createAccount();
-      }
-
-      if (isCancelledResponse(result)) {
-        return;
-      }
-
-      if (isSuccessResponse(result)) {
-        if (onIdentity) await onIdentity({ provider: 'google', id_token: result.data.idToken });
-        else await setSession(await socialLogin('google', result.data.idToken));
-        onSuccess?.();
-      }
+      onError('');
+      const googleSignIn = await configuredGoogleSignIn();
+      const idToken = await requestGoogleIdToken(googleSignIn, Platform.OS);
+      if (onIdentity) await onIdentity({ provider: 'google', id_token: idToken });
+      else await setSession(await socialLogin('google', idToken));
+      onSuccess?.();
     } catch (error) {
-      if (!googleSignIn?.isErrorWithCode(error)
-        || error.code !== googleSignIn.statusCodes.SIGN_IN_CANCELLED) {
-        onError(errorMessage(error));
-      }
+      onError(errorMessage(error));
     } finally {
       busy.current = false;
       setPending(false);

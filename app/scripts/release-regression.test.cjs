@@ -401,6 +401,78 @@ test('an embedded release manifest does not hide native Google sign-in', () => {
   assert.equal(load('social-auth-config', { 'expo-constants': { __esModule: true, default: constants, ExecutionEnvironment: { StoreClient: 'storeClient' } } }).isExpoGo, true);
 });
 
+function googleSignInHarness(response = { type: 'success', data: { idToken: 'google-id-token' } }) {
+  const calls = [];
+  const sdk = {
+    ...load('../../node_modules/react-native-nitro-google-signin/src/types'),
+    GoogleOneTapSignIn: {
+      checkPlayServices: async () => { calls.push('play-services'); },
+      presentExplicitSignIn: async () => { calls.push('account-picker'); return response; },
+      signIn: async () => { throw new Error('Button must not use the suppressible bottom sheet'); },
+      createAccount: async () => { throw new Error('Button must not use the suppressible bottom sheet'); },
+    },
+  };
+  return { sdk, calls, request: (platform = 'android') => load('google-sign-in').requestGoogleIdToken(sdk, platform) };
+}
+
+test('Google button checks Android services then opens the explicit account picker', async () => {
+  const h = googleSignInHarness();
+  assert.equal(await h.request(), 'google-id-token');
+  assert.deepEqual(h.calls, ['play-services', 'account-picker']);
+});
+
+test('Google button opens interactive iOS sign-in without checking Android services', async () => {
+  const h = googleSignInHarness();
+  assert.equal(await h.request('ios'), 'google-id-token');
+  assert.deepEqual(h.calls, ['account-picker']);
+});
+
+test('Google cancellation provides feedback and does not reopen a dismissed picker', async () => {
+  const h = googleSignInHarness({ type: 'cancelled', data: null });
+  await assert.rejects(h.request(), /closed before it completed/);
+  assert.deepEqual(h.calls, ['play-services', 'account-picker']);
+  h.sdk.GoogleOneTapSignIn.presentExplicitSignIn = async () => {
+    throw { code: 'SIGN_IN_CANCELLED', message: 'cancelled' };
+  };
+  await assert.rejects(h.request(), /closed before it completed/);
+});
+
+test('Google missing accounts and incomplete responses never silently succeed', async () => {
+  await assert.rejects(googleSignInHarness({ type: 'noSavedCredentialFound', data: null }).request(), /Add a Google account/);
+  for (const response of [
+    { type: 'success', data: null },
+    { type: 'success', data: { idToken: null } },
+    { type: 'success', data: { idToken: '  ' } },
+    { type: 'unexpected', data: null },
+  ]) {
+    await assert.rejects(googleSignInHarness(response).request(), /did not complete sign-in/);
+  }
+});
+
+test('Google configuration errors offer email sign-in instead of a silent reset', async () => {
+  const h = googleSignInHarness();
+  h.sdk.GoogleOneTapSignIn.presentExplicitSignIn = async () => {
+    throw { code: 'DEVELOPER_ERROR', message: 'OAuth configuration mismatch' };
+  };
+  await assert.rejects(h.request(), /not configured correctly.*sign in with email/);
+});
+
+test('unavailable Play services stops before the picker and provides recovery', async () => {
+  const h = googleSignInHarness();
+  h.sdk.GoogleOneTapSignIn.checkPlayServices = async () => {
+    throw { code: 'PLAY_SERVICES_NOT_AVAILABLE', message: 'unavailable' };
+  };
+  await assert.rejects(h.request(), /Update it, then try again/);
+  assert.deepEqual(h.calls, []);
+});
+
+test('Google unexpected native errors remain available to the form error handler', async () => {
+  const h = googleSignInHarness();
+  const failure = new Error('Network unavailable');
+  h.sdk.GoogleOneTapSignIn.presentExplicitSignIn = async () => { throw failure; };
+  await assert.rejects(h.request(), error => error === failure);
+});
+
 function splitHelpers() {
   return load('expense-split', { '@/lib/format': load('format') });
 }
