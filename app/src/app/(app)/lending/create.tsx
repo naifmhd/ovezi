@@ -2,11 +2,13 @@ import { useInfiniteQuery, useMutation, useQuery } from '@tanstack/react-query';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { View } from 'react-native';
+import { FormScreen } from '@/components/form-screen';
 import { FormField } from '@/components/auth/form-field';
 import { PrimaryButton } from '@/components/auth/primary-button';
 import { CurrencyPicker } from '@/components/currency-picker';
+import { ExpenseEditorSheet, ExpenseOptionRow } from '@/components/expense-editor-controls';
 import { NativeDateField } from '@/components/native-date-field';
-import { LendingAction, LendingScreen, lendingStyles, useRefreshLending } from '@/components/lending-ui';
+import { LendingAction, lendingStyles, useRefreshLending } from '@/components/lending-ui';
 import { QueryErrorCard } from '@/components/query-error-card';
 import { ThemedText } from '@/components/themed-text';
 import { ChoiceChip } from '@/components/ui/choice-chip';
@@ -35,8 +37,8 @@ function DraftEntry({ userId }: { userId: number }) {
       .catch(() => { if (active) { setError('Couldn’t read the saved draft. You can continue with a new loan.'); setReady(true); } });
     return () => { active = false; };
   }, [userId]);
-  if (!ready) return <LendingScreen title="Record a loan"><ThemedText>Checking saved draft…</ThemedText></LendingScreen>;
-  if (!decided) return <LendingScreen title="Record a loan">
+  if (!ready) return <FormScreen fallback="/(app)/(tabs)/lending" title="Record a loan"><ThemedText>Checking saved draft…</ThemedText></FormScreen>;
+  if (!decided) return <FormScreen fallback="/(app)/(tabs)/lending" title="Record a loan">
     <ThemedText style={lendingStyles.title}>{draft ? 'Continue your unfinished loan?' : 'Draft unavailable'}</ThemedText>
     <ThemedText themeColor="textSecondary">{draft ? 'Your entry is saved on this device. Review it before saving the loan.' : error}</ThemedText>
     {draft ? <PrimaryButton label="Resume draft" onPress={() => setDecided(true)} /> : null}
@@ -44,7 +46,7 @@ function DraftEntry({ userId }: { userId: number }) {
       void clearLoanDraft(userId).then(() => { setDraft(null); setDecided(true); }).catch(() => setError('Couldn’t clear the draft. Try again.'));
     }} />
     {draft && error ? <ThemedText themeColor="danger">{error}</ThemedText> : null}
-  </LendingScreen>;
+  </FormScreen>;
   return <LoanForm initialDraft={draft} userId={userId} />;
 }
 
@@ -71,6 +73,7 @@ function LoanForm({ initialDraft, userId }: { initialDraft: LoanDraft | null; us
   const [description, setDescription] = useState(initialDraft?.description ?? '');
   const [note, setNote] = useState(initialDraft?.note ?? '');
   const [date, setDate] = useState(initialDraft?.date ?? localToday());
+  const [showDateEditor, setShowDateEditor] = useState(false);
   const [due, setDue] = useState(initialDraft?.due ?? '');
   const [details, setDetails] = useState(false);
   const [shared, setShared] = useState(initialDraft?.shared ?? false);
@@ -117,10 +120,14 @@ function LoanForm({ initialDraft, userId }: { initialDraft: LoanDraft | null; us
     if (typeof next === 'string') { setContactId(next); setNewPerson(null); }
     else { setContactId(undefined); setNewPerson(next); setCurrency(defaultCurrency); initializedCurrency.current = null; }
   }
-  if (savedLoanId) return <LendingScreen title="Loan saved"><ThemedText>{cleanupError ?? 'Finishing up…'}</ThemedText>{cleanupError ? <LendingAction label="Finish saving" onPress={() => void finishSavedLoan(savedLoanId)} /> : null}</LendingScreen>;
-  if (choosing) return <LendingScreen title="Record a loan"><PersonPicker onChoose={choose} /></LendingScreen>;
-  if (!newPerson && person.isLoading) return <LendingScreen title="Record a loan"><ThemedText>Loading person…</ThemedText></LendingScreen>;
-  return <LendingScreen title="Record a loan">
+  if (savedLoanId) return <FormScreen fallback="/(app)/(tabs)/lending" title="Loan saved"><ThemedText>{cleanupError ?? 'Finishing up…'}</ThemedText>{cleanupError ? <LendingAction label="Finish saving" onPress={() => void finishSavedLoan(savedLoanId)} /> : null}</FormScreen>;
+  if (choosing) return <FormScreen fallback="/(app)/(tabs)/lending" title="Record a loan"><PersonPicker onChoose={choose} /></FormScreen>;
+  if (!newPerson && person.isLoading) return <FormScreen fallback="/(app)/(tabs)/lending" title="Record a loan"><ThemedText>Loading person…</ThemedText></FormScreen>;
+  return <FormScreen fallback="/(app)/(tabs)/lending" title="Record a loan" footer={<>
+    {save.error ? <ThemedText accessibilityLiveRegion="polite" themeColor="danger">{errorMessage(save.error)}</ThemedText> : null}
+    {draftStatus ? <ThemedText themeColor="textSecondary">{draftStatus}</ThemedText> : null}
+    {!duplicates ? <PrimaryButton label={willShare ? 'Save & share loan' : 'Save private loan'} loadingLabel="Saving loan…" loading={save.isPending} disabled={(!newPerson && !person.data) || (willShare && !sharingEnabled)} onPress={() => save.mutate(undefined)} /> : null}
+  </>}>
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
       <ThemedText style={[lendingStyles.title, { flex: 1 }]}>{newPerson?.name ?? person.data?.name}</ThemedText>
       <LendingAction label="Change person" disabled={save.isPending} onPress={() => setChoosing(true)} />
@@ -130,13 +137,25 @@ function LoanForm({ initialDraft, userId }: { initialDraft: LoanDraft | null; us
     <FormField label={`Amount (${currency})`} value={amount} onChangeText={setAmount} keyboardType="decimal-pad" maxLength={18} placeholder="0.00" />
     <CurrencyPicker label="Loan currency" value={currency} onChange={setCurrency} />
     <ThemedText themeColor="textSecondary">This loan will be repaid in {currency}.</ThemedText>
+    <ExpenseOptionRow label="Loan date" value={date === localToday() ? 'Today' : new Date(`${date}T12:00:00`).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })} icon={{ ios: 'calendar', android: 'calendar_month', web: 'calendar_month' }} onPress={() => setShowDateEditor(true)} />
+    {showDateEditor ? <ExpenseEditorSheet title="Loan date" visible onClose={() => setShowDateEditor(false)}>
+      <View style={{ flexDirection: 'row', gap: 24 }}>
+        <LendingAction label="Today" onPress={() => { setDate(localToday()); setShowDateEditor(false); }} />
+        <LendingAction label="Yesterday" onPress={() => {
+          const yesterday = new Date();
+          yesterday.setDate(yesterday.getDate() - 1);
+          setDate(`${yesterday.getFullYear()}-${String(yesterday.getMonth() + 1).padStart(2, '0')}-${String(yesterday.getDate()).padStart(2, '0')}`);
+          setShowDateEditor(false);
+        }} />
+      </View>
+      <NativeDateField label="Loan date" value={date} onChange={value => { if (value) setDate(value); }} initiallyOpen />
+    </ExpenseEditorSheet> : null}
     <FormField label="Description (optional, shared with the loan)" value={description} onChangeText={setDescription} maxLength={500} />
-    <LendingAction label={details ? 'Hide additional details' : 'Add dates or a private note'} onPress={() => setDetails(!details)} />
+    <LendingAction label={details ? 'Hide additional details' : 'Add a due date or private note'} onPress={() => setDetails(!details)} />
     {details ? <>
-      <NativeDateField label="Loan date" value={date} onChange={setDate} />
-      <NativeDateField label="Due date (optional)" value={due} onChange={setDue} optional />
+      <NativeDateField label="Due date (optional)" value={due} onChange={setDue} optional emptyLabel="No due date" />
       <FormField label="Private note (only you)" value={note} onChangeText={setNote} multiline maxLength={2000} />
-    </> : <ThemedText themeColor="textSecondary">Loan date: {date}{due ? ` · Due: ${due}` : ''}{note ? ' · Private note added' : ''}</ThemedText>}
+    </> : due || note ? <ThemedText themeColor="textSecondary">{[due ? `Due: ${due}` : '', note ? 'Private note added' : ''].filter(Boolean).join(' · ')}</ThemedText> : null}
     {sharingEnabled && !newPerson && person.data?.is_connected && person.data.is_owner ? <View style={lendingStyles.actions}><ChoiceChip label="Keep private" active={!shared} onPress={() => setShared(false)} /><ChoiceChip label="Share with this person" active={shared} onPress={() => setShared(true)} /></View> : null}
     <ThemedText themeColor="textSecondary">{willShare ? 'They will see this loan and its repayment history, and can acknowledge or dispute it. Your private note stays private.' : 'Only you can see this record. You can choose to share it later.'}</ThemedText>
     {duplicates ? <View style={{ gap: 8, paddingVertical: 12 }}>
@@ -147,10 +166,8 @@ function LoanForm({ initialDraft, userId }: { initialDraft: LoanDraft | null; us
       <LendingAction label="This is a separate loan — save it" disabled={save.isPending} onPress={() => save.mutate(duplicates.signature)} />
       <LendingAction label="Review my entry" disabled={save.isPending} onPress={() => setDuplicates(null)} />
     </View> : null}
-    {save.error ? <ThemedText themeColor="danger">{errorMessage(save.error)}</ThemedText> : null}
-    {draftStatus ? <ThemedText themeColor="textSecondary">{draftStatus}</ThemedText> : null}
-    {!duplicates ? <PrimaryButton label={willShare ? 'Save & share loan' : 'Save private loan'} loadingLabel="Saving loan…" loading={save.isPending} disabled={(!newPerson && !person.data) || (willShare && !sharingEnabled)} onPress={() => save.mutate(undefined)} /> : null}
-  </LendingScreen>;
+
+  </FormScreen>;
 }
 
 function PersonPicker({ onChoose }: { onChoose: (person: string | NewPerson) => void }) {

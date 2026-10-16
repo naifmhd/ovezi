@@ -1,4 +1,4 @@
-import { HeaderAction } from '@/components/ui/header-action';
+import { BackButton } from '@/components/ui/back-button';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
@@ -176,9 +176,7 @@ export default function GroupMembersScreen() {
     <ThemedView style={styles.screen}>
       <SafeAreaView edges={['top']} style={styles.safeArea}>
         <View style={styles.header}>
-          <HeaderAction onPress={() => router.back()}>
-            <ThemedText style={styles.headerAction} themeColor="primary">‹ Back</ThemedText>
-          </HeaderAction>
+          <BackButton fallback="/(app)/(tabs)/groups" />
           <ThemedText style={styles.headerTitle}>Manage members</ThemedText>
           <View style={styles.headerSpacer} />
         </View>

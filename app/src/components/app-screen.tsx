@@ -1,8 +1,10 @@
 import { PropsWithChildren, ReactNode } from 'react';
+import type { Href } from 'expo-router';
+import { BackNavigation } from '@/components/ui/back-button';
 import { ScrollView, ScrollViewProps, StyleSheet, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { BrandLockup } from '@/components/brand-mark';
+import { BrandHeader } from '@/components/brand-header';
 import { TabExpenseAction, tabContentBottomPadding } from '@/components/tab-expense-action';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -13,17 +15,19 @@ type AppScreenProps = PropsWithChildren<{
   eyebrow?: string;
   action?: ReactNode;
   branded?: boolean;
+  backFallback?: Href;
   tabScreen?: boolean;
   showExpenseAction?: boolean;
   scrollProps?: ScrollViewProps;
 }>;
 
-export function AppScreen({ title, eyebrow, action, branded = false, tabScreen = false, showExpenseAction = true, children, scrollProps }: AppScreenProps) {
+export function AppScreen({ title, eyebrow, action, backFallback, branded = false, tabScreen = false, showExpenseAction = true, children, scrollProps }: AppScreenProps) {
   const insets = useSafeAreaInsets();
   return (
     <ThemedView style={styles.screen}>
       <SafeAreaView edges={['top']} style={styles.safeArea}>
-        {branded ? <View style={styles.brandBar}><BrandLockup size={24} />{action}</View> : null}
+        {branded ? <BrandHeader>{action}</BrandHeader> : null}
+        {backFallback ? <BackNavigation fallback={backFallback}>{action}</BackNavigation> : null}
         <ScrollView
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
@@ -38,7 +42,7 @@ export function AppScreen({ title, eyebrow, action, branded = false, tabScreen =
             ) : null}
             <ThemedText accessibilityRole="header" style={styles.title}>{title}</ThemedText>
           </View>
-          {!branded ? action : null}
+          {!branded && !backFallback ? action : null}
           </View>
           {children}
         </ScrollView>
@@ -51,7 +55,6 @@ export function AppScreen({ title, eyebrow, action, branded = false, tabScreen =
 const styles = StyleSheet.create({
   screen: { flex: 1 },
   safeArea: { flex: 1 },
-  brandBar: { paddingHorizontal: Spacing.four, paddingTop: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 16, minHeight: 56 },
   header: {
     minHeight: 72,
     paddingTop: Spacing.three,

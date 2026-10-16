@@ -9,12 +9,13 @@ const activity=expenses.map((e,i)=>({id:i+1,group_id:1,group:{id:1,name:groups[0
 const page=(data)=>({data,links:{next:null,prev:null},meta:{current_page:1,last_page:1,per_page:100,total:data.length}});
 function respond(url,empty=false){const u=new URL(url,'http://localhost'),p=u.pathname.replace(/^.*\/api\/v1/,'');
 if(p==='/me')return {data:user};if(p==='/auth/login')return {data:{user,token:'local-visual-review'}};
+if(p==='/expense-categories')return {data:['Food','Transport','Home','Travel','Other'].map(name=>({id:null,name,archived_at:null})),recent:['food']};
 if(p==='/currencies')return {data:[{code:'MVR',name:'Maldivian Rufiyaa',symbol:'Rf',minor_unit_factor:100},{code:'USD',name:'US Dollar',symbol:'$',minor_unit_factor:100},{code:'EUR',name:'Euro',symbol:'€',minor_unit_factor:100},{code:'JPY',name:'Japanese Yen',symbol:'¥',minor_unit_factor:1}]};
 if(p==='/lending/overview')return {data:{balances:[],attention_counts:{repayments:0,invitations:0,acknowledgements:0,corrections:0,disputed:0,overdue:0}}};
 if(p==='/balances')return {data:empty?{groups:[],direct:[],totals_by_currency:[]}:balances};
 if(p==='/groups')return page(empty?[]:groups.filter(g=>(u.searchParams.get('status')!=='archived')&&g.name.toLowerCase().includes((u.searchParams.get('q')||'').toLowerCase())));if(/^\/groups\/\d+$/.test(p))return {data:groups[Number(p.split('/')[2])-1]??groups[0]};
 if(p.endsWith('/balances'))return {data:{group_id:1,currency_code:'MVR',members:names.map((name,i)=>({member_id:i+1,participant:{key:`user:${i+1}`,user_id:i+1,placeholder_id:null,name},balance_minor:empty?0:[186000,-100000,-60000,-26000][i]})),suggested_settlements:empty?[]:[{from:'user:2',to:'user:1',amount_minor:100000},{from:'user:3',to:'user:1',amount_minor:60000},{from:'user:4',to:'user:1',amount_minor:26000}]}};
-if(p==='/expenses'||p.endsWith('/expenses'))return page(empty?[]:u.searchParams.get('expense_type')&&u.searchParams.get('expense_type')!=='group'?[]:expenses);if(/^\/expenses\/\d+$/.test(p))return {data:expenses[0]};
+if(p==='/expenses'||p.endsWith('/expenses'))return page(empty?[]:u.searchParams.get('expense_type')&&u.searchParams.get('expense_type')!=='group'?[]:expenses.slice(0,Number(u.searchParams.get('per_page')||100)));if(/^\/expenses\/\d+$/.test(p))return {data:expenses[0]};
 if(p==='/activity'||p.endsWith('/activity'))return page(empty?[]:activity);
 if(p==='/friends')return page(empty?[]:[{id:1,friend:{id:2,name:names[1],email:'aishath@example.test'},status:'accepted',direction:'outgoing',accepted_at:date,created_at:date}]);
 if(p.includes('notification-preferences'))return {data:{expense_created:true,payment_received:true,settle_up_reminders:true,groups:[]}};

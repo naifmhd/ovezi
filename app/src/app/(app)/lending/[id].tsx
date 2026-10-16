@@ -18,7 +18,7 @@ export default function PersonDetail() {
   const refresh = useRefreshLending();
   const person = useQuery({ queryKey: ['lending', 'contact', id], queryFn: ({ signal }) => lendingGet<LendingContact>(token, `contacts/${id}`, signal) });
   const loans = useInfiniteQuery({ queryKey: ['lending', 'loans', id], initialPageParam: 1, queryFn: ({ pageParam, signal }) => lendingPage<LendingLoan>(token, `contacts/${id}/loans`, pageParam, signal), getNextPageParam: lendingNextPage });
-  return <AppScreen title={person.data?.name ?? 'Lending records'} action={<LendingAction label="Back" onPress={() => router.canGoBack() ? router.back() : router.replace('/(app)/(tabs)/lending')} />} scrollProps={{ refreshControl: <RefreshControl refreshing={person.isRefetching} onRefresh={() => void refresh()} /> }}>
+  return <AppScreen title={person.data?.name ?? 'Lending records'} backFallback="/(app)/(tabs)/lending" scrollProps={{ refreshControl: <RefreshControl refreshing={person.isRefetching} onRefresh={() => void refresh()} /> }}>
     {person.isLoading ? <ThemedText>Loading person…</ThemedText> : null}
     {person.error ? <QueryErrorCard error={person.error} onRetry={() => void person.refetch()} /> : null}
     {person.data ? <>

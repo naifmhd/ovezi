@@ -1,4 +1,4 @@
-import { HeaderAction } from '@/components/ui/header-action';
+import { BackButton } from '@/components/ui/back-button';
 import { useMutation } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import { useState } from 'react';
@@ -46,9 +46,7 @@ export default function EditProfileScreen() {
     <ThemedView style={styles.screen}>
       <SafeAreaView edges={['top']} style={styles.safeArea}>
         <View style={styles.header}>
-          <HeaderAction onPress={() => router.back()}>
-            <ThemedText style={styles.back} themeColor="primary">‹ Back</ThemedText>
-          </HeaderAction>
+          <BackButton fallback="/(app)/(tabs)/profile" />
           <ThemedText style={styles.headerTitle}>Edit profile</ThemedText>
           <View style={styles.headerSpacer} />
         </View>

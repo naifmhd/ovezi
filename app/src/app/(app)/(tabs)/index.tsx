@@ -2,6 +2,8 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { RefreshControl, StyleSheet, View } from 'react-native';
+import { ExpenseRow } from '@/components/expense-row';
+import { fetchExpenses } from '@/lib/expenses-api';
 import { ReleaseGuideNotice } from '@/components/release-guide-notice';
 import { AppScreen } from '@/components/app-screen';
 import { PrimaryButton } from '@/components/auth/primary-button';
@@ -23,6 +25,7 @@ export default function HomeScreen() {
   useFocusEffect(useCallback(() => { setToday(localToday()); }, []));
   const overview = useQuery({ queryKey: ['lending', 'overview', today], queryFn: ({ signal }) => lendingGet<LendingOverview>(token, `overview?today=${today}`, signal) });
   const groups = useQuery({ queryKey: ['dashboard-balances'], queryFn: () => fetchOverallBalances(token) });
+  const expenses = useQuery({ queryKey: ['expenses', 'home', 'group'], queryFn: () => fetchExpenses(token, { expenseType: 'group', perPage: 3 }) });
   const groupTotals = new Map<string, { receive: number; pay: number }>();
   groups.data?.groups.forEach(group => {
     const amounts = groupTotals.get(group.currency_code) ?? { receive: 0, pay: 0 };
@@ -32,37 +35,45 @@ export default function HomeScreen() {
   });
   const currencies = [...new Set(overview.data?.balances.map(b => b.currency_code) ?? [])];
   const attention = (Object.keys(attentionLabels) as AttentionKind[]).filter(kind => (overview.data?.attention_counts[kind] ?? 0) > 0);
-  const refresh = () => { void client.invalidateQueries({ queryKey: ['lending'] }); void groups.refetch(); };
+  const refresh = () => { void client.invalidateQueries({ queryKey: ['lending'] }); void groups.refetch(); void expenses.refetch(); };
   return <AppScreen title="Home" branded tabScreen showExpenseAction={false}
     action={<LendingAction label="All activity" onPress={() => router.push('/(app)/profile/activity')} />}
-    scrollProps={{ refreshControl: <RefreshControl refreshing={overview.isRefetching || groups.isRefetching} onRefresh={refresh} /> }}>
+    scrollProps={{ refreshControl: <RefreshControl refreshing={overview.isRefetching || groups.isRefetching || expenses.isRefetching} onRefresh={refresh} /> }}>
     <ReleaseGuideNotice key={userId} userId={userId} />
-    <ThemedText themeColor="textSecondary">Your money, with the next step in sight.</ThemedText>
+    <ThemedText themeColor="textSecondary">Your groups, shared expenses and lending.</ThemedText>
+    <View style={[styles.summary, { backgroundColor: theme.surfaceSubtle }]}>
+      <ThemedText accessibilityRole="header" style={styles.heading}>Group balances</ThemedText>
+      {groups.isLoading ? <ThemedText>Loading group balances…</ThemedText> : null}
+      {groups.error ? <QueryErrorCard title="Group balances couldn’t load" error={groups.error} onRetry={() => void groups.refetch()} /> : [...groupTotals].sort(([a], [b]) => a.localeCompare(b)).map(([currency, amounts]) => <CurrencyTotals key={currency} currency={currency} receive={amounts.receive} pay={amounts.pay} />)}
+      {groups.data && !groups.error && !groupTotals.size ? <ThemedText themeColor="textSecondary">Create a group to start sharing expenses.</ThemedText> : null}
+      <ThemedText themeColor="textSecondary" style={styles.note}>Shown in each group’s reporting currency.</ThemedText>
+      <PrimaryButton label="Add expense" onPress={() => router.push('/(app)/expenses/create')} />
+      <NavigationRow label="Open groups" onPress={() => router.push('/(app)/(tabs)/groups')} />
+      {groups.data?.direct.some(balance => balance.balance_minor !== 0) ? <NavigationRow label="Previous 1-on-1 balances" detail="Your earlier records are still available" onPress={() => router.push('/(app)/profile/history')} /> : null}
+    </View>
+    <View style={styles.section}>
+      <ThemedText accessibilityRole="header" style={styles.heading}>Recent group expenses</ThemedText>
+      {expenses.isLoading ? <ThemedText themeColor="textSecondary">Loading expenses…</ThemedText> : null}
+      {expenses.error ? <QueryErrorCard title="Recent expenses couldn’t load" error={expenses.error} onRetry={() => void expenses.refetch()} /> : expenses.data?.data.map(expense => <ExpenseRow key={expense.id} expense={expense} currentUserId={userId} onPress={() => router.push({ pathname: '/(app)/expenses/[id]', params: { id: expense.id } })} />)}
+      {expenses.data && !expenses.error && !expenses.data.data.length ? <ThemedText themeColor="textSecondary">Your latest shared expenses will appear here.</ThemedText> : null}
+      <LendingAction label="View all group expenses" onPress={() => router.push({ pathname: '/(app)/expenses', params: { expenseType: 'group' } })} />
+    </View>
+    <View style={styles.section}>
+      <ThemedText accessibilityRole="header" style={styles.heading}>Lending</ThemedText>
+      {overview.isLoading ? <ThemedText>Loading balances…</ThemedText> : null}
+      {overview.error ? <ThemedText>Balances unavailable. Retry the lending overview below.</ThemedText> : currencies.length ? currencies.map(currency => <CurrencyTotals key={currency} currency={currency}
+        receive={overview.data!.balances.find(b => b.currency_code === currency && b.direction === 'lent')?.outstanding_minor ?? 0}
+        pay={overview.data!.balances.find(b => b.currency_code === currency && b.direction === 'borrowed')?.outstanding_minor ?? 0} />) : overview.data ? <ThemedText>No loans recorded yet. Start with a person and an amount.</ThemedText> : null}
+      <ThemedText themeColor="textSecondary" style={styles.note}>Recorded loans, including those awaiting acknowledgement. Each currency stays separate; repayments reduce balances only when confirmed.</ThemedText>
+      <LendingAction label="Record a loan" onPress={() => router.push('/(app)/lending/create')} />
+      <LendingAction label="View lending records" onPress={() => router.push('/(app)/(tabs)/lending')} />
+    </View>
     <View style={styles.section}>
       <ThemedText accessibilityRole="header" style={styles.heading}>Needs your attention</ThemedText>
       {overview.isLoading ? <ThemedText themeColor="textSecondary">Checking your records…</ThemedText> : null}
       {overview.error ? <QueryErrorCard title="Lending overview couldn’t load" error={overview.error} onRetry={() => void overview.refetch()} /> : null}
       {overview.data && !overview.error ? attention.length ? attention.map(kind => <NavigationRow key={kind} label={attentionLabels[kind]} detail={`${overview.data.attention_counts[kind]} ${kind === 'invitations' ? 'invitation' : 'loan'}${overview.data.attention_counts[kind] === 1 ? '' : 's'} ${kind === 'due_soon' ? 'due today or in the next 7 days' : 'to review'}`}
         onPress={() => router.push({ pathname: '/(app)/lending/attention', params: { kind } })} />) : <ThemedText themeColor="textSecondary">Nothing needs your attention right now.</ThemedText> : null}
-    </View>
-    <View style={[styles.summary, { backgroundColor: theme.surfaceSubtle }]}>
-      <ThemedText accessibilityRole="header" style={styles.heading}>Lending</ThemedText>
-      {overview.isLoading ? <ThemedText>Loading balances…</ThemedText> : null}
-      {overview.error ? <ThemedText>Balances unavailable. Retry the lending overview above.</ThemedText> : currencies.length ? currencies.map(currency => <CurrencyTotals key={currency} currency={currency}
-        receive={overview.data!.balances.find(b => b.currency_code === currency && b.direction === 'lent')?.outstanding_minor ?? 0}
-        pay={overview.data!.balances.find(b => b.currency_code === currency && b.direction === 'borrowed')?.outstanding_minor ?? 0} />) : overview.data ? <ThemedText>No loans recorded yet. Start with a person and an amount.</ThemedText> : null}
-      <ThemedText themeColor="textSecondary" style={styles.note}>Recorded loans, including those awaiting acknowledgement. Each currency stays separate; repayments reduce balances only when confirmed.</ThemedText>
-      <PrimaryButton label="Record a loan" onPress={() => router.push('/(app)/lending/create')} />
-      <LendingAction label="View lending records" onPress={() => router.push('/(app)/(tabs)/lending')} />
-    </View>
-    <View style={styles.section}>
-      <ThemedText accessibilityRole="header" style={styles.heading}>Group balances</ThemedText>
-      {groups.isLoading ? <ThemedText>Loading group balances…</ThemedText> : null}
-      {groups.error ? <QueryErrorCard title="Group balances couldn’t load" error={groups.error} onRetry={() => void groups.refetch()} /> : [...groupTotals].sort(([a], [b]) => a.localeCompare(b)).map(([currency, amounts]) => <CurrencyTotals key={currency} currency={currency} receive={amounts.receive} pay={amounts.pay} />)}
-      {groups.data && !groups.error && !groupTotals.size ? <ThemedText themeColor="textSecondary">Create a group to start sharing expenses.</ThemedText> : null}
-      <ThemedText themeColor="textSecondary" style={styles.note}>Shown in each group’s reporting currency.</ThemedText>
-      <NavigationRow label="Open groups" onPress={() => router.push('/(app)/(tabs)/groups')} />
-      {groups.data?.direct.some(balance => balance.balance_minor !== 0) ? <NavigationRow label="Previous 1-on-1 balances" detail="Your earlier records are still available" onPress={() => router.push('/(app)/profile/history')} /> : null}
     </View>
   </AppScreen>;
 }

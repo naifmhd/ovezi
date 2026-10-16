@@ -1,24 +1,22 @@
 import { PropsWithChildren } from 'react';
-import { router } from 'expo-router';
-import { SymbolView } from 'expo-symbols';
 import { StyleSheet, View } from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
 import { AppScreen } from '@/components/app-screen';
 import { ThemedText } from '@/components/themed-text';
 import { AnimatedPressable } from '@/components/ui/animated-pressable';
+import { Radius, Typography } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { currencyFractionDigits } from '@/lib/format';
 import type { LendingBalance } from '@/lib/lending-api';
 
 export function LendingScreen({ title, children }: PropsWithChildren<{ title: string }>) {
-  return <AppScreen title={title} action={<LendingAction label="Back" onPress={() => router.canGoBack() ? router.back() : router.replace('/(app)/(tabs)/lending')} />}>{children}</AppScreen>;
+  return <AppScreen title={title} backFallback="/(app)/(tabs)/lending">{children}</AppScreen>;
 }
 export function LendingAction({ label, onPress, disabled, danger = false, variant = 'text' }: { label: string; onPress: () => void; disabled?: boolean; danger?: boolean; variant?: 'text' | 'secondary' | 'primary' }) {
   const theme = useTheme();
   return <AnimatedPressable accessibilityRole="button" accessibilityLabel={label} accessibilityState={{ disabled: !!disabled }} disabled={disabled} onPress={onPress}
-    style={[lendingStyles.action, variant !== 'text' && { borderRadius: 14, paddingHorizontal: 16, borderWidth: variant === 'secondary' ? 1 : 0, borderColor: theme.controlBorder, backgroundColor: variant === 'primary' ? theme.primary : theme.surface }, disabled && { opacity: 0.5 }]}>
-    {label === 'Back' ? <SymbolView name={{ ios: 'chevron.left', android: 'arrow_back', web: 'arrow_back' }} size={20} tintColor={theme.interactive} /> : null}
-    <ThemedText style={{ fontWeight: '600', flexShrink: 1, color: danger ? theme.danger : variant === 'primary' ? theme.primaryText : theme.interactive }}>{label}</ThemedText>
+    style={[lendingStyles.action, variant !== 'text' && { borderRadius: Radius.control, paddingHorizontal: 16, borderWidth: variant === 'secondary' ? 1 : 0, borderColor: theme.controlBorder, backgroundColor: variant === 'primary' ? theme.primary : theme.surface }, disabled && { opacity: 0.5 }]}>
+    <ThemedText style={{ ...Typography.button, flexShrink: 1, color: danger ? theme.danger : variant === 'primary' ? theme.primaryText : theme.interactive }}>{label}</ThemedText>
   </AnimatedPressable>;
 }
 function formatLendingMoney(amount: number, currency: string) {

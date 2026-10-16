@@ -1,5 +1,5 @@
+import { BackNavigation } from '@/components/ui/back-button';
 import { useInfiniteQuery } from '@tanstack/react-query';
-import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { SearchField, ViewFilter } from '@/components/ui/screen-controls';
 import { ActivityIndicator, FlatList, RefreshControl, StyleSheet, View } from 'react-native';
@@ -33,9 +33,9 @@ export function ActivityFeed({ groupId }: { groupId?: number }) {
     getNextPageParam: (page) => page.meta.current_page < page.meta.last_page ? page.meta.current_page + 1 : undefined,
   });
   return <ThemedView style={styles.flex}><SafeAreaView edges={['top']} style={styles.flex}>
+    <BackNavigation />
     <FlatList data={query.data?.pages.flatMap((page) => page.data) ?? []} keyExtractor={(item) => item.timeline_id ?? `activity:${item.id}`}
       ListHeaderComponent={<View style={styles.header}>
-      <AnimatedPressable accessibilityRole="button" style={styles.back} onPress={() => router.canGoBack() ? router.back() : router.replace('/(app)/(tabs)')}><ThemedText themeColor="interactive">Back</ThemedText></AnimatedPressable>
       <ThemedText accessibilityRole="header" style={styles.title}>{groupId ? 'Group activity' : 'All activity'}</ThemedText>
       {!groupId ? <ViewFilter label="Activity filter" value={source} options={[{ value: 'all', label: 'Everything' }, { value: 'groups', label: 'Groups' }, { value: 'lending', label: 'Loans & repayments' }, { value: 'personal', label: 'Personal & previous 1-on-1' }]} onChange={setSource} /> : null}
       {!groupId ? <>

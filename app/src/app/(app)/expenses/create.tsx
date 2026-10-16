@@ -1,3 +1,9 @@
+import { SymbolView } from 'expo-symbols';
+import { ExpenseEditorSheet, ExpenseOptionRow, ExpenseSelectionRow } from '@/components/expense-editor-controls';
+import { ExpenseGroupPicker } from '@/components/expense-group-picker';
+import { ExpenseCategoryPicker } from '@/components/expense-category-picker';
+import { LendingAction } from '@/components/lending-ui';
+import { ViewFilter } from '@/components/ui/screen-controls';
 import { TextInput } from '@/components/ui/text-input';
 import { HeaderAction } from '@/components/ui/header-action';
 import { QueryErrorCard } from '@/components/query-error-card';
@@ -39,9 +45,8 @@ import {
 import { splitAllocationPreview, remainingAllocation, distributeUnassigned } from '@/lib/expense-split';
 import { currencyFractionDigits, formatMoney, minorAmountInput, parseDecimalToInteger } from '@/lib/format';
 import { fetchFriends } from '@/lib/friends-api';
-import { fetchGroup, fetchGroups } from '@/lib/groups-api';
-import { GroupAvatar } from '@/components/group-avatar';
-import { selectionHaptic, successHaptic } from '@/lib/haptics';
+import { fetchGroup } from '@/lib/groups-api';
+import { successHaptic } from '@/lib/haptics';
 import { useTheme } from '@/hooks/use-theme';
 import { createPlaceholder, fetchPlaceholders } from '@/lib/placeholders-api';
 import {
@@ -70,8 +75,6 @@ const splitOptions: { value: SplitType; label: string }[] = [
   { value: 'percentage', label: 'Percent' },
   { value: 'shares', label: 'Shares' },
 ];
-
-const categories = ['Food', 'Transport', 'Home', 'Travel', 'Other'];
 
 function dateInputValue(date: Date) {
   const year = date.getFullYear();
@@ -173,7 +176,11 @@ export default function CreateExpenseScreen() {
   const [duplicateInput, setDuplicateInput] = useState<ExpenseSubmissionInput | null>(null);
   const [draftDecisionMade, setDraftDecisionMade] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
-  const [showDestinationPicker, setShowDestinationPicker] = useState(!hasInitialGroup && !hasInitialFriend && !isEditing);
+  const [showDestinationPicker, setShowDestinationPicker] = useState(false);
+  const [showPayerEditor, setShowPayerEditor] = useState(false);
+  const [showDateEditor, setShowDateEditor] = useState(false);
+  const [showCategoryPicker, setShowCategoryPicker] = useState(false);
+  const [showSplitMethods, setShowSplitMethods] = useState(false);
   const [destinationChosen, setDestinationChosen] = useState(hasInitialGroup || hasInitialFriend || isEditing);
   const insets = useSafeAreaInsets();
   const reduceMotion = useReducedMotion();
@@ -187,10 +194,6 @@ export default function CreateExpenseScreen() {
   });
   const editingExpense = expenseQuery.data;
 
-  const groupsQuery = useQuery({
-    queryKey: ['groups', 'active'],
-    queryFn: () => fetchGroups(token),
-  });
   const groupQuery = useQuery({
     queryKey: ['group', selectedGroupId],
     queryFn: () => fetchGroup(token, selectedGroupId!),
@@ -296,9 +299,7 @@ export default function CreateExpenseScreen() {
       setAmount(minorAmountInput(editingExpense.amount_minor, editingExpense.currency_code));
       setCurrency(editingExpense.currency_code);
       setCurrencyTouched(true);
-      setCategory(
-        categories.find((item) => item.toLowerCase() === editingExpense.category) ?? '',
-      );
+      setCategory(editingExpense.category ?? '');
       setOccurredOn(dateInputValue(new Date(editingExpense.occurred_at)));
       const existingSplitType = editingExpense.splits[0]?.split_type ?? 'equal';
       setSplitType(existingSplitType);
@@ -485,6 +486,7 @@ export default function CreateExpenseScreen() {
         queryClient.invalidateQueries({ queryKey: ['group-balances'] }),
         queryClient.invalidateQueries({ queryKey: ['dashboard-balances'] }),
         queryClient.invalidateQueries({ queryKey: ['recurring-expenses'] }),
+        queryClient.invalidateQueries({ queryKey: ['expense-categories'] }),
       ]);
       if (isEditing) {
         queryClient.setQueryData(['expense', expense.id], expense);
@@ -550,6 +552,7 @@ export default function CreateExpenseScreen() {
   }
 
   function toggleParticipant(key: string) {
+    setFormError(null);
     const next = participants.map((participant) =>
       participant.key === key
         ? { ...participant, selected: !participant.selected, value: '' }
@@ -559,6 +562,7 @@ export default function CreateExpenseScreen() {
   }
 
   function updateParticipantValue(key: string, value: string) {
+    setFormError(null);
     setParticipantOverrides(
       participants.map((participant) =>
         participant.key === key ? { ...participant, value } : participant,
@@ -567,10 +571,12 @@ export default function CreateExpenseScreen() {
   }
 
   function updatePaidValue(key: string, paidValue: string) {
+    setFormError(null);
     setParticipantOverrides(participants.map((participant) => participant.key === key ? { ...participant, paidValue } : participant));
   }
 
   function fillRemainingSplits() {
+    setFormError(null);
     const total = splitType === 'percentage' ? 10_000 : previewAmount;
     if (total === null) return;
     const digits = splitType === 'percentage' ? 2 : previewFractionDigits;
@@ -644,7 +650,7 @@ export default function CreateExpenseScreen() {
         amount_minor: amountMinor,
         currency_code: currencyCode,
         description: description.trim(),
-        ...(category ? { category: category.toLowerCase() } : {}),
+        category: category.trim().toLowerCase(),
         occurred_at: occurredAt,
         ...recurrenceInput,
         ...(isEditing ? { recalculate_rate: recalculateRate } : {}),
@@ -656,9 +662,10 @@ export default function CreateExpenseScreen() {
     if (destination === 'direct' && !selectedPlaceholder && !selectedFriend) {
       return setFormError('Choose or add the person sharing this expense.');
     }
-    if (selectedParticipants.length === 0) return setFormError('Select at least one participant.');
+    if (selectedParticipants.length === 0) { setShowSplitEditor(true); return setFormError('Select at least one participant.'); }
     const payer = participants.find((participant) => participant.key === effectivePayerKey);
     if (!payer) return setFormError('Select who paid for this expense.');
+    if (multiplePayers && paymentRemainder !== 0) { setShowPayerEditor(true); return setFormError('The amounts paid must equal the expense total.'); }
     const participantInput = buildParticipants(fractionDigits);
     if (!participantInput) { setShowSplitEditor(true); return setFormError(`Enter a valid value for every ${splitType} split. Use Fill unassigned to divide the remaining amount.`); }
     const valueTotal = participantInput.reduce((total, participant) => total + (participant.value ?? 0), 0);
@@ -667,10 +674,9 @@ export default function CreateExpenseScreen() {
       return setFormError(`${formatMoney(Math.abs(amountMinor - valueTotal), currencyCode)} ${valueTotal > amountMinor ? 'over the total' : 'still to assign'}. Adjust the shares below.`);
     }
     if (splitType === 'percentage' && valueTotal !== 10_000) {
-      return setFormError('Percentage splits must total 100%.');
+      setShowSplitEditor(true); return setFormError('Percentage splits must total 100%.');
     }
 
-    if (multiplePayers && paymentRemainder !== 0) return setFormError('The amounts paid must equal the expense total. Check the remaining amount under Paid by.');
 
     mutation.mutate({
       expense_type: destination,
@@ -680,7 +686,7 @@ export default function CreateExpenseScreen() {
       amount_minor: amountMinor,
       currency_code: currencyCode,
       description: description.trim(),
-      ...(category ? { category: category.toLowerCase() } : {}),
+      category: category.trim().toLowerCase(),
       occurred_at: occurredAt,
       split_type: splitType,
       participants: participantInput,
@@ -693,11 +699,11 @@ export default function CreateExpenseScreen() {
     });
   }
 
-  const contextError = expenseQuery.error ?? groupsQuery.error ?? groupQuery.error ?? placeholdersQuery.error ?? friendsQuery.error;
+  const contextError = expenseQuery.error ?? groupQuery.error ?? placeholdersQuery.error ?? friendsQuery.error;
   const requiredContextUnavailable = (isEditing && !editingExpense) || (destinationChosen && destination === 'group' && !group);
   async function retryContext() {
     await Promise.all([
-      ...(isEditing ? [expenseQuery.refetch()] : []), groupsQuery.refetch(),
+      ...(isEditing ? [expenseQuery.refetch()] : []),
       ...(selectedGroupId && destination === 'group' ? [groupQuery.refetch()] : []), placeholdersQuery.refetch(), friendsQuery.refetch(),
     ]);
   }
@@ -713,7 +719,11 @@ export default function CreateExpenseScreen() {
           <HeaderAction accessibilityRole="button" style={styles.headerTouchTarget} onPress={() => router.back()}>
             <ThemedText style={styles.headerAction} themeColor="textSecondary">Cancel</ThemedText>
           </HeaderAction>
-          <ThemedText style={styles.headerTitle}>{isEditing ? 'Edit expense' : 'Add expense'}</ThemedText>
+          <View style={{ flex: 1, alignItems: 'center' }}><ThemedText style={styles.headerTitle}>{isEditing ? 'Edit expense' : 'Add expense'}</ThemedText>
+            <AnimatedPressable accessibilityRole="button" accessibilityLabel={`Group: ${group?.name ?? (destination === 'direct' ? '1-on-1' : destination === 'personal' ? 'Personal' : 'Choose a group')}`} disabled={isEditing || destination !== 'group'} onPress={() => setShowDestinationPicker(true)} style={{ minHeight: 48, flexDirection: 'row', alignItems: 'center', gap: 6, maxWidth: '100%' }}>
+              <ThemedText themeColor="interactive" numberOfLines={1} style={{ flexShrink: 1 }}>{group?.name ?? (destination === 'direct' ? '1-on-1' : destination === 'personal' ? 'Personal' : 'Choose a group')}</ThemedText>
+              {!isEditing && destination === 'group' ? <SymbolView name={{ ios: 'chevron.down', android: 'expand_more', web: 'expand_more' }} size={16} tintColor={theme.interactive} /> : null}
+            </AnimatedPressable></View>
           <View style={styles.headerSpacer} />
         </View>
         <KeyboardAvoidingView
@@ -723,7 +733,7 @@ export default function CreateExpenseScreen() {
             contentContainerStyle={styles.content}
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}>
-            {contextError ? <QueryErrorCard title="Expense details couldn’t load" error={contextError} onRetry={() => void retryContext()} retrying={groupsQuery.isFetching || groupQuery.isFetching || expenseQuery.isFetching || placeholdersQuery.isFetching || friendsQuery.isFetching} /> : null}
+            {contextError ? <QueryErrorCard title="Expense details couldn’t load" error={contextError} onRetry={() => void retryContext()} retrying={groupQuery.isFetching || expenseQuery.isFetching || placeholdersQuery.isFetching || friendsQuery.isFetching} /> : null}
             {draftRequiresDecision && savedDraft ? (
               <ThemedView type="backgroundSelected" style={styles.draftCard}>
                 <View style={styles.draftCopy}>
@@ -815,53 +825,16 @@ export default function CreateExpenseScreen() {
               value={description}
             />
 
-            <SectionLabel label="Where" />
-            {isEditing ? (
-              <ThemedView type="backgroundSelected" style={styles.infoCard}>
-                <ThemedText style={styles.infoTitle}>
-                  {destination === 'group'
-                    ? group?.name ?? 'Group expense'
-                    : destination === 'direct' ? '1-on-1' : 'Just for me'}
-                </ThemedText>
-                <ThemedText style={styles.infoCopy} themeColor="textSecondary">
-                  Expense type and group stay fixed when editing.
-                </ThemedText>
-              </ThemedView>
-            ) : (
-              <>
-              <AnimatedPressable accessibilityRole="button" accessibilityState={{ expanded: showDestinationPicker }} onPress={() => setShowDestinationPicker((value) => !value)} style={[styles.disclosure, { backgroundColor: theme.surface, borderWidth: 1, borderColor: theme.border }]}>
-                <ThemedText style={{ flex: 1 }}>{!destinationChosen ? 'Choose a group' : destination === 'group' ? group?.name ?? (groupQuery.isError ? 'Group unavailable' : 'Loading group…') : destination === 'direct' ? '1-on-1 expense' : 'Just for me'}</ThemedText>
-                <ThemedText themeColor="interactive">Change</ThemedText>
-              </AnimatedPressable>
-              {showDestinationPicker ? <View style={styles.chipWrap}>
-                <View style={styles.chipWrap}>
-                  {(groupsQuery.data?.data ?? []).map((item) => (
-                    <ChoiceChip
-                      leading={<GroupAvatar group={item} size={24} />}
-                      active={destination === 'group' && selectedGroupId === item.id}
-                      key={item.id}
-                      label={item.name}
-                      onPress={() => selectDestination('group', item.id)}
-                    />
-                  ))}
-                  <ChoiceChip active={false} label="New group (including two people)" onPress={() => router.push('/(app)/groups/create')} />
-                  {(isEditing || hasInitialFriend) ? <>
-                  {friends.slice(0, 6).map(({ friend }) => <ChoiceChip key={`destination-friend:${friend.id}`} active={destinationChosen && destination === 'direct' && selectedFriendId === friend.id} label={friend.name} onPress={() => { selectDestination('direct'); selectFriend(friend.id); }} />)}
-                  <ChoiceChip
-                    active={destinationChosen && destination === 'personal'}
-                    label="Just for me"
-                    onPress={() => selectDestination('personal')}
-                  />
-                  <ChoiceChip
-                    active={destinationChosen && destination === 'direct'}
-                    label="1-on-1"
-                    onPress={() => selectDestination('direct')}
-                  />
-                </> : null}</View>
-
-              </View> : null}
-              </>
-            )}
+            <ExpenseGroupPicker visible={showDestinationPicker} selectedId={selectedGroupId} onClose={() => setShowDestinationPicker(false)} onSelect={id => selectDestination('group', id)} />
+            <View>
+            <ExpenseOptionRow label="Date" value={occurredOn === dateInputValue(new Date()) ? 'Today' : new Date(`${occurredOn}T12:00:00`).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })} icon={{ ios: 'calendar', android: 'calendar_month', web: 'calendar_month' }} onPress={() => setShowDateEditor(true)} />
+            <ExpenseEditorSheet title="Expense date" visible={showDateEditor} onClose={() => setShowDateEditor(false)}>
+              <View style={{ flexDirection: 'row', gap: 24 }}><LendingAction label="Today" onPress={() => { setOccurredOn(dateInputValue(new Date())); setShowDateEditor(false); }} /><LendingAction label="Yesterday" onPress={() => { const yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1); setOccurredOn(dateInputValue(yesterday)); setShowDateEditor(false); }} /></View>
+              <NativeDateField label="Date" value={occurredOn} onChange={setOccurredOn} initiallyOpen />
+            </ExpenseEditorSheet>
+            <ExpenseOptionRow label="Category" value={category || 'Choose category'} icon={{ ios: 'tag', android: 'sell', web: 'sell' }} onPress={() => setShowCategoryPicker(true)} />
+            <ExpenseCategoryPicker visible={showCategoryPicker} value={category} onChange={setCategory} onClose={() => setShowCategoryPicker(false)} />
+            </View>
 
             {destination === 'direct' ? (
               <>
@@ -960,51 +933,19 @@ export default function CreateExpenseScreen() {
               </>
             ) : null}
 
-            {destinationChosen && destination !== 'personal' ? (
-              <>
-                <AnimatedPressable
-                  accessibilityRole="button"
-                  accessibilityState={{ expanded: showSplitEditor }}
-                  onPress={() => {
-                    selectionHaptic();
-                    setShowSplitEditor((current) => !current);
-                  }}
-                  style={[styles.splitSummary, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-                  <View style={styles.splitSummaryCopy}>
-                    <ThemedText style={styles.splitSummaryEyebrow} themeColor="textSecondary">
-                      Paid by
-                    </ThemedText>
-                    <ThemedText style={styles.splitSummaryValue}>{multiplePayers ? `${participants.filter((p) => (parseDecimalToInteger(p.paidValue ?? '', previewFractionDigits) ?? 0) > 0).length} people` : effectivePayerKey === `user:${user.id}` ? 'you' : payerName ?? 'Choose payer'}</ThemedText>
-                  </View>
-                  <View style={[styles.splitSummaryDivider, { backgroundColor: theme.border }]} />
-                  <View style={styles.splitSummaryCopy}>
-                    <ThemedText style={styles.splitSummaryEyebrow} themeColor="textSecondary">
-                      Split
-                    </ThemedText>
-                    <ThemedText style={styles.splitSummaryValue}>
-                      {selectedParticipants.length === 1 ? `For ${selectedParticipants[0].name} only` : `${splitType === 'equal' ? 'Equally' : splitOptions.find((option) => option.value === splitType)?.label} between ${selectedParticipants.length} people`}
-                    </ThemedText>
-                  </View>
-                  <ThemedText style={styles.summaryChevron} themeColor="interactive">›</ThemedText>
-                </AnimatedPressable>
-
-                {splitType === 'equal' && previewAllocations.size > 0 ? <View style={{ gap: 4 }}>
-                  <ThemedText themeColor="textSecondary">{formatMoney(Math.min(...previewAllocations.values()), previewCurrency)}{Math.max(...previewAllocations.values()) !== Math.min(...previewAllocations.values()) ? `–${formatMoney(Math.max(...previewAllocations.values()), previewCurrency)}` : ''} per person</ThemedText>
-                </View> : null}
-
-                {showSplitEditor ? (
-                  <>
-                <SectionLabel label="Paid by" />
+            {destinationChosen && destination !== 'personal' ? <>
+              <View>
+              <ExpenseOptionRow label="Paid by" value={multiplePayers ? `${participants.filter(p => (parseDecimalToInteger(p.paidValue ?? '', previewFractionDigits) ?? 0) > 0).length} people` : effectivePayerKey === `user:${user.id}` ? 'You' : payerName ?? 'Choose payer'} icon={{ ios: 'person', android: 'person', web: 'person' }} onPress={() => setShowPayerEditor(true)} />
+              <ExpenseOptionRow label="Split" value={`${splitType === 'equal' ? 'Equally' : splitOptions.find(option => option.value === splitType)?.label} · ${selectedParticipants.length} ${selectedParticipants.length === 1 ? 'person' : 'people'}`} icon={{ ios: 'person.2', android: 'group', web: 'group' }} onPress={() => setShowSplitEditor(true)} />
+              {splitType === 'equal' && previewAllocations.size > 0 ? <ThemedText themeColor="textSecondary" style={styles.helper}>{formatMoney(Math.min(...previewAllocations.values()), previewCurrency)}{Math.max(...previewAllocations.values()) !== Math.min(...previewAllocations.values()) ? `–${formatMoney(Math.max(...previewAllocations.values()), previewCurrency)}` : ''} per person</ThemedText> : null}
+              </View>
+              <ExpenseEditorSheet title="Paid by" visible={showPayerEditor} onClose={() => setShowPayerEditor(false)}>
+                {formError ? <ThemedText accessibilityLiveRegion="polite" themeColor="danger">{formError}</ThemedText> : null}
                 {destination === 'group' && groupQuery.isLoading ? (
                   <ThemedText themeColor="textSecondary">Loading members…</ThemedText>
                 ) : null}
-                <View style={styles.chipWrap}>
-                  {participants.map((participant) => (
-                    <ChoiceChip active={!multiplePayers && effectivePayerKey === participant.key} key={participant.key} label={participant.userId === user.id ? 'You' : participant.name}
-                      onPress={() => { setMultiplePayers(false); setPayerKey(participant.key); }} />
-                  ))}
-                  <ChoiceChip active={multiplePayers} label="Multiple people" onPress={() => setMultiplePayers(true)} />
-                </View>
+                {participants.map(participant => <ExpenseSelectionRow key={participant.key} label={participant.userId === user.id ? 'You' : participant.name} selected={!multiplePayers && effectivePayerKey === participant.key} onPress={() => { setMultiplePayers(false); setPayerKey(participant.key); setShowPayerEditor(false); }} />)}
+                <ExpenseSelectionRow label="Multiple people paid" selected={multiplePayers} onPress={() => setMultiplePayers(true)} />
                 {multiplePayers ? <View style={styles.participantCard}>
                   <ThemedText themeColor="textSecondary">Enter what each person paid toward the bill.</ThemedText>
                   {participants.map((participant) => <View key={participant.key} style={styles.participantRow}>
@@ -1022,24 +963,13 @@ export default function CreateExpenseScreen() {
                   </ThemedText>
                 </View> : null}
 
+              </ExpenseEditorSheet>
+              <ExpenseEditorSheet title="Split expense" visible={showSplitEditor} onClose={() => setShowSplitEditor(false)}>
+                {formError ? <ThemedText accessibilityLiveRegion="polite" themeColor="danger">{formError}</ThemedText> : null}
                 <SectionLabel label="Who is this expense for?" />
                 <ThemedText themeColor="textSecondary">Uncheck anyone who does not owe a share, including yourself.</ThemedText>
-                <View style={styles.segmentRow}>
-                  {splitOptions.map((option) => (
-                    <ChoiceChip
-                      active={splitType === option.value}
-                      key={option.value}
-                      label={option.label}
-                      onPress={() => {
-                        setSplitType(option.value);
-                        setParticipantOverrides((current) =>
-                          (current ?? participants).map((item) => ({ ...item, value: '' })),
-                        );
-                      }}
-                    />
-                  ))}
-                </View>
-
+                <ExpenseOptionRow label="Split method" value={splitOptions.find(option => option.value === splitType)!.label} onPress={() => setShowSplitMethods(value => !value)} expanded={showSplitMethods} />
+                {showSplitMethods ? splitOptions.map(option => <ExpenseSelectionRow key={option.value} label={option.label} selected={splitType === option.value} onPress={() => { setSplitType(option.value); setParticipantOverrides((current) => (current ?? participants).map(item => ({ ...item, value: '' }))); setShowSplitMethods(false); }} />) : null}
                 {splitType === 'exact' || splitType === 'percentage' ? <View style={{ gap: 8 }}>
                   <ThemedText accessibilityLiveRegion="polite" themeColor={splitRemainder !== null && splitRemainder < 0 ? 'danger' : 'textSecondary'}>
                     {splitRemainder === null ? 'Enter valid amounts for the split' : splitRemainder === 0 ? 'All assigned' : `${splitType === 'percentage' ? `${Math.abs(splitRemainder) / 100}%` : formatMoney(Math.abs(splitRemainder), previewCurrency)} ${splitRemainder < 0 ? 'over the total' : 'remaining to assign'}`}
@@ -1111,80 +1041,13 @@ export default function CreateExpenseScreen() {
                     Any rounding difference goes to {roundingName}.
                   </ThemedText>
                 ) : null}
-                  </>
-                ) : null}
+              </ExpenseEditorSheet>
+            </> : null}
 
-              </>
-            ) : destinationChosen ? (
-              <ThemedView type="backgroundSelected" style={styles.infoCard}>
-                <ThemedText style={styles.infoTitle}>Personal tracking only</ThemedText>
-                <ThemedText style={styles.infoCopy} themeColor="textSecondary">
-                  This entry will not create a debt or affect any Ovezi balance.
-                </ThemedText>
-              </ThemedView>
-            ) : null}
-
-                <SectionLabel label="Category (optional)" />
-                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                  <View style={styles.chipRow}>
-                    {categories.map((item) => (
-                      <ChoiceChip
-                        active={category === item}
-                        key={item}
-                        label={item}
-                        onPress={() => setCategory(category === item ? '' : item)}
-                      />
-                    ))}
-                  </View>
-                </ScrollView>
-
-            <AnimatedPressable
-              accessibilityRole="button"
-              accessibilityState={{ expanded: showDetails }}
-              onPress={() => {
-                selectionHaptic();
-                setShowDetails((current) => !current);
-              }}
-              style={[styles.disclosure, { backgroundColor: theme.surfaceSubtle }]}>
-              <View>
-                <ThemedText style={styles.disclosureTitle}>More details</ThemedText>
-                <ThemedText style={styles.disclosureCopy} themeColor="textSecondary">
-                  {new Date(`${occurredOn}T12:00:00`).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} · {recurrenceFrequency ? `Repeats ${recurrenceFrequency}` : 'One time'}
-                </ThemedText>
-              </View>
-              <ThemedText style={styles.disclosureChevron} themeColor="interactive">
-                {showDetails ? '−' : '+'}
-              </ThemedText>
-            </AnimatedPressable>
-
+            <ExpenseOptionRow label="More details" value={recurrenceFrequency ? `Repeats ${recurrenceFrequency}` : 'Repeat expense'} onPress={() => setShowDetails(value => !value)} expanded={showDetails} />
             {showDetails ? (
               <>
-                <NativeDateField
-                  label="Date"
-                  onChange={setOccurredOn}
-                  value={occurredOn}
-                />
-                {!isEditing ? <SectionLabel label="Repeat" /> : null}
-                {!isEditing ? (
-                <View style={styles.segmentRow}>
-                  <ChoiceChip
-                    active={recurrenceFrequency === null}
-                    label="One time"
-                    onPress={() => {
-                      setRecurrenceFrequency(null);
-                      setRecurrenceEndsOn('');
-                    }}
-                  />
-                  {(['weekly', 'monthly', 'yearly'] as RecurrenceFrequency[]).map((frequency) => (
-                    <ChoiceChip
-                      active={recurrenceFrequency === frequency}
-                      key={frequency}
-                      label={frequency.charAt(0).toUpperCase() + frequency.slice(1)}
-                      onPress={() => setRecurrenceFrequency(frequency)}
-                    />
-                  ))}
-                </View>
-                ) : null}
+                {!isEditing ? <ViewFilter label="Repeat" value={recurrenceFrequency ?? 'none'} options={[{ value: 'none', label: 'One time' }, { value: 'weekly', label: 'Weekly' }, { value: 'monthly', label: 'Monthly' }, { value: 'yearly', label: 'Yearly' }]} onChange={value => { setRecurrenceFrequency(value === 'none' ? null : value); if (value === 'none') setRecurrenceEndsOn(''); }} /> : <ThemedText themeColor="textSecondary">Manage repeat schedules from Profile.</ThemedText>}
                 {recurrenceFrequency ? (
                   <>
                     <NativeDateField
@@ -1199,6 +1062,8 @@ export default function CreateExpenseScreen() {
                     </ThemedText>
                   </>
                 ) : null}
+              </>
+            ) : null}
                 {rateNeeded ? (
                   <>
                     <FormField
@@ -1220,8 +1085,6 @@ export default function CreateExpenseScreen() {
                     ) : null}
                   </>
                 ) : null}
-              </>
-            ) : null}
 
 
           </ScrollView>
@@ -1234,6 +1097,7 @@ export default function CreateExpenseScreen() {
             <PrimaryButton
               disabled={requiredContextUnavailable || (destination === 'group' && groupQuery.isLoading) || (isEditing && expenseQuery.isLoading)}
               label={isEditing ? 'Save changes' : 'Add expense'}
+              loadingLabel="Saving expense…"
               loading={mutation.isPending}
               onPress={submit}
             />

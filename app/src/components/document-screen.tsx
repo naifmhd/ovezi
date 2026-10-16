@@ -1,5 +1,4 @@
-import { HeaderAction } from '@/components/ui/header-action';
-import { router } from 'expo-router';
+import { BackButton } from '@/components/ui/back-button';
 import type { ReactNode } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -30,9 +29,7 @@ export function DocumentScreen({
     <ThemedView style={styles.screen}>
       <SafeAreaView edges={['top']} style={styles.safeArea}>
         <View style={styles.header}>
-          <HeaderAction accessibilityRole="button" onPress={() => router.back()}>
-            <ThemedText style={styles.back} themeColor="primary">‹ Back</ThemedText>
-          </HeaderAction>
+          <BackButton fallback="/(app)/(tabs)/profile" />
           <ThemedText style={styles.headerTitle}>{title}</ThemedText>
           <View style={styles.headerSpacer} />
         </View>

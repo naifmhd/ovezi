@@ -22,6 +22,7 @@ class PersonalDataExporter
         return [
             'export_version' => 1,
             'lending_reminders' => DB::table('lending_reminders')->where('user_id', $user->id)->get(['lending_loan_id', 'remind_at', 'sent_at'])->map(fn ($row) => (array) $row)->all(),
+            'expense_categories' => DB::table('expense_categories')->where('user_id', $user->id)->get(['name', 'archived_at'])->map(fn ($row) => (array) $row)->all(),
             'pins' => DB::table('user_pins')->where('user_id', $user->id)->get(['group_id', 'lending_contact_id'])->map(fn ($pin) => (array) $pin)->all(),
             'exported_at' => now()->toIso8601String(),
             'profile' => [

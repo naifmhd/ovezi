@@ -1,4 +1,4 @@
-import { HeaderAction } from '@/components/ui/header-action';
+import { BackButton } from '@/components/ui/back-button';
 import { ActionSheet } from '@/components/ui/action-sheet';
 import { AnimatedPressable } from '@/components/ui/animated-pressable';
 import { fetchOverallBalances } from '@/lib/balances-api';
@@ -63,9 +63,7 @@ export default function FriendsScreen() {
     <ThemedView style={styles.screen}>
       <SafeAreaView edges={['top']} style={styles.safeArea}>
         <View style={styles.header}>
-          <HeaderAction onPress={() => router.back()}>
-            <ThemedText style={styles.back} themeColor="primary">‹ Back</ThemedText>
-          </HeaderAction>
+          <BackButton fallback="/(app)" />
           <ThemedText style={styles.headerTitle}>Friends</ThemedText>
           <AnimatedPressable style={{ minHeight: 48, justifyContent: 'center' }} onPress={() => setShowAddFriend(!showAddFriend)} accessibilityState={{ expanded: showAddFriend }}><ThemedText themeColor="interactive">+ Friend</ThemedText></AnimatedPressable>
         </View>

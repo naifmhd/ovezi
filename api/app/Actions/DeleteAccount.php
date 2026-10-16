@@ -36,6 +36,7 @@ class DeleteAccount
         DB::transaction(function () use ($user): void {
             $user = User::query()->lockForUpdate()->findOrFail($user->id);
             $email = $user->email;
+            DB::table('expense_categories')->where('user_id', $user->id)->delete();
             DB::table('lending_reminders')->where('user_id', $user->id)->delete();
             DB::table('user_pins')->where('user_id', $user->id)->delete();
             foreach ($user->socialAccounts()->get() as $account) {

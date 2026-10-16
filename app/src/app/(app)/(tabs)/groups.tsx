@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, RefreshControl, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { BrandLockup } from '@/components/brand-mark';
+import { BrandHeader } from '@/components/brand-header';
 import { SearchField, ViewFilter } from '@/components/ui/screen-controls';
 import { SymbolView } from 'expo-symbols';
 import { EmptyState } from '@/components/empty-state';
@@ -47,8 +47,7 @@ export default function GroupsScreen() {
   return (
     <ThemedView style={styles.flex}>
       <SafeAreaView edges={['top']} style={styles.flex}>
-        <View style={styles.brandBar}>
-          <BrandLockup size={24} />
+        <BrandHeader>
           <View style={styles.headerActions}>
             <Pressable accessibilityRole="button" accessibilityLabel="Activity" style={styles.iconButton} onPress={() => router.push('/(app)/profile/activity')}>
               <SymbolView name={{ ios: 'clock.arrow.circlepath', android: 'history', web: 'history' }} size={24} tintColor={theme.textSecondary} />
@@ -58,7 +57,7 @@ export default function GroupsScreen() {
               <ThemedText style={styles.action} themeColor="interactive">New group</ThemedText>
             </Pressable>
           </View>
-        </View>
+        </BrandHeader>
         <FlatList
           data={groups}
           keyExtractor={(group) => String(group.id)}
@@ -103,9 +102,8 @@ export default function GroupsScreen() {
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
-  brandBar: { paddingHorizontal: Spacing.four, paddingTop: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 16, minHeight: 56 },
   newButton: { minHeight: 48, flexDirection: 'row', gap: 4, alignItems: 'center', justifyContent: 'center' },
-  headerActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  headerActions: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'flex-end', alignItems: 'center', gap: 8 },
   iconButton: { minHeight: 48, minWidth: 48, alignItems: 'center', justifyContent: 'center' },
   action: { fontSize: 14, lineHeight: 20, fontWeight: '600' },
   content: { flexGrow: 1, paddingHorizontal: Spacing.four, paddingBottom: tabContentBottomPadding },

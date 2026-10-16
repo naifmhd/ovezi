@@ -141,7 +141,8 @@ fs.mkdirSync(output, { recursive: true });
       assert.equal(await p.getByText('Bali with the whole crew', { exact: true }).filter({ visible: true }).count(), 4);
       await p.screenshot({ path: `${output}/activity-groups-dark.png` });
       await p.goto(base + '/expenses/create');
-      await p.getByRole('button', { name: 'Bali with the whole crew', exact: true }).waitFor();
+      await p.getByRole('button', { name: 'Group: Choose a group', exact: true }).click();
+      await p.getByRole('radio', { name: 'Bali with the whole crew', exact: true }).waitFor();
     });
     await scenario('unified-activity', r => {
       const url = new URL(r.request().url());
@@ -224,7 +225,7 @@ fs.mkdirSync(output, { recursive: true });
       await p.setViewportSize({ width: 320, height: 700 });
       assert(await p.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth));
       await p.screenshot({ path: `${output}/notifications-dark.png` });
-      await p.getByRole('button', { name: '‹ Back', exact: true }).click();
+      await p.getByRole('button', { name: 'Back', exact: true }).click();
       await p.getByText('Enable or disable alerts and manage permissions', { exact: true }).waitFor();
     });
     await scenario('appearance', () => null, async (p) => {
@@ -335,8 +336,8 @@ fs.mkdirSync(output, { recursive: true });
     let savedExpense;
     await scenario('shared-expense-choice', r => r.request().method() === 'POST' && /\/expenses$/.test(r.request().url()) ? (savedExpense = r.request().postDataJSON(), r.fulfill({ json: { data: expenses[0] } })) : null, async p => {
       await p.goto(base + '/expenses/create'); await p.getByLabel('Expense amount', { exact: true }).fill('1200'); await p.getByLabel('What was it for?', { exact: true }).fill('Dinner together');
-      await p.getByRole('button', { name: 'Add expense', exact: true }).click(); await p.getByText('Choose a group for this expense.', { exact: true }).waitFor();
-      assert.equal(savedExpense, undefined); await p.getByRole('button', { name: 'Bali with the whole crew', exact: true }).click();
+      await p.getByRole('button', { name: 'Add expense', exact: true }).click(); await p.getByRole('heading', { name: 'Choose a group', exact: true }).waitFor();
+      assert.equal(savedExpense, undefined); await p.getByRole('radio', { name: 'Bali with the whole crew', exact: true }).click();
       await p.getByText('MVR 300.00 per person', { exact: true }).waitFor();
       await p.getByRole('button', { name: 'Add expense', exact: true }).click(); await p.waitForURL('**/groups/1');
       assert.equal(savedExpense.expense_type, 'group'); assert.equal(savedExpense.split_type, 'equal'); assert.equal(savedExpense.amount_minor, 120000);

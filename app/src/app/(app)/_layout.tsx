@@ -15,6 +15,7 @@ export default function AppLayout() {
       <Stack.Screen name="groups/[id]/settings" />
       <Stack.Screen name="groups/[id]/members" />
       <Stack.Screen name="expenses/create" options={{ presentation: Platform.OS === 'ios' ? 'formSheet' : 'modal' }} />
+      <Stack.Screen name="lending/create" options={{ presentation: Platform.OS === 'ios' ? 'formSheet' : 'modal' }} />
       <Stack.Screen name="expenses/index" />
       <Stack.Screen name="expenses/[id]" />
       <Stack.Screen name="settlements/create" options={{ presentation: Platform.OS === 'ios' ? 'formSheet' : 'modal' }} />

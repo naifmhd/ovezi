@@ -19,6 +19,7 @@ use App\Http\Controllers\Api\V1\Auth\VerifyEmailController;
 use App\Http\Controllers\Api\V1\CurrencyController;
 use App\Http\Controllers\Api\V1\DeleteAccountController;
 use App\Http\Controllers\Api\V1\DirectSettlementController;
+use App\Http\Controllers\Api\V1\ExpenseCategoryController;
 use App\Http\Controllers\Api\V1\ExpenseController;
 use App\Http\Controllers\Api\V1\ExpenseReceiptController;
 use App\Http\Controllers\Api\V1\FriendshipController;
@@ -33,14 +34,14 @@ use App\Http\Controllers\Api\V1\GroupMemberController;
 use App\Http\Controllers\Api\V1\GroupNotificationMuteController;
 use App\Http\Controllers\Api\V1\GroupPhotoController;
 use App\Http\Controllers\Api\V1\LendingBalanceController;
-use App\Http\Controllers\Api\V1\LendingStatementController;
-use App\Http\Controllers\Api\V1\LendingReminderController;
 use App\Http\Controllers\Api\V1\LendingContactController;
 use App\Http\Controllers\Api\V1\LendingDuplicateController;
 use App\Http\Controllers\Api\V1\LendingInvitationController;
 use App\Http\Controllers\Api\V1\LendingLoanController;
 use App\Http\Controllers\Api\V1\LendingOverviewController;
+use App\Http\Controllers\Api\V1\LendingReminderController;
 use App\Http\Controllers\Api\V1\LendingRepaymentController;
+use App\Http\Controllers\Api\V1\LendingStatementController;
 use App\Http\Controllers\Api\V1\NotificationPreferenceController;
 use App\Http\Controllers\Api\V1\OverallBalanceController;
 use App\Http\Controllers\Api\V1\PersonalDataExportController;
@@ -81,6 +82,9 @@ Route::prefix('v1')->name('api.v1.')->group(function (): void {
     });
 
     Route::middleware(['auth:sanctum', IdempotentFinancialWrite::class, LockGroupWrite::class])->group(function (): void {
+        Route::get('expense-categories', [ExpenseCategoryController::class, 'index']);
+        Route::post('expense-categories', [ExpenseCategoryController::class, 'store']);
+        Route::patch('expense-categories/{category}', [ExpenseCategoryController::class, 'update'])->whereNumber('category');
         Route::put('groups/{group}/pin', [PinController::class, 'group'])->name('groups.pin');
         Route::put('lending/contacts/{contact}/pin', [PinController::class, 'contact'])->whereNumber('contact')->name('lending.contacts.pin');
         Route::prefix('lending')->name('lending.')->group(function (): void {

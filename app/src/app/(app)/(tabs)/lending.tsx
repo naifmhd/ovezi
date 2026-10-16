@@ -3,8 +3,10 @@ import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { FlatList, RefreshControl, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { TabPrimaryAction, tabContentBottomPadding } from '@/components/tab-expense-action';
 import { PinButton } from '@/components/pin-button';
-import { BrandLockup } from '@/components/brand-mark';
+import { BrandHeader } from '@/components/brand-header';
+import { Spacing, Typography } from '@/constants/theme';
 import { EmptyState } from '@/components/empty-state';
 import { LendingAction, LendingBalanceSummary, LendingRow, useRefreshLending } from '@/components/lending-ui';
 import { QueryErrorCard } from '@/components/query-error-card';
@@ -40,7 +42,7 @@ export default function LendingScreen() {
     return status === 'all' || (status === 'settled' ? balances.length > 0 && balances.every(b => b.outstanding_minor === 0) : balances.some(b => b.outstanding_minor > 0));
   });
   return <ThemedView style={{ flex: 1 }}><SafeAreaView edges={['top']} style={{ flex: 1 }}>
-    <View style={styles.brand}><BrandLockup size={24} /><LendingAction variant="primary" label="Record a loan" onPress={() => router.push('/(app)/lending/create')} /></View>
+    <BrandHeader><LendingAction label="Add person" onPress={() => router.push('/(app)/lending/person')} /></BrandHeader>
     <FlatList data={rows} keyExtractor={item => String(item.id)} contentContainerStyle={styles.list} keyboardShouldPersistTaps="handled"
       refreshControl={<RefreshControl tintColor={theme.interactive} refreshing={people.isRefetching} onRefresh={() => void refresh()} />}
       ListHeaderComponent={<View style={{ gap: 12 }}>
@@ -71,9 +73,10 @@ export default function LendingScreen() {
           {item.next_due_on ? <ThemedText themeColor={item.next_due_on < today ? 'danger' : 'textSecondary'} style={styles.small}>{item.next_due_on < today ? 'Overdue since' : 'Next due'} {item.next_due_on}</ThemedText> : null}
           {!item.balances.length ? <ThemedText themeColor="textSecondary">No loans recorded yet</ThemedText> : null}
         </LendingRow></AnimatedPressable><PinButton kind="lending" id={item.id} name={item.name} pinned={item.is_pinned} /></View>}
-      ListEmptyComponent={!people.isLoading && !people.error ? <EmptyState title={q ? 'No matching people' : status === 'settled' ? 'No settled records yet' : status === 'overdue' ? 'No overdue loans' : status === 'due_soon' ? 'Nothing due in the next 7 days' : 'Nothing outstanding here'} description="Add a person to record money lent or borrowed. They don’t need an Ovezi account." action={{ label: 'Add person', onPress: () => router.push('/(app)/lending/person') }} /> : null}
+      ListEmptyComponent={!people.isLoading && !people.error ? <EmptyState title={q ? 'No matching people' : status === 'settled' ? 'No settled records yet' : status === 'overdue' ? 'No overdue loans' : status === 'due_soon' ? 'Nothing due in the next 7 days' : 'Nothing outstanding here'} description={q ? 'Try another name, or record a loan with someone new.' : 'Record money lent or borrowed. Choose or add a person as you go—they don’t need an Ovezi account.'} /> : null}
       ListFooterComponent={people.hasNextPage ? <LendingAction label={people.isFetchingNextPage ? 'Loading…' : 'Load more people'} disabled={people.isFetchingNextPage} onPress={() => void people.fetchNextPage()} /> : null}
       onEndReached={() => { if (people.hasNextPage && !people.isFetching && !people.isFetchNextPageError) void people.fetchNextPage(); }} onEndReachedThreshold={0.4} />
+    <TabPrimaryAction label="Record a loan" onPress={() => router.push('/(app)/lending/create')} />
   </SafeAreaView></ThemedView>;
 }
-const styles = StyleSheet.create({ brand: { paddingHorizontal: 24, paddingTop: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', minHeight: 60 }, list: { paddingHorizontal: 24, paddingBottom: 130, flexGrow: 1 }, heading: { fontSize: 32, lineHeight: 40, fontWeight: '600', marginTop: 20 }, filters: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 }, name: { fontSize: 18, lineHeight: 26, fontWeight: '600' }, small: { fontSize: 13 } });
+const styles = StyleSheet.create({ list: { paddingHorizontal: Spacing.four, paddingBottom: tabContentBottomPadding, flexGrow: 1 }, heading: { ...Typography.heading, paddingVertical: Spacing.three }, filters: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 }, name: { fontSize: 18, lineHeight: 26, fontWeight: '600' }, small: { fontSize: 13 } });

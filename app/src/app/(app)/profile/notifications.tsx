@@ -1,4 +1,4 @@
-import { HeaderAction } from '@/components/ui/header-action';
+import { BackButton } from '@/components/ui/back-button';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
@@ -110,9 +110,7 @@ export default function NotificationSettingsScreen() {
     <ThemedView style={styles.screen}>
       <SafeAreaView edges={['top']} style={styles.safeArea}>
         <View style={styles.header}>
-          <HeaderAction onPress={() => router.dismissTo('/(app)/(tabs)/profile')}>
-            <ThemedText style={styles.back} themeColor="primary">‹ Back</ThemedText>
-          </HeaderAction>
+          <BackButton onPress={() => router.dismissTo('/(app)/(tabs)/profile')} />
           <ThemedText style={styles.headerTitle}>Notifications</ThemedText>
           <View style={styles.headerSpacer} />
         </View>

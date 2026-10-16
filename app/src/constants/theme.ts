@@ -125,6 +125,7 @@ export const BottomTabInset = Platform.select({ ios: 50, android: 80 }) ?? 0;
 export const MaxContentWidth = 800;
 
 export const Typography = {
+  button: { fontSize: 16, lineHeight: 24, fontWeight: '600' },
   body: { fontSize: Platform.OS === 'ios' ? 17 : 16, lineHeight: 24, fontWeight: '400' },
   label: { fontSize: 13, lineHeight: 19, fontWeight: '500' },
   heading: { fontSize: 32, lineHeight: 39, fontWeight: '600', letterSpacing: -0.8 },

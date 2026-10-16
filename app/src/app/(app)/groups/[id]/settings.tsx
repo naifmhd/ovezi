@@ -1,5 +1,5 @@
+import { BackButton } from '@/components/ui/back-button';
 import { GroupCleanupControls } from '@/components/group-cleanup-controls';
-import { HeaderAction } from '@/components/ui/header-action';
 import { Disclosure } from '@/components/ui/disclosure';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import * as ImagePicker from 'expo-image-picker';
@@ -245,9 +245,7 @@ export default function GroupSettingsScreen() {
     <ThemedView style={styles.screen}>
       <SafeAreaView edges={['top']} style={styles.safeArea}>
         <View style={styles.header}>
-          <HeaderAction onPress={() => router.back()}>
-            <ThemedText style={styles.headerAction} themeColor="primary">‹ Back</ThemedText>
-          </HeaderAction>
+          <BackButton fallback="/(app)/(tabs)/groups" />
           <ThemedText style={styles.headerTitle}>Group settings</ThemedText>
           <View style={styles.headerSpacer} />
         </View>

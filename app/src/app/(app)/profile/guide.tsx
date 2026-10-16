@@ -1,12 +1,11 @@
 import { router } from 'expo-router';
 import { StyleSheet, View } from 'react-native';
 import { AppScreen } from '@/components/app-screen';
-import { LendingAction } from '@/components/lending-ui';
 import { ThemedText } from '@/components/themed-text';
 import { NavigationRow } from '@/components/ui/screen-controls';
 
 export default function NavigationGuide() {
-  return <AppScreen title="Find your way around" action={<LendingAction label="Back" onPress={() => router.canGoBack() ? router.back() : router.replace('/(app)/(tabs)/profile')} />}>
+  return <AppScreen title="Find your way around" backFallback="/(app)/(tabs)/profile">
     <ThemedText themeColor="textSecondary">A place for shared expenses, a place for loans, and a clear overview of both.</ThemedText>
     <View>
       <NavigationRow label="Home" detail="See what you’ll receive, what you’ll pay, and what needs your attention." onPress={() => router.replace('/(app)/(tabs)')} />

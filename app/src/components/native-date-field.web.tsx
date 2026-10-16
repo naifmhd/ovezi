@@ -3,7 +3,7 @@ import { ThemedText } from '@/components/themed-text';
 import { useTheme } from '@/hooks/use-theme';
 
 export function NativeDateField({ label, value, onChange, minimumDate, optional = false }: {
-  label: string; value: string; onChange: (value: string) => void; minimumDate?: Date; optional?: boolean; emptyLabel?: string;
+  label: string; value: string; onChange: (value: string) => void; minimumDate?: Date; optional?: boolean; emptyLabel?: string; initiallyOpen?: boolean;
 }) {
   const theme = useTheme();
   const minimum = minimumDate ? `${minimumDate.getFullYear()}-${String(minimumDate.getMonth() + 1).padStart(2, '0')}-${String(minimumDate.getDate()).padStart(2, '0')}` : undefined;

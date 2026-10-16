@@ -1,3 +1,4 @@
+import { BackNavigation } from '@/components/ui/back-button';
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
@@ -26,10 +27,10 @@ export default function BalanceExplanation() {
   });
   const first = query.data?.pages[0];
   return <ThemedView style={{ flex: 1 }}><SafeAreaView edges={['top']} style={{ flex: 1 }}>
+    <BackNavigation fallback="/(app)/(tabs)/lending" />
     <FlatList data={query.data?.pages.flatMap(page => page.data) ?? []} keyExtractor={item => `${view}:${item.id}`} contentContainerStyle={{ padding: 24, paddingBottom: 64 }}
       refreshControl={<RefreshControl refreshing={query.isRefetching} onRefresh={() => void query.refetch()} />}
       ListHeaderComponent={<View style={{ gap: 12 }}>
-        <LendingAction label="Back" onPress={() => router.canGoBack() ? router.back() : router.replace('/(app)/(tabs)/lending')} />
         <ThemedText accessibilityRole="header" style={{ fontSize: 28, lineHeight: 36, fontWeight: '600' }}>How this balance adds up</ThemedText>
         {first ? <>
           <ThemedText style={lendingStyles.title}>{first.person_name} · {first.summary.currency_code}</ThemedText>

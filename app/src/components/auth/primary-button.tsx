@@ -1,7 +1,7 @@
 import { ActivityIndicator, StyleSheet, Text } from 'react-native';
 
 import { AnimatedPressable } from '@/components/ui/animated-pressable';
-import { Radius } from '@/constants/theme';
+import { Radius, Typography } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
 type PrimaryButtonProps = {
@@ -35,6 +35,6 @@ export function PrimaryButton({ label, onPress, loading, loadingLabel = 'Working
 
 const styles = StyleSheet.create({
   button: { minHeight: 52, paddingHorizontal: 18, paddingVertical: 14, borderRadius: Radius.control, flexDirection: 'row', gap: 10, alignItems: 'center', justifyContent: 'center' },
-  label: { flexShrink: 1, fontSize: 16, fontWeight: '600', textAlign: 'center' },
+  label: { ...Typography.button, flexShrink: 1, textAlign: 'center' },
   dimmed: { opacity: 0.65 },
 });

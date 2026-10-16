@@ -63,11 +63,10 @@ export default function PreviousRecordsScreen() {
 
   return (
     <AppScreen
-      branded
+      backFallback="/(app)/(tabs)/profile"
       title="Previous records"
       action={
         <View style={styles.headerActions}>
-          <Pressable accessibilityRole="button" style={{ minHeight: 48, justifyContent: 'center' }} onPress={() => router.canGoBack() ? router.back() : router.replace('/(app)/(tabs)/profile')}><ThemedText themeColor="interactive">Back</ThemedText></Pressable>
           <Pressable accessibilityRole="button" accessibilityLabel="Search expenses, groups and friends" style={[styles.searchButton, { backgroundColor: theme.surface }]} onPress={() => router.push('/(app)/search')}>
             <SymbolView name={{ ios: 'magnifyingglass', android: 'search', web: 'search' }} size={21} tintColor={theme.interactive} />
           </Pressable>

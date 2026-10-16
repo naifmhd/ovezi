@@ -15,6 +15,7 @@ type NativeDateFieldProps = {
   onChange: (value: string) => void;
   minimumDate?: Date;
   optional?: boolean;
+  initiallyOpen?: boolean;
   emptyLabel?: string;
 };
 
@@ -31,9 +32,9 @@ function dateValue(date: Date) {
   return `${year}-${month}-${day}`;
 }
 
-export function NativeDateField({ label, minimumDate, onChange, optional = false, value, emptyLabel = 'No end date' }: NativeDateFieldProps) {
+export function NativeDateField({ label, minimumDate, onChange, optional = false, value, emptyLabel = 'No end date', initiallyOpen = false }: NativeDateFieldProps) {
   const theme = useTheme();
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(initiallyOpen);
   const selectedDate = parseDate(value);
 
   function handleChange(event: DateTimePickerEvent, date?: Date) {

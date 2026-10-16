@@ -1,3 +1,4 @@
+import { BackButton } from '@/components/ui/back-button';
 import { expenseNetForUser, expensePayerLabel } from '@/lib/expense-impact';
 import { HeaderAction } from '@/components/ui/header-action';
 import { Disclosure } from '@/components/ui/disclosure';
@@ -183,9 +184,7 @@ export default function ExpenseDetailScreen() {
     <ThemedView style={styles.screen}>
       <SafeAreaView edges={['top']} style={styles.safeArea}>
         <View style={styles.header}>
-          <HeaderAction onPress={() => router.back()}>
-            <ThemedText style={styles.headerAction} themeColor="primary">‹ Back</ThemedText>
-          </HeaderAction>
+          <BackButton fallback="/(app)" />
           <ThemedText style={styles.headerTitle}>Expense</ThemedText>
           {expense && canManage && deletedAt === null ? (
             <HeaderAction style={{ alignItems: 'flex-end' }}

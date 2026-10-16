@@ -1,6 +1,6 @@
+import { BackButton } from '@/components/ui/back-button';
 import { GroupCompletion } from '@/components/group-completion';
 import { isGroupSettled } from '@/lib/group-completion';
-import { HeaderAction } from '@/components/ui/header-action';
 import { ActionSheet } from '@/components/ui/action-sheet';
 import { MoneyAmount } from '@/components/money-amount';
 import { useMutation, useQuery } from '@tanstack/react-query';
@@ -106,11 +106,7 @@ export default function GroupDetailScreen() {
       ]} />
       <SafeAreaView edges={['top']} style={styles.safeArea}>
         <View style={styles.header}>
-          <HeaderAction hitSlop={8} onPress={() => router.back()} style={styles.headerTouch}>
-            <ThemedText style={styles.back} themeColor="primary">
-              ‹ Back
-            </ThemedText>
-          </HeaderAction>
+          <BackButton fallback="/(app)/(tabs)/groups" />
           <ThemedText numberOfLines={1} style={styles.headerTitle}>
             Group details
           </ThemedText>
