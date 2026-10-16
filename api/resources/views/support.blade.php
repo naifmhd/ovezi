@@ -27,9 +27,15 @@
             </section>
             <section class="support-card">
                 <h2>Notifications</h2>
-                <p>Check Ovezi’s notification preferences and iOS Settings. You can mute individual groups and supported event types without disabling every notification.</p>
+                <p>Check Ovezi’s notification preferences and your phone’s notification settings. You can mute individual groups and supported event types without disabling every notification.</p>
             </section>
         </div>
+
+        <section>
+            <h2>Get the latest Ovezi app</h2>
+            <p>Ovezi is available for iPhone and Android. Download the app or check your store for updates.</p>
+            @include('partials.store-links')
+        </section>
 
         <section>
             <h2>Export or delete your account</h2>

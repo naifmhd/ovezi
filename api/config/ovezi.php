@@ -4,8 +4,8 @@ return [
     'lending_sharing_enabled' => env('OVEZI_LENDING_SHARING_ENABLED', true),
     'deep_link_scheme' => env('APP_DEEP_LINK_SCHEME', 'ovezi'),
     'support_email' => env('OVEZI_SUPPORT_EMAIL', 'naifmhd@gmail.com'),
-    'app_store_url' => env('OVEZI_APP_STORE_URL'),
-    'play_store_url' => env('OVEZI_PLAY_STORE_URL'),
+    'app_store_url' => env('OVEZI_APP_STORE_URL') ?: 'https://apps.apple.com/app/ovezi/id6813832162',
+    'play_store_url' => env('OVEZI_PLAY_STORE_URL') ?: 'https://play.google.com/store/apps/details?id=com.ovezi.app',
     'android_package' => env('OVEZI_ANDROID_PACKAGE', 'com.ovezi.app'),
     'android_sha256_fingerprints' => array_values(array_filter(array_map('trim', explode(',', (string) env('ANDROID_SHA256_FINGERPRINTS', ''))))),
     'social' => [
