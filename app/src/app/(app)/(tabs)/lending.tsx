@@ -16,7 +16,7 @@ import { SymbolView } from 'expo-symbols';
 import { UserAvatar } from '@/components/user-avatar';
 import { useTheme } from '@/hooks/use-theme';
 import { errorMessage } from '@/lib/api-client';
-import { LendingContact, LendingDirection, LendingInvitation, lendingNextPage, lendingPage, lendingWrite } from '@/lib/lending-api';
+import { LendingContact, LendingDirection, LendingInvitation, lendingNextPage, lendingPage, lendingWrite, localToday } from '@/lib/lending-api';
 import { useAuthStore } from '@/stores/auth-store';
 
 export default function LendingScreen() {
@@ -27,10 +27,11 @@ export default function LendingScreen() {
   const [search, setSearch] = useState('');
   const [q, setQ] = useState('');
   const [direction, setDirection] = useState<LendingDirection>('lent');
-  const [status, setStatus] = useState<'outstanding' | 'settled' | 'all'>('outstanding');
+  const [status, setStatus] = useState<'outstanding' | 'overdue' | 'due_soon' | 'settled' | 'all'>('outstanding');
   useEffect(() => { const timer = setTimeout(() => setQ(search.trim()), 280); return () => clearTimeout(timer); }, [search]);
-  const people = useInfiniteQuery({ queryKey: ['lending', 'contacts', q, direction, status], initialPageParam: 1,
-    queryFn: ({ pageParam, signal }) => lendingPage<LendingContact>(token, `contacts?q=${encodeURIComponent(q)}&direction=${direction}&status=${status}`, pageParam, signal), getNextPageParam: lendingNextPage });
+  const today = localToday();
+  const people = useInfiniteQuery({ queryKey: ['lending', 'contacts', q, direction, status, today], initialPageParam: 1,
+    queryFn: ({ pageParam, signal }) => lendingPage<LendingContact>(token, `contacts?q=${encodeURIComponent(q)}&direction=${direction}&status=${status}&today=${today}`, pageParam, signal), getNextPageParam: lendingNextPage });
   const invitations = useInfiniteQuery({ queryKey: ['lending', 'invitations'], initialPageParam: 1,
     queryFn: ({ pageParam, signal }) => lendingPage<LendingInvitation>(token, 'invitations', pageParam, signal), getNextPageParam: lendingNextPage });
   const respond = useMutation({ mutationFn: ({ id, action }: { id: number; action: string }) => lendingWrite(token, `invitations/${id}/actions`, { action }), onSuccess: refresh });
@@ -47,7 +48,7 @@ export default function LendingScreen() {
         <ThemedText themeColor="textSecondary">Track what comes back. Know what you owe.</ThemedText>
         <SegmentedControl label="Money direction" value={direction} options={[{ value: 'lent', label: 'To receive' }, { value: 'borrowed', label: 'To pay' }]} onChange={setDirection} />
         <SearchField label="Find a person" value={search} onChange={setSearch} placeholder="Search people" />
-        <ViewFilter label="Show lending records" value={status} options={[{ value: 'outstanding', label: 'Outstanding' }, { value: 'settled', label: 'Settled' }, { value: 'all', label: 'All people' }]} onChange={setStatus} />
+        <ViewFilter label="Show lending records" value={status} options={[{ value: 'outstanding', label: 'Outstanding' }, { value: 'overdue', label: 'Overdue' }, { value: 'due_soon', label: 'Due soon · next 7 days' }, { value: 'settled', label: 'Settled' }, { value: 'all', label: 'All people' }]} onChange={setStatus} />
         {!verified ? <LendingAction label="Verify your email to connect with people" onPress={() => router.push('/(app)/(tabs)/profile')} /> : null}
         {(invitations.data?.pages.flatMap(p => p.data) ?? []).map(invite => <LendingRow key={invite.id}>
           <ThemedText style={styles.name}>{invite.sender_name} wants to connect</ThemedText>
@@ -67,9 +68,10 @@ export default function LendingScreen() {
           <SymbolView name={{ ios: 'chevron.right', android: 'chevron_right', web: 'chevron_right' }} size={20} tintColor={theme.textSecondary} />
           </View>
           {item.balances.filter(b => b.direction === direction).map(b => <LendingBalanceSummary key={b.currency_code} balance={b} />)}
+          {item.next_due_on ? <ThemedText themeColor={item.next_due_on < today ? 'danger' : 'textSecondary'} style={styles.small}>{item.next_due_on < today ? 'Overdue since' : 'Next due'} {item.next_due_on}</ThemedText> : null}
           {!item.balances.length ? <ThemedText themeColor="textSecondary">No loans recorded yet</ThemedText> : null}
         </LendingRow></AnimatedPressable><PinButton kind="lending" id={item.id} name={item.name} pinned={item.is_pinned} /></View>}
-      ListEmptyComponent={!people.isLoading && !people.error ? <EmptyState title={q ? 'No matching people' : status === 'settled' ? 'No settled records yet' : 'Nothing outstanding here'} description="Add a person to record money lent or borrowed. They don’t need an Ovezi account." action={{ label: 'Add person', onPress: () => router.push('/(app)/lending/person') }} /> : null}
+      ListEmptyComponent={!people.isLoading && !people.error ? <EmptyState title={q ? 'No matching people' : status === 'settled' ? 'No settled records yet' : status === 'overdue' ? 'No overdue loans' : status === 'due_soon' ? 'Nothing due in the next 7 days' : 'Nothing outstanding here'} description="Add a person to record money lent or borrowed. They don’t need an Ovezi account." action={{ label: 'Add person', onPress: () => router.push('/(app)/lending/person') }} /> : null}
       ListFooterComponent={people.hasNextPage ? <LendingAction label={people.isFetchingNextPage ? 'Loading…' : 'Load more people'} disabled={people.isFetchingNextPage} onPress={() => void people.fetchNextPage()} /> : null}
       onEndReached={() => { if (people.hasNextPage && !people.isFetching && !people.isFetchNextPageError) void people.fetchNextPage(); }} onEndReachedThreshold={0.4} />
   </SafeAreaView></ThemedView>;

@@ -1,3 +1,4 @@
+import { TextInput } from '@/components/ui/text-input';
 import { HeaderAction } from '@/components/ui/header-action';
 import { QueryErrorCard } from '@/components/query-error-card';
 import { ChoiceChip } from '@/components/ui/choice-chip';
@@ -12,7 +13,6 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  TextInput,
   useWindowDimensions,
   View,
 } from 'react-native';

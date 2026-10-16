@@ -77,6 +77,7 @@ export default function CreateGroupScreen() {
             <PrimaryButton
               disabled={!name.trim() || currencyValue.trim().length !== 3}
               label="Create group"
+              loadingLabel="Creating group…"
               loading={mutation.isPending}
               onPress={() => mutation.mutate()}
             />

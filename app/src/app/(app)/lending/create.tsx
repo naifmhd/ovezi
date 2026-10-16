@@ -81,7 +81,7 @@ function LoanForm({ initialDraft, userId }: { initialDraft: LoanDraft | null; us
     try {
       await clearLoanDraft(userId);
       await refresh();
-      router.replace({ pathname: '/(app)/lending/loan', params: { id: loanId } });
+      router.replace({ pathname: '/(app)/lending/loan', params: { id: loanId, saved: 'loan' } });
     } catch { setCleanupError('Your loan is saved. Couldn’t clear the local draft. Retry to finish.'); }
   }
   const [draftStatus, setDraftStatus] = useState('');
@@ -149,7 +149,7 @@ function LoanForm({ initialDraft, userId }: { initialDraft: LoanDraft | null; us
     </View> : null}
     {save.error ? <ThemedText themeColor="danger">{errorMessage(save.error)}</ThemedText> : null}
     {draftStatus ? <ThemedText themeColor="textSecondary">{draftStatus}</ThemedText> : null}
-    {!duplicates ? <PrimaryButton label={willShare ? 'Save & share loan' : 'Save private loan'} loading={save.isPending} disabled={(!newPerson && !person.data) || (willShare && !sharingEnabled)} onPress={() => save.mutate(undefined)} /> : null}
+    {!duplicates ? <PrimaryButton label={willShare ? 'Save & share loan' : 'Save private loan'} loadingLabel="Saving loan…" loading={save.isPending} disabled={(!newPerson && !person.data) || (willShare && !sharingEnabled)} onPress={() => save.mutate(undefined)} /> : null}
   </LendingScreen>;
 }
 

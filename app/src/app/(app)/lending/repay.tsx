@@ -26,7 +26,12 @@ export default function RepayLoan() {
     const minor = parseDecimalToInteger(amount, currencyFractionDigits(currency));
     if (!minor || minor < 0) throw new Error('Enter a positive repayment amount.');
     return lendingWrite(token, `contacts/${id}/repayments`, { amount_minor: minor, currency_code: currency, direction, occurred_on: date, note: note.trim() || null, ...(loanId ? { loan_id: Number(loanId) } : {}) });
-  }, onSuccess: async () => { await refresh(); router.back(); } });
+  }, onSuccess: async () => { await refresh(); } });
+  if (save.isSuccess) return <LendingScreen title="Repayment saved">
+    <ThemedText themeColor="positive" accessibilityLiveRegion="polite">Your repayment record is saved.</ThemedText>
+    <ThemedText themeColor="textSecondary">Shared repayments may still need the lender to confirm receipt. The balance changes after confirmation.</ThemedText>
+    <PrimaryButton label="View updated records" onPress={() => router.replace({ pathname: '/(app)/lending/[id]', params: { id } })} />
+  </LendingScreen>;
   return <LendingScreen title="Record repayment">
     <ThemedText>{person.data?.name ?? 'Loading person…'} · {direction === 'lent' ? 'Money you lent' : 'Money you borrowed'}</ThemedText>
     <ThemedText themeColor="textSecondary">{loanId ? 'Available to repay' : 'Outstanding in this currency'}</ThemedText><LendingMoney amount={outstanding} currency={currency} large />
@@ -37,6 +42,6 @@ export default function RepayLoan() {
     <ThemedText themeColor="textSecondary">{loanId ? 'This repayment applies to the selected loan.' : 'Applied to the oldest loans in this currency first. Pending repayments already reserve part of the balance.'} Borrower-reported payments on shared loans wait for lender confirmation.</ThemedText>
     <ThemedText themeColor="textSecondary">Record money already paid elsewhere. Ovezi does not transfer money.</ThemedText>
     {save.error || person.error || loan.error ? <ThemedText themeColor="danger">{errorMessage(save.error ?? person.error ?? loan.error)}</ThemedText> : null}
-    {confirm ? <><ThemedText>Record {amount} {currency} with {person.data?.name}?</ThemedText><PrimaryButton label="Confirm repayment record" loading={save.isPending} onPress={() => save.mutate()} /><LendingAction label="Keep editing" onPress={() => setConfirm(false)} /></> : <PrimaryButton label="Review repayment" disabled={!person.data || !amount || (!!loanId && !loan.data)} onPress={() => setConfirm(true)} />}
+    {confirm ? <><ThemedText>Record {amount} {currency} with {person.data?.name}?</ThemedText><PrimaryButton label={save.isError ? "Retry saving repayment" : "Confirm repayment record"} loadingLabel="Saving repayment…" loading={save.isPending} onPress={() => save.mutate()} /><LendingAction label="Keep editing" disabled={save.isPending} onPress={() => setConfirm(false)} /></> : <PrimaryButton label="Review repayment" disabled={!person.data || !amount || (!!loanId && !loan.data)} onPress={() => setConfirm(true)} />}
   </LendingScreen>;
 }

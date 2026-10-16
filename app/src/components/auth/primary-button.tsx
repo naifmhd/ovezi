@@ -35,6 +35,6 @@ export function PrimaryButton({ label, onPress, loading, loadingLabel = 'Working
 
 const styles = StyleSheet.create({
   button: { minHeight: 52, paddingHorizontal: 18, paddingVertical: 14, borderRadius: Radius.control, flexDirection: 'row', gap: 10, alignItems: 'center', justifyContent: 'center' },
-  label: { fontSize: 16, fontWeight: '600', textAlign: 'center' },
+  label: { flexShrink: 1, fontSize: 16, fontWeight: '600', textAlign: 'center' },
   dimmed: { opacity: 0.65 },
 });

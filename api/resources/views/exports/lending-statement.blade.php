@@ -11,7 +11,7 @@ th { background: #edf5f1; } tr { page-break-inside: avoid; } thead { display: ta
 @forelse($balances as $balance)<tr><td>{{ $balance['currency'] }}<br>{{ $balance['direction'] === 'lent' ? 'To receive' : 'To pay' }}</td><td class="money">{{ $money($balance['amount_minor'], $balance['currency']) }}</td><td class="money">{{ $money($balance['repaid_minor'], $balance['currency']) }}</td><td class="money">{{ $money($balance['outstanding_minor'], $balance['currency']) }}</td></tr>@empty<tr><td colspan="4">No active balances.</td></tr>@endforelse
 </tbody></table>
 @foreach($rows->groupBy('currency')->sortKeys() as $currency => $entries)
-<h2>{{ $currency }} activity</h2><table><thead><tr><th style="width: 18%">Date</th><th style="width: 47%">Record / description</th><th>Status</th><th class="money">Amount</th></tr></thead><tbody>
+<h2>{{ $currency }} activity</h2><table><thead><tr><th style="width: 18%">Date</th><th style="width: 47%">Record / description</th><th>Status</th><th class="money">Amount<br>{{ $currency }}</th></tr></thead><tbody>
 @foreach($entries as $row)<tr><td>{{ $row['date'] }}</td><td>{{ $row['type'] }} · #{{ $row['loan_id'] }}<br>{{ $row['direction'] === 'lent' ? 'Money lent' : 'Money borrowed' }}<br>{{ $row['description'] }}</td><td>{{ $row['status'] }}</td><td class="money">{{ $money($row['amount_minor'], $currency) }}</td></tr>@endforeach
 </tbody></table>@endforeach
 @if($rows->isEmpty())<p>No activity in this date range.</p>@endif

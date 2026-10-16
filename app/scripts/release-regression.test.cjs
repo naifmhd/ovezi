@@ -735,3 +735,28 @@ test('group completion requires known zero balances for every member, not just a
   assert.equal(isGroupSettled({ members: [{ balance_minor: 0 }], suggested_settlements: [{ amount_minor: 100 }] }), false);
   assert.equal(isGroupSettled({ members: [{ balance_minor: 0 }, { balance_minor: 0 }], suggested_settlements: [] }), true);
 });
+
+test('native person statements keep date filters and PDF sharing metadata without exposing the token in filenames', async () => {
+  const calls = [];
+  const sharing = { isAvailableAsync: async () => true, shareAsync: async (...args) => calls.push(['share', ...args]) };
+  const files = { cacheDirectory: '/cache/', downloadAsync: async (...args) => { calls.push(['download', ...args]); return { status: 200, uri: args[1] }; } };
+  const api = load('share-text-file', { 'expo-file-system/legacy': files, 'expo-sharing': sharing, 'react-native': { Platform: { OS: 'ios' } }, '@/lib/api-client': { apiBaseUrl: 'https://api.example.test/api/v1' } }, { URLSearchParams });
+  await api.shareLendingStatement('private-session', '12', 'Test person', 'pdf', '2026-10-01', '2026-10-16');
+  assert.equal(calls[0][1], 'https://api.example.test/api/v1/lending/contacts/12/statement?format=pdf&from=2026-10-01&to=2026-10-16');
+  assert.equal(calls[0][2], '/cache/test-person-statement.pdf');
+  assert.equal(calls[0][3].headers.Authorization, 'Bearer private-session');
+  assert.equal(calls[1][2].mimeType, 'application/pdf');
+});
+
+test('failed native statement downloads never open sharing and explain API or proxy failures', async () => {
+  let shares = 0, body = JSON.stringify({ errors: { from: ['Choose a shorter date range.'] } });
+  const api = load('share-text-file', {
+    'expo-file-system/legacy': { cacheDirectory: '/cache/', downloadAsync: async () => ({ status: 422 }), readAsStringAsync: async () => body },
+    'expo-sharing': { isAvailableAsync: async () => true, shareAsync: async () => { shares++; } },
+    'react-native': { Platform: { OS: 'ios' } }, '@/lib/api-client': { apiBaseUrl: 'https://api.example.test/api/v1' },
+  }, { URLSearchParams });
+  await assert.rejects(api.shareLendingStatement('session', '12', 'Test', 'csv', '', ''), /Choose a shorter date range/);
+  body = '<html>Unavailable</html>';
+  await assert.rejects(api.shareLendingStatement('session', '12', 'Test', 'pdf', '', ''), /Couldn’t prepare the export/);
+  assert.equal(shares, 0);
+});

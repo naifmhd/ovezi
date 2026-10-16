@@ -32,6 +32,7 @@ export default function PersonDetail() {
       {!person.data.balances.length ? <ThemedText themeColor="textSecondary">No money recorded yet. Add your first loan below.</ThemedText> : <ThemedText themeColor="textSecondary">Balances include recorded loans awaiting acknowledgement. Each currency is settled separately.</ThemedText>}
       {person.data.is_owner || (sharingEnabled && person.data.is_connected) ? <PrimaryButton label="Record a loan" onPress={() => router.push({ pathname: '/(app)/lending/create', params: { id } })} /> : null}
       <View style={{ marginTop: 12 }}>
+        <NavigationRow label="Export statement" detail="PDF or CSV · choose activity dates" icon={{ ios: 'square.and.arrow.up', android: 'ios_share', web: 'ios_share' }} onPress={() => router.push({ pathname: '/(app)/lending/statement', params: { id } })} />
         <NavigationRow label="Person settings" detail="Name, email and connection" icon={{ ios: 'person.crop.circle', android: 'account_circle', web: 'account_circle' }} onPress={() => router.push({ pathname: '/(app)/lending/person', params: { id } })} />
         {sharingEnabled && person.data.is_owner && !person.data.disconnected_at ? <NavigationRow label="Connect & share" detail="Choose which loans this person can see" icon={{ ios: 'person.2', android: 'group', web: 'group' }} onPress={() => router.push({ pathname: '/(app)/lending/share', params: { id } })} /> : null}
       </View>

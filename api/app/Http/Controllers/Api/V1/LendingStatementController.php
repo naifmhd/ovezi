@@ -18,10 +18,11 @@ class LendingStatementController extends Controller
         $data = $request->validate([
             'format' => ['required', Rule::in(['csv', 'pdf'])],
             'from' => ['nullable', 'date_format:Y-m-d'],
-            'to' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:from'],
+            'to' => ['nullable', 'date_format:Y-m-d', ...($request->filled('from') ? ['after_or_equal:from'] : [])],
         ]);
         $statement = $exporter->statement($request->user(), $person, $data['from'] ?? null, $data['to'] ?? null);
         $format = $data['format'];
+
         return response($format === 'pdf' ? $exporter->pdf($statement) : $exporter->csv($statement), 200, [
             'Content-Type' => $format === 'pdf' ? 'application/pdf' : 'text/csv; charset=UTF-8',
             'Content-Disposition' => 'attachment; filename="'.(Str::slug($statement['name']) ?: 'ovezi').'-statement.'.$format.'"',

@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import { TextInput } from '@/components/ui/text-input';
 import { SymbolView } from 'expo-symbols';
 import { useMemo, useState } from 'react';
 import { useReducedMotion } from 'react-native-reanimated';
@@ -9,7 +10,6 @@ import {
   Pressable,
   SafeAreaView,
   StyleSheet,
-  TextInput,
   View,
 } from 'react-native';
 
@@ -229,7 +229,7 @@ const styles = StyleSheet.create({
   done: { minWidth: 48, minHeight: 48, alignItems: 'flex-end', justifyContent: 'center' },
   doneText: { fontSize: 15, fontWeight: '600' },
   searchWrap: {
-    height: 50,
+    minHeight: 54,
     borderWidth: 1,
     borderRadius: Radius.control,
     marginHorizontal: Spacing.four,
@@ -238,7 +238,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 9,
   },
-  searchInput: { flex: 1, fontSize: 16, height: '100%' },
+  searchInput: { flex: 1, fontSize: 16, minHeight: 54, paddingVertical: 0 },
   list: { padding: Spacing.four, gap: 8, paddingBottom: 40 },
   currencyRow: {
     minHeight: 64,
