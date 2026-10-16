@@ -4,7 +4,7 @@ export function redirectSystemPath({ path }: { path: string; initial: boolean })
     if (url.protocol !== 'ovezi:') return path;
 
     const pathname = `/${url.host}${url.pathname}`;
-    if (!['/auth/verify-email', '/auth/reset-password', '/group-invites/accept'].includes(pathname)) {
+    if (!['/auth/verify-email', '/auth/reset-password', '/group-invites/accept', '/lending'].includes(pathname)) {
       return path;
     }
 

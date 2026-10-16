@@ -70,7 +70,16 @@ export function minorAmountInput(minorAmount: number, currencyCode: string) {
   }).format(minorAmount / 10 ** digits);
 }
 
+export const lendingEventLabels: Record<string, string> = {
+  'loan.created': 'recorded this loan', 'loan.shared': 'shared this loan', 'connection.accepted': 'accepted the connection',
+  'loan.acknowledge': 'acknowledged this loan', 'loan.dispute': 'disputed this loan', 'loan.void': 'requested or recorded a correction',
+  'loan.confirm_void': 'agreed to void this loan', 'loan.reject_void': 'declined the correction',
+  'repayment.confirmed': 'recorded a repayment', 'repayment.reported': 'reported a repayment', 'repayment.confirm': 'confirmed receipt',
+  'repayment.reject': 'withdrew or rejected a repayment', 'repayment.reverse': 'reversed a repayment',
+};
+
 const activityLabels: Record<string, string> = {
+  ...lendingEventLabels,
   'group.created': 'created the group',
   'group.updated': 'updated the group',
   'group.archived': 'archived the group',

@@ -150,6 +150,7 @@ export default function ExpensesScreen() {
           refreshControl={<RefreshControl refreshing={query.isRefetching} onRefresh={() => void query.refetch()} />}
           renderItem={({ item }) => (
             <ExpenseRow
+              showGroup={!groupId}
               currentUserId={user.id}
               expense={item}
               onPress={() => router.push({ pathname: '/(app)/expenses/[id]', params: { id: item.id } })}

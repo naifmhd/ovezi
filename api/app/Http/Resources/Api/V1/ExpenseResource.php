@@ -20,6 +20,10 @@ class ExpenseResource extends JsonResource
             'recurring_occurrence_on' => $this->recurring_occurrence_on,
             'expense_type' => $this->expense_type,
             'group_id' => $this->group_id,
+            'group' => $this->whenLoaded('group', fn (): array => [
+                'id' => $this->group->id,
+                'name' => $this->group->name,
+            ]),
             'payer' => [
                 'user_id' => $this->payer_user_id,
                 'placeholder_id' => $this->payer_placeholder_id,

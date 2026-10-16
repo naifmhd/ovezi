@@ -25,6 +25,29 @@ function incomingLinkParams(path, initial) {
   return parseQueryParams(extractExpoPathFromURL([], redirectSystemPath({ path, initial })), { name: 'auth' });
 }
 
+test('group initials distinguish names and keep Unicode characters intact', () => {
+  const { groupInitials } = load('group-identity');
+  assert.equal(groupInitials('  Friday   Coffee Club '), 'FC');
+  assert.equal(groupInitials('Bali'), 'B');
+  assert.equal(groupInitials('މާލެ ދަތުރު'), 'މދ');
+  assert.equal(groupInitials(''), 'G');
+});
+
+test('search and paginated group requests preserve cancellation and encoded filters', async () => {
+  const calls = [];
+  const api = { apiRequest: async (url, options) => { calls.push({ url, options }); return { data: {} }; } };
+  const controller = new AbortController();
+  await load('search-api', { '@/lib/api-client': api }).searchOvezi('session', 'coffee & dinner', controller.signal);
+  await load('groups-api', { '@/lib/api-client': api }, { URLSearchParams }).fetchGroupsPage('session', 'archived', 'home & food', 3, controller.signal);
+  assert.equal(calls[0].url, '/search?q=coffee%20%26%20dinner');
+  const params = new URL(calls[1].url, 'https://example.test').searchParams;
+  assert.equal(params.get('status'), 'archived');
+  assert.equal(params.get('q'), 'home & food');
+  assert.equal(params.get('page'), '3');
+  assert.equal(params.get('per_page'), '30');
+  for (const call of calls) assert.equal(call.options.signal, controller.signal);
+});
+
 function loadAuthApi(api) {
   return load('auth-api', {
     '@/lib/api-client': api,
@@ -618,4 +641,97 @@ test('a failed provider connection leaves the existing account unchanged', async
   const original = h.state();
   await assert.rejects(h.connect(), /Already connected elsewhere/);
   assert.equal(h.state(), original);
+});
+
+test('activity filters encode search and local date boundaries with cancellation', async () => {
+  const calls = [];
+  const api = load('activity-api', { '@/lib/api-client': { apiRequest: (...args) => calls.push(args) } }, { URLSearchParams });
+  const signal = new AbortController().signal;
+  await api.fetchActivity('token', undefined, 30, 2, 'lending', signal, { q: 'Trip & lunch', from: '2026-10-15', to: '2026-10-15' });
+  const url = new URL(calls[0][0], 'https://example.test');
+  assert.equal(url.searchParams.get('q'), 'Trip & lunch');
+  assert.equal(url.searchParams.get('after'), new Date(2026, 9, 15).toISOString());
+  assert.equal(url.searchParams.get('before'), new Date(2026, 9, 16).toISOString());
+  assert.equal(url.searchParams.get('source'), 'lending');
+  assert.equal(calls[0][1].signal, signal);
+});
+
+function loanDraftHarness() {
+  const values = new Map();
+  let write = async (key, value) => values.set(key, value);
+  const api = load('loan-draft', { '@/lib/draft-storage': { draftStorage: {
+    getItem: async key => values.get(key) ?? null,
+    setItem: (...args) => write(...args),
+    removeItem: async key => values.delete(key),
+  } } });
+  return { ...api, values, setWrite: fn => { write = fn; } };
+}
+const draftFixture = { contactId: '11', newPerson: null, direction: 'lent', currency: 'USD', amount: '125.50', description: 'Deposit', note: 'Private note', date: '2026-10-15', due: '', shared: false };
+
+test('loan drafts restore form values only for their own account and ignore invalid storage', async () => {
+  const h = loanDraftHarness();
+  await h.saveLoanDraft(1, draftFixture);
+  assert.equal(JSON.stringify(await h.readLoanDraft(1)), JSON.stringify(draftFixture));
+  assert.equal(await h.readLoanDraft(2), null);
+  h.values.set('loan-draft-2', '{invalid');
+  assert.equal(await h.readLoanDraft(2), null);
+  h.values.set('loan-draft-2', JSON.stringify({ ...draftFixture, newPerson: { email: 3 } }));
+  assert.equal(await h.readLoanDraft(2), null);
+});
+
+test('discard waits for slow draft writes so an old save cannot resurrect it', async () => {
+  const h = loanDraftHarness();
+  let release;
+  const gate = new Promise(resolve => { release = resolve; });
+  h.setWrite(async (key, value) => { await gate; h.values.set(key, value); });
+  const saving = h.saveLoanDraft(1, draftFixture);
+  const clearing = h.clearLoanDraft(1);
+  release(); await Promise.all([saving, clearing]);
+  assert.equal(await h.readLoanDraft(1), null);
+});
+
+test('failed draft writes report failure without blocking later recovery', async () => {
+  const h = loanDraftHarness();
+  h.setWrite(async () => { throw new Error('Storage full'); });
+  await assert.rejects(h.saveLoanDraft(1, draftFixture), /Storage full/);
+  h.setWrite(async (key, value) => h.values.set(key, value));
+  await h.saveLoanDraft(1, { ...draftFixture, amount: '' });
+  assert.equal((await h.readLoanDraft(1)).amount, '');
+  await h.clearLoanDraft(1);
+  assert.equal(await h.readLoanDraft(1), null);
+});
+
+test('release introduction dismissal survives restart and is scoped to the account', async () => {
+  const saved = new Map();
+  const mocks = { 'react-native': { Platform: { OS: 'web' } }, 'expo-secure-store': {} };
+  const globals = { localStorage: { getItem: key => saved.get(key), setItem: (key, value) => saved.set(key, value) } };
+  const first = load('release-guide', mocks, globals);
+  assert.equal(await first.isReleaseGuideDismissed(1), false);
+  await first.dismissReleaseGuide(1);
+  const restarted = load('release-guide', mocks, globals);
+  assert.equal(await restarted.isReleaseGuideDismissed(1), true);
+  assert.equal(await restarted.isReleaseGuideDismissed(2), false);
+});
+
+test('release introduction respects dismissal even during a delayed native read or failed write', async () => {
+  let release;
+  const gate = new Promise(resolve => { release = resolve; });
+  const guide = load('release-guide', {
+    'react-native': { Platform: { OS: 'ios' } },
+    'expo-secure-store': { getItemAsync: async () => { await gate; return null; }, setItemAsync: async () => { throw new Error('Unavailable'); } },
+  });
+  const reading = guide.isReleaseGuideDismissed(1);
+  await guide.dismissReleaseGuide(1);
+  release();
+  assert.equal(await reading, true);
+  assert.equal(await guide.isReleaseGuideDismissed(1), true);
+});
+
+test('group completion requires known zero balances for every member, not just an empty settlement suggestion', () => {
+  const { isGroupSettled } = load('group-completion');
+  assert.equal(isGroupSettled(undefined), false);
+  assert.equal(isGroupSettled({ members: [], suggested_settlements: [] }), false);
+  assert.equal(isGroupSettled({ members: [{ balance_minor: 0 }, { balance_minor: 100 }, { balance_minor: -100 }], suggested_settlements: [] }), false);
+  assert.equal(isGroupSettled({ members: [{ balance_minor: 0 }], suggested_settlements: [{ amount_minor: 100 }] }), false);
+  assert.equal(isGroupSettled({ members: [{ balance_minor: 0 }, { balance_minor: 0 }], suggested_settlements: [] }), true);
 });

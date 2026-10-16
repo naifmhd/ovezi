@@ -24,3 +24,5 @@ Route::get('/auth/reset-password', [AppLinkController::class, 'show'])->name('ap
 Route::get('/auth/verify-email', [AppLinkController::class, 'show'])->name('app.verify');
 Route::get('/.well-known/apple-app-site-association', [AppLinkController::class, 'apple']);
 Route::get('/.well-known/assetlinks.json', [AppLinkController::class, 'android']);
+
+Route::get('/lending', [AppLinkController::class, 'show'])->name('app.lending');

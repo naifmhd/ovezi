@@ -25,7 +25,7 @@ export function QueryErrorCard({
           {errorMessage(error)}
         </ThemedText>
       </View>
-      <Pressable disabled={retrying} onPress={onRetry} style={styles.retry}>
+      <Pressable accessibilityRole="button" accessibilityState={{ disabled: retrying, busy: retrying }} disabled={retrying} onPress={onRetry} style={styles.retry}>
         <ThemedText style={styles.retryLabel} themeColor="primary">
           {retrying ? 'Retrying…' : 'Try again'}
         </ThemedText>

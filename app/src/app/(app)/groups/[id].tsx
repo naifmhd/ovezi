@@ -1,3 +1,5 @@
+import { GroupCompletion } from '@/components/group-completion';
+import { isGroupSettled } from '@/lib/group-completion';
 import { HeaderAction } from '@/components/ui/header-action';
 import { ActionSheet } from '@/components/ui/action-sheet';
 import { MoneyAmount } from '@/components/money-amount';
@@ -98,7 +100,7 @@ export default function GroupDetailScreen() {
   return (
     <ThemedView style={styles.screen}>
       <ActionSheet title="Group actions" visible={menuOpen} onClose={() => setMenuOpen(false)} actions={[
-        ...(isOwner ? [{ label: 'Group settings', onPress: () => router.push({ pathname: '/(app)/groups/[id]/settings', params: { id: groupId } }) }] : []),
+        { label: isOwner ? 'Group settings' : 'Group settings & hide', onPress: () => router.push({ pathname: '/(app)/groups/[id]/settings', params: { id: groupId } }) },
         { label: 'Export CSV', onPress: () => exportMutation.mutate('csv') },
         { label: 'Export PDF', onPress: () => exportMutation.mutate('pdf') },
       ]} />
@@ -129,6 +131,7 @@ export default function GroupDetailScreen() {
 
         <View style={styles.scrollFrame}>
           <AppGroupContent
+            completion={group && !groupQuery.isError && (group.is_archived || (!balancesQuery.isFetching && !balancesQuery.isError && !expensesQuery.isError && isGroupSettled(balances) && (expensesQuery.data?.data.length ?? 0) > 0)) ? <GroupCompletion key={groupId} groupId={groupId} isOwner={isOwner} archived={group.is_archived} /> : null}
             activity={activityQuery.data?.data ?? []}
             balance={currentBalance}
             balancePending={balancesQuery.isPending}
@@ -150,6 +153,7 @@ export default function GroupDetailScreen() {
 }
 
 type ContentProps = {
+  completion: React.ReactNode;
   group: Awaited<ReturnType<typeof fetchGroup>> | undefined;
   currency: string | undefined;
   currentUserId: number;
@@ -166,6 +170,7 @@ type ContentProps = {
 };
 
 function AppGroupContent({
+  completion,
   group,
   currency,
   currentUserId,
@@ -212,13 +217,14 @@ function AppGroupContent({
           <ThemedView type={balance === undefined ? 'surface' : balance < 0 ? 'dangerSurface' : 'positiveSurface'} style={styles.balanceCard}>
             <View style={styles.balanceCopy}>
               <ThemedText style={styles.balanceLabel} themeColor="textSecondary">
-                {balance === undefined ? balancePending ? 'Loading balance…' : 'Balance unavailable' : balance > 0 ? 'You are owed' : balance < 0 ? 'You owe' : 'All settled up'}
+                {balance === undefined ? balancePending ? 'Loading balance…' : 'Balance unavailable' : balance > 0 ? 'You are owed' : balance < 0 ? 'You owe' : 'Your balance is settled'}
               </ThemedText>
               {balance !== undefined ? <MoneyAmount minor={balance} currency={currency} tone="text" /> : null}
               {balance !== undefined && balanceStale ? <ThemedText themeColor="textSecondary">Last known balance · {balancePending ? 'Refreshing' : 'may be out of date'}</ThemedText> : null}
             </View>
           </ThemedView>
 
+          {completion}
           <View style={styles.actionRow}>
             {!group.is_archived ? (
               <AnimatedPressable
@@ -254,6 +260,7 @@ function AppGroupContent({
               : `placeholder:${expense.payer.placeholder_id}`;
             return (
               <ExpenseRow
+                showGroup={false}
                 currentUserId={currentUserId}
                 expense={expense}
                 key={expense.id}
@@ -326,7 +333,7 @@ function AppGroupContent({
             <AnimatedPressable accessibilityLabel="View all group activity" style={styles.headerTouch} onPress={() => router.push({ pathname: '/(app)/groups/[id]/activity', params: { id: group.id } })}><ThemedText themeColor="interactive">View all</ThemedText></AnimatedPressable>
           </View>
           {activity.map((item) => (
-            <ActivityRow activity={item} key={item.id} />
+            <ActivityRow activity={item} showGroup={false} key={item.id} />
           ))}
           {activity.length === 0 ? (
             <ThemedText style={styles.empty} themeColor="textSecondary">

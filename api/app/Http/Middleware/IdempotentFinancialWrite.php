@@ -6,6 +6,7 @@ use App\Models\Friendship;
 use App\Models\Group;
 use App\Models\Placeholder;
 use App\Models\User;
+use App\Services\LendingLedger;
 use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Crypt;
@@ -18,9 +19,9 @@ class IdempotentFinancialWrite
 {
     public function handle(Request $request, Closure $next): Response
     {
-        if (! $request->isMethod('POST') || ! $request->routeIs(
+        if ($request->routeIs('api.v1.lending.loans.duplicates') || ! $request->isMethod('POST') || ! $request->routeIs(
             'api.v1.expenses.store', 'api.v1.settlements.store',
-            'api.v1.groups.settlements.store', 'api.v1.recurring-expenses.store',
+            'api.v1.groups.settlements.store', 'api.v1.recurring-expenses.store', 'api.v1.lending.*',
         )) {
             return $next($request);
         }
@@ -48,8 +49,20 @@ class IdempotentFinancialWrite
             if ($key === null) {
                 return $next($request);
             }
+            if ($request->routeIs('api.v1.lending.*')) {
+                $ledger = app(LendingLedger::class);
+                if ($request->route('contact') && ! $request->routeIs('api.v1.lending.invitations.actions')) {
+                    $ledger->contact($user, (int) $request->route('contact'));
+                }
+                if ($request->route('loan')) {
+                    $ledger->loans($user)->findOrFail((int) $request->route('loan'));
+                }
+            }
             $saved = DB::table('financial_submissions')->where('user_id', $user->id)->where('submission_key', $key)->first();
             if ($saved !== null) {
+                if ($request->routeIs('api.v1.lending.loans.quick-store') && $request->input('contact_id')) {
+                    app(LendingLedger::class)->contact($user, (int) $request->input('contact_id'));
+                }
                 $groupId = $request->route('group')?->id ?? $request->input('group_id');
                 if ($groupId) {
                     Gate::authorize('view', Group::query()->findOrFail($groupId));

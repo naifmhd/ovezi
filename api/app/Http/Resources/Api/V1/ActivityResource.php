@@ -18,6 +18,10 @@ class ActivityResource extends JsonResource
         return [
             'id' => $this->id,
             'group_id' => $this->group_id,
+            'group' => $this->whenLoaded('group', fn (): array => [
+                'id' => $this->group->id,
+                'name' => $this->group->name,
+            ]),
             'actor' => $this->whenLoaded('actor', fn (): ?array => $this->actor === null ? null : [
                 'id' => $this->actor->id,
                 'name' => $this->actor->name,

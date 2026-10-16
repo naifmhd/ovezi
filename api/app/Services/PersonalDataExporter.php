@@ -7,10 +7,12 @@ use App\Models\Expense;
 use App\Models\Friendship;
 use App\Models\GroupInvite;
 use App\Models\GroupMember;
+use App\Models\LendingContact;
 use App\Models\RecurringExpense;
 use App\Models\Settlement;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\DB;
 
 class PersonalDataExporter
 {
@@ -19,6 +21,8 @@ class PersonalDataExporter
     {
         return [
             'export_version' => 1,
+            'lending_reminders' => DB::table('lending_reminders')->where('user_id', $user->id)->get(['lending_loan_id', 'remind_at', 'sent_at'])->map(fn ($row) => (array) $row)->all(),
+            'pins' => DB::table('user_pins')->where('user_id', $user->id)->get(['group_id', 'lending_contact_id'])->map(fn ($pin) => (array) $pin)->all(),
             'exported_at' => now()->toIso8601String(),
             'profile' => [
                 'id' => $user->id,
@@ -49,6 +53,10 @@ class PersonalDataExporter
                 'claimed_at' => $placeholder->claimed_at?->toIso8601String(),
                 'created_at' => $placeholder->created_at?->toIso8601String(),
             ])->all(),
+            'lending_contacts' => LendingContact::query()->where('owner_id', $user->id)->orderBy('id')->get()->map(fn ($contact) => [
+                'id' => $contact->id, 'name' => $contact->name, 'email' => $contact->email, 'connected_user_id' => $contact->connected_user_id, 'invitation_status' => $contact->invitation_status,
+            ])->all(),
+            'lending' => $this->lending($user),
             'expenses' => $this->expenses($user),
             'recurring_expenses' => $this->recurringExpenses($user),
             'settlements' => $this->settlements($user),
@@ -67,6 +75,22 @@ class PersonalDataExporter
                     'created_at' => $activity->created_at?->toIso8601String(),
                 ])->all(),
         ];
+    }
+
+    private function lending(User $user): array
+    {
+        $ledger = new LendingLedger;
+
+        return $ledger->loans($user)->with(['contact.owner', 'repayments', 'events.actor'])->orderBy('id')->get()->map(fn ($loan) => [
+            'id' => $loan->id, 'person' => $loan->contact->owner_id === $user->id ? $loan->contact->name : $loan->contact->owner->name,
+            'direction' => $ledger->direction($loan->contact, $user, $loan->direction),
+            'amount_minor' => $loan->amount_minor, 'repaid_minor' => $loan->repaid_minor, 'currency_code' => $loan->currency_code,
+            'occurred_on' => $loan->occurred_on->toDateString(), 'due_on' => $loan->due_on?->toDateString(),
+            'description' => $loan->description, 'private_note' => $loan->created_by === $user->id ? $loan->private_note : null,
+            'shared' => $loan->shared_with !== null, 'acknowledgement' => $loan->acknowledgement, 'voided_at' => $loan->voided_at,
+            'repayments' => $loan->repayments->map(fn ($payment) => $payment->only(['id', 'recorded_by', 'confirmed_by', 'amount_minor', 'currency_code', 'occurred_on', 'note', 'status']))->all(),
+            'history' => $loan->events->map(fn ($event) => ['event' => $event->event, 'actor' => $event->actor?->name, 'details' => $event->details, 'created_at' => $event->created_at])->all(),
+        ])->all();
     }
 
     /** @return list<array<string, mixed>> */

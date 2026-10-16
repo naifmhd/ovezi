@@ -94,7 +94,7 @@ module.exports = () => {
   }
 
   const linkHost = apiUrl ? new URL(apiUrl).hostname : null;
-  const linkPaths = ['/group-invites/accept', '/auth/reset-password', '/auth/verify-email'];
+  const linkPaths = ['/group-invites/accept', '/auth/reset-password', '/auth/verify-email', '/lending'];
   const iosUrlScheme = googleIosUrlScheme(googleIosClientId);
   const plugins = [...staticConfig.expo.plugins];
 

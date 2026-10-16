@@ -20,7 +20,7 @@ const steps = [
   {
     marker: '01',
     title: 'Split without limits',
-    description: 'Share group or one-to-one expenses using equal, exact, percentage, or share-based splits.',
+    description: 'Share group expenses using equal, exact, percentage, or share-based splits. Track personal loans separately in Lending.',
   },
   {
     marker: '02',

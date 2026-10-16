@@ -3,6 +3,7 @@
 use App\Jobs\GenerateDueRecurringExpenses;
 use App\Jobs\PurgeDeletedExpenses;
 use App\Jobs\SyncExchangeRates;
+use App\Jobs\SendDueLendingReminders;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schedule;
@@ -25,3 +26,5 @@ Schedule::job(new GenerateDueRecurringExpenses)
     ->dailyAt('19:00')
     ->onOneServer()
     ->withoutOverlapping(30);
+
+Schedule::job(new SendDueLendingReminders)->everyMinute()->onOneServer()->withoutOverlapping(30);

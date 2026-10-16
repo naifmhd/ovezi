@@ -1,6 +1,6 @@
 import { HeaderAction } from '@/components/ui/header-action';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { KeyboardAvoidingView, Platform, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -21,7 +21,8 @@ export default function CreateGroupScreen() {
   const queryClient = useQueryClient();
   const token = useAuthStore((state) => state.token)!;
   const user = useAuthStore((state) => state.user)!;
-  const [name, setName] = useState('');
+  const params = useLocalSearchParams<{ name?: string }>();
+  const [name, setName] = useState(params.name ?? '');
   const [currency, setCurrency] = useState(user.default_currency_code ?? DEFAULT_CURRENCY_CODE);
   const currencyValue = currency ?? DEFAULT_CURRENCY_CODE;
   const mutation = useMutation({

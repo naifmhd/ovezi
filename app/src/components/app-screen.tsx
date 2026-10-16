@@ -14,10 +14,11 @@ type AppScreenProps = PropsWithChildren<{
   action?: ReactNode;
   branded?: boolean;
   tabScreen?: boolean;
+  showExpenseAction?: boolean;
   scrollProps?: ScrollViewProps;
 }>;
 
-export function AppScreen({ title, eyebrow, action, branded = false, tabScreen = false, children, scrollProps }: AppScreenProps) {
+export function AppScreen({ title, eyebrow, action, branded = false, tabScreen = false, showExpenseAction = true, children, scrollProps }: AppScreenProps) {
   const insets = useSafeAreaInsets();
   return (
     <ThemedView style={styles.screen}>
@@ -41,7 +42,7 @@ export function AppScreen({ title, eyebrow, action, branded = false, tabScreen =
           </View>
           {children}
         </ScrollView>
-        {tabScreen ? <TabExpenseAction /> : null}
+        {tabScreen && showExpenseAction ? <TabExpenseAction /> : null}
       </SafeAreaView>
     </ThemedView>
   );

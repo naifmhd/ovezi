@@ -45,6 +45,7 @@
 
         <section>
             <h2>3. How information is shared</h2>
+            <p>Lending records may contain a name, optional email, loans, original currencies, repayments, and notes. Private lending does not require the other person to have an account. Adding an email alone does not share records: the author selects loans to share, and the recipient must verify that email and accept the connection. Both people then see those loans and their repayment history. Private notes remain visible only to their author. Lending contacts are not claimable placeholders.</p>
             <p>Group members can see the group’s members, expenses, splits, settlements, balances, and activity. People involved in a direct expense or settlement can see the records relevant to them.</p>
             <p>We use service providers to operate Ovezi, including providers for cloud hosting and storage, authentication, email delivery, push notifications, crash reporting, and currency-rate data. They may process only the information needed to provide their services to us.</p>
             <p>We may disclose information when required by law, to protect the rights and safety of users or others, or as part of a business transfer. We do not sell personal information or share it for cross-context behavioral advertising.</p>
@@ -59,6 +60,7 @@
             <h2>5. Retention and deletion</h2>
             <p>We retain information while your account is active and as needed to provide Ovezi. Export your information from Profile and delete your account from Profile → Security, or use the <a href="{{ route('account-deletion.create') }}">account deletion page</a>.</p>
             <p>Deleting an account removes active sessions, sign-in connections, name, email, avatar references, and notification settings. Personal expenses are queued for permanent removal. The minimum historical information needed to keep shared group expenses, settlements, and balances understandable is preserved under an anonymized “Deleted member” record. Security, backup, fraud-prevention, and legal records may be retained for a limited period where reasonably necessary.</p>
+            <p>Account deletion removes private lending records and private notes; shared lending history is preserved under the deleted identity. Disconnecting a lending connection stops future sharing while retaining existing shared history. Group deletion removes the group from active use for everyone but retains it for owner recovery; it does not permanently erase group history.</p>
         </section>
 
         <section>

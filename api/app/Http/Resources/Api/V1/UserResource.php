@@ -16,6 +16,7 @@ class UserResource extends JsonResource
     {
         return [
             'id' => $this->id,
+            'features' => ['lending_sharing' => (bool) config('ovezi.lending_sharing_enabled')],
             'name' => $this->name,
             'email' => $this->email,
             'email_verified_at' => $this->email_verified_at,

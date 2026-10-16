@@ -58,6 +58,7 @@ class SearchController extends Controller
                     ->orWhere('category', 'like', $term);
             })
             ->with([
+                'group:id,name',
                 'payerUser:id,name',
                 'payerPlaceholder:id,name,claimed_by',
                 'payerPlaceholder.claimedBy:id,name',

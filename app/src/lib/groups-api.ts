@@ -7,6 +7,12 @@ export function fetchGroups(token: string, status: 'active' | 'archived' = 'acti
   return apiRequest<PaginatedResponse<Group>>(`/groups?status=${status}&per_page=100`, { token });
 }
 
+export function fetchGroupsPage(token: string, status: 'active' | 'archived' | 'hidden' | 'deleted', search: string, page: number, signal?: AbortSignal) {
+  const params = new URLSearchParams({ status, per_page: '30', page: String(page) });
+  if (search) params.set('q', search);
+  return apiRequest<PaginatedResponse<Group>>(`/groups?${params}`, { token, signal });
+}
+
 export async function fetchGroup(token: string, groupId: number) {
   const response = await apiRequest<DataResponse<Group>>(`/groups/${groupId}`, { token });
   return response.data;
@@ -134,3 +140,7 @@ function groupPhotoName(photo: GroupPhotoUpload) {
   const extension = photo.mimeType?.split('/')[1]?.replace('jpeg', 'jpg') ?? 'jpg';
   return `group-photo.${extension}`;
 }
+
+export function deleteGroup(token: string, id: number) { return apiRequest(`/groups/${id}`, { method: 'DELETE', token }); }
+export function restoreGroup(token: string, id: number) { return apiRequest(`/groups/${id}/restore`, { method: 'POST', token }); }
+export function hideGroup(token: string, id: number, hidden: boolean) { return apiRequest(`/groups/${id}/hidden`, { method: 'PUT', token, body: { hidden } }); }

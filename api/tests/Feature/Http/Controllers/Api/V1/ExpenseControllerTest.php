@@ -79,6 +79,7 @@ it('filters expenses by group and returns calculated splits', function () {
         ->assertOk()
         ->assertJsonCount(1, 'data')
         ->assertJsonPath('data.0.description', 'Lunch')
+        ->assertJsonPath('data.0.group', ['id' => $group->id, 'name' => $group->name])
         ->assertJsonPath('data.0.splits.0.amount_owed_minor', 1200);
 });
 

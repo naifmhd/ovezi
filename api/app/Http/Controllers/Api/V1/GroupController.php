@@ -13,6 +13,7 @@ use App\Models\Group;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -22,11 +23,19 @@ class GroupController extends Controller
     {
         $status = $request->string('status')->toString();
         $groups = Group::query()
+            ->when($status === 'deleted', fn (Builder $query) => $query->onlyTrashed())
             ->whereHas('members', fn (Builder $query): Builder => $query
                 ->whereBelongsTo($request->user())
-                ->whereNull('left_at'))
+                ->whereNull('left_at')
+                ->when($status === 'hidden', fn (Builder $query) => $query->whereNotNull('hidden_at'))
+                ->when(in_array($status, ['active', 'archived']), fn (Builder $query) => $query->whereNull('hidden_at'))
+                ->when($status === 'deleted', fn (Builder $query) => $query->where('role', 'owner')))
             ->when($status === 'active', fn (Builder $query): Builder => $query->whereNull('archived_at'))
             ->when($status === 'archived', fn (Builder $query): Builder => $query->whereNotNull('archived_at'))
+            ->when($request->filled('q'), fn (Builder $query): Builder => $query
+                ->where('name', 'like', '%'.$request->string('q')->trim()->toString().'%'))
+            ->addSelect(['groups.*', 'pin_id' => DB::table('user_pins')->select('id')->whereColumn('group_id', 'groups.id')->where('user_id', $request->user()->id)])
+            ->orderByRaw('CASE WHEN pin_id IS NULL THEN 1 ELSE 0 END')
             ->withCount('activeMembers')
             ->latest('updated_at')
             ->latest('id')

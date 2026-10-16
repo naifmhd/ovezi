@@ -10,6 +10,8 @@ use App\Jobs\RevokeAppleToken;
 use App\Models\Expense;
 use App\Models\Group;
 use App\Models\GroupMember;
+use App\Models\LendingContact;
+use App\Models\LendingLoan;
 use App\Models\Placeholder;
 use App\Models\User;
 use Illuminate\Support\Facades\Crypt;
@@ -34,6 +36,8 @@ class DeleteAccount
         DB::transaction(function () use ($user): void {
             $user = User::query()->lockForUpdate()->findOrFail($user->id);
             $email = $user->email;
+            DB::table('lending_reminders')->where('user_id', $user->id)->delete();
+            DB::table('user_pins')->where('user_id', $user->id)->delete();
             foreach ($user->socialAccounts()->get() as $account) {
                 if ($account->provider === ConnectedAccountProvider::Apple && $account->refresh_token) {
                     $id = DB::table('apple_token_revocations')->insertGetId([
@@ -44,7 +48,7 @@ class DeleteAccount
                 }
             }
             foreach ($user->groupMemberships()->where('role', GroupMemberRole::Owner->value)->whereNull('left_at')->orderBy('group_id')->get() as $membership) {
-                $group = Group::query()->lockForUpdate()->find($membership->group_id);
+                $group = Group::withTrashed()->lockForUpdate()->find($membership->group_id);
                 if ($group === null) {
                     continue;
                 }
@@ -74,6 +78,20 @@ class DeleteAccount
                 ->where(fn ($query) => $query->where('user_id', $user->id)->orWhere('friend_id', $user->id))->delete();
             DB::table('password_reset_tokens')->where('email', $email)->delete();
             DB::table('account_deletion_tokens')->where('user_id', $user->id)->delete();
+            LendingLoan::query()->where('created_by', $user->id)->update(['private_note' => null]);
+            foreach (LendingContact::query()->where('owner_id', $user->id)->orWhere('connected_user_id', $user->id)->orWhere('email_hash', hash('sha256', mb_strtolower(trim($email))))->orderBy('id')->lockForUpdate()->get() as $contact) {
+                if ($contact->owner_id === $user->id) {
+                    $contact->loans()->whereNull('shared_with')->delete();
+                    $contact->repayments()->whereDoesntHave('loans')->delete();
+                    if (! $contact->loans()->exists()) {
+                        $contact->delete();
+
+                        continue;
+                    }
+                }
+                $contact->update(['email' => null, 'email_hash' => null, 'invitation_status' => 'disconnected', 'disconnected_at' => now(),
+                    'name' => $contact->connected_user_id === $user->id ? 'Deleted member' : ($contact->owner_id === $user->id ? 'Shared contact' : $contact->name)]);
+            }
             DB::table('financial_submissions')->where('user_id', $user->id)->delete();
             $user->socialAccounts()->delete();
             $user->pushTokens()->delete();

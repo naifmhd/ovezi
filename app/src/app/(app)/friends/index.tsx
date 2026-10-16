@@ -115,8 +115,8 @@ export default function FriendsScreen() {
                 key={friendship.id}
                 onRemove={() => removeMutation.mutate(friendship.id)}
                 removeLabel="Remove"
-                actionLabel="Add expense"
-                onAction={() => router.push({ pathname: '/(app)/expenses/create', params: { friendId: friendship.friend.id } })}
+                actionLabel="Create group"
+                onAction={() => router.push({ pathname: '/(app)/groups/create', params: { name: `With ${friendship.friend.name}` } })}
                 balancesLoaded={balancesQuery.isSuccess && !balancesQuery.isRefetchError}
                 balances={balancesQuery.isError ? [] : (balancesQuery.data?.direct ?? []).filter((balance) => balance.participant.key === `user:${friendship.friend.id}`).map((balance) => ({ currency: balance.currency_code, minor: balance.balance_minor }))}
               />

@@ -1,7 +1,7 @@
 {
   "name": "ovezi",
   "main": "expo-router/entry",
-  "version": "1.0.0",
+  "version": "1.2.0",
   "dependencies": {
     "@expo/ui": "~57.0.20",
     "@react-native-community/datetimepicker": "9.1.0",
@@ -63,7 +63,9 @@
     "typecheck": "tsc --noEmit",
     "test": "node --test scripts/release-regression.test.cjs",
     "check": "npm run typecheck && npm run lint && npm test",
-    "test:browser": "node scripts/audit-regression.cjs"
+    "test:browser": "node scripts/audit-regression.cjs",
+    "test:lending-browser": "node scripts/lending-regression.cjs",
+    "test:home-browser": "node scripts/home-regression.cjs"
   },
   "private": true,
   "overrides": {

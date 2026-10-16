@@ -78,6 +78,7 @@ class ExpenseController extends Controller
             ->when($request->filled('before'), fn (Builder $query): Builder => $query
                 ->where('occurred_at', '<', $request->date('before')->utc()))
             ->with([
+                'group:id,name',
                 'payerUser:id,name',
                 'payerPlaceholder:id,name,claimed_by',
                 'payerPlaceholder.claimedBy:id,name',

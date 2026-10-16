@@ -2,6 +2,7 @@ import { SymbolView } from 'expo-symbols';
 import { StyleSheet, View, useWindowDimensions } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
+import { GroupLabel } from '@/components/group-label';
 import { ThemedView } from '@/components/themed-view';
 import { AnimatedPressable } from '@/components/ui/animated-pressable';
 import { useTheme } from '@/hooks/use-theme';
@@ -14,9 +15,10 @@ type ExpenseRowProps = {
   payerName?: string;
   currentUserId?: number;
   onPress?: () => void;
+  showGroup?: boolean;
 };
 
-export function ExpenseRow({ expense, payerName, currentUserId, onPress }: ExpenseRowProps) {
+export function ExpenseRow({ expense, payerName, currentUserId, onPress, showGroup = true }: ExpenseRowProps) {
   const theme = useTheme();
   const { width, fontScale } = useWindowDimensions();
   const stacked = width < 360 || fontScale > 1.2;
@@ -32,6 +34,7 @@ export function ExpenseRow({ expense, payerName, currentUserId, onPress }: Expen
         </View>
         <View style={[styles.content, stacked && styles.contentStacked]}>
         <View style={styles.copy}>
+          {showGroup && expense.group_id !== null ? <GroupLabel groupId={expense.group_id} name={expense.group?.name} /> : null}
           <ThemedText style={styles.title}>
             {expense.description}
           </ThemedText>

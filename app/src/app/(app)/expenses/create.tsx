@@ -40,6 +40,7 @@ import { splitAllocationPreview, remainingAllocation, distributeUnassigned } fro
 import { currencyFractionDigits, formatMoney, minorAmountInput, parseDecimalToInteger } from '@/lib/format';
 import { fetchFriends } from '@/lib/friends-api';
 import { fetchGroup, fetchGroups } from '@/lib/groups-api';
+import { GroupAvatar } from '@/components/group-avatar';
 import { selectionHaptic, successHaptic } from '@/lib/haptics';
 import { useTheme } from '@/hooks/use-theme';
 import { createPlaceholder, fetchPlaceholders } from '@/lib/placeholders-api';
@@ -139,7 +140,7 @@ export default function CreateExpenseScreen() {
   const theme = useTheme();
   const queryClient = useQueryClient();
   const [destination, setDestination] = useState<Destination>(
-    hasInitialGroup ? 'group' : hasInitialFriend ? 'direct' : 'personal',
+    hasInitialGroup ? 'group' : hasInitialFriend ? 'direct' : 'group',
   );
   const [selectedGroupId, setSelectedGroupId] = useState<number | null>(
     hasInitialGroup ? initialGroupId : null,
@@ -610,7 +611,7 @@ export default function CreateExpenseScreen() {
   }
 
   function submit() {
-    if (!destinationChosen) { setShowDestinationPicker(true); return setFormError('Choose who this expense is for.'); }
+    if (!destinationChosen) { setShowDestinationPicker(true); return setFormError('Choose a group for this expense.'); }
     setFormError(null);
     setDuplicateInput(null);
     const currencyCode = effectiveCurrency.trim().toUpperCase();
@@ -829,19 +830,22 @@ export default function CreateExpenseScreen() {
             ) : (
               <>
               <AnimatedPressable accessibilityRole="button" accessibilityState={{ expanded: showDestinationPicker }} onPress={() => setShowDestinationPicker((value) => !value)} style={[styles.disclosure, { backgroundColor: theme.surface, borderWidth: 1, borderColor: theme.border }]}>
-                <ThemedText style={{ flex: 1 }}>{!destinationChosen ? 'Choose a group or person' : destination === 'group' ? group?.name ?? (groupQuery.isError ? 'Group unavailable' : 'Loading group…') : destination === 'direct' ? '1-on-1 expense' : 'Just for me'}</ThemedText>
+                <ThemedText style={{ flex: 1 }}>{!destinationChosen ? 'Choose a group' : destination === 'group' ? group?.name ?? (groupQuery.isError ? 'Group unavailable' : 'Loading group…') : destination === 'direct' ? '1-on-1 expense' : 'Just for me'}</ThemedText>
                 <ThemedText themeColor="interactive">Change</ThemedText>
               </AnimatedPressable>
               {showDestinationPicker ? <View style={styles.chipWrap}>
                 <View style={styles.chipWrap}>
                   {(groupsQuery.data?.data ?? []).map((item) => (
                     <ChoiceChip
+                      leading={<GroupAvatar group={item} size={24} />}
                       active={destination === 'group' && selectedGroupId === item.id}
                       key={item.id}
                       label={item.name}
                       onPress={() => selectDestination('group', item.id)}
                     />
                   ))}
+                  <ChoiceChip active={false} label="New group (including two people)" onPress={() => router.push('/(app)/groups/create')} />
+                  {(isEditing || hasInitialFriend) ? <>
                   {friends.slice(0, 6).map(({ friend }) => <ChoiceChip key={`destination-friend:${friend.id}`} active={destinationChosen && destination === 'direct' && selectedFriendId === friend.id} label={friend.name} onPress={() => { selectDestination('direct'); selectFriend(friend.id); }} />)}
                   <ChoiceChip
                     active={destinationChosen && destination === 'personal'}
@@ -853,7 +857,8 @@ export default function CreateExpenseScreen() {
                     label="1-on-1"
                     onPress={() => selectDestination('direct')}
                   />
-                </View>
+                </> : null}</View>
+
               </View> : null}
               </>
             )}

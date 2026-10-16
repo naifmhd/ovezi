@@ -77,7 +77,9 @@ export function RealtimeSync() {
         queryClient.invalidateQueries({ queryKey: ['activity'] }),
       ];
 
-      if (change.resource === 'expense') {
+      if (change.resource === 'lending') {
+        invalidations.push(queryClient.invalidateQueries({ queryKey: ['lending'] }));
+      } else if (change.resource === 'expense') {
         invalidations.push(
           queryClient.invalidateQueries({ queryKey: ['expenses'] }),
           queryClient.invalidateQueries({ queryKey: ['dashboard-balances'] }),
@@ -90,7 +92,10 @@ export function RealtimeSync() {
           queryClient.invalidateQueries({ queryKey: ['group-balances'] }),
         );
       } else if (change.resource === 'group') {
-        invalidations.push(queryClient.invalidateQueries({ queryKey: ['groups'] }));
+        invalidations.push(
+          queryClient.invalidateQueries({ queryKey: ['groups'] }),
+          queryClient.invalidateQueries({ queryKey: ['expenses'] }),
+        );
       } else if (change.resource === 'group_member') {
         invalidations.push(
           queryClient.invalidateQueries({ queryKey: ['groups'] }),

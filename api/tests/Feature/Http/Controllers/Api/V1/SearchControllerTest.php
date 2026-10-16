@@ -51,6 +51,7 @@ it('searches only groups, expenses, and accepted friends visible to the user', f
         ->assertJsonCount(1, 'data.friends')
         ->assertJsonPath('data.groups.0.id', $visibleGroup->id)
         ->assertJsonPath('data.expenses.0.id', $visibleExpense->id)
+        ->assertJsonPath('data.expenses.0.group', null)
         ->assertJsonPath('data.friends.0.id', $friend->id);
 
     expect(collect($response->json('data.groups'))->pluck('id'))->not->toContain($hiddenGroup->id);
@@ -63,6 +64,33 @@ it('requires at least two search characters', function () {
         ->getJson('/api/v1/search?q=a')
         ->assertUnprocessable()
         ->assertJsonValidationErrors('q');
+});
+
+it('distinguishes matching expenses by group including archived groups', function () {
+    $currency = Currency::factory()->mvr()->create();
+    $user = User::factory()->create(['default_currency_code' => $currency->code]);
+    $groups = Group::factory()->count(2)->for($user, 'creator')->sequence(
+        ['name' => 'Island trip', 'archived_at' => null],
+        ['name' => 'Coffee club', 'archived_at' => now()],
+    )->create(['reporting_currency_code' => $currency->code]);
+    foreach ($groups as $group) {
+        GroupMember::factory()->owner()->for($group)->for($user)->create();
+        Expense::factory()->for($group)->create([
+            'expense_type' => 'group',
+            'payer_user_id' => $user->id,
+            'created_by' => $user->id,
+            'description' => 'Friday dinner',
+            'currency_code' => $currency->code,
+            'reporting_currency_code' => $currency->code,
+        ]);
+    }
+
+    $response = $this->withToken($user->createToken('User phone')->plainTextToken)
+        ->getJson('/api/v1/search?q=dinner');
+
+    $response->assertOk()->assertJsonCount(2, 'data.expenses')->assertJsonCount(0, 'data.groups');
+    expect(collect($response->json('data.expenses'))->pluck('group.name')->sort()->values()->all())
+        ->toBe(['Coffee club', 'Island trip']);
 });
 
 it('requires authentication to search', function () {

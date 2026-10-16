@@ -8,10 +8,11 @@ type PrimaryButtonProps = {
   label: string;
   onPress: () => void;
   loading?: boolean;
+  loadingLabel?: string;
   disabled?: boolean;
 };
 
-export function PrimaryButton({ label, onPress, loading, disabled }: PrimaryButtonProps) {
+export function PrimaryButton({ label, onPress, loading, loadingLabel = 'Working…', disabled }: PrimaryButtonProps) {
   const theme = useTheme();
   const unavailable = disabled || loading;
 
@@ -26,17 +27,14 @@ export function PrimaryButton({ label, onPress, loading, disabled }: PrimaryButt
         { backgroundColor: theme.primary },
         unavailable && styles.dimmed,
       ]}>
-      {loading ? (
-        <ActivityIndicator color={theme.primaryText} />
-      ) : (
-        <Text style={[styles.label, { color: theme.primaryText }]}>{label}</Text>
-      )}
+      {loading ? <ActivityIndicator color={theme.primaryText} /> : null}
+      <Text accessibilityLiveRegion="polite" style={[styles.label, { color: theme.primaryText }]}>{loading ? loadingLabel : label}</Text>
     </AnimatedPressable>
   );
 }
 
 const styles = StyleSheet.create({
-  button: { minHeight: 52, paddingHorizontal: 18, paddingVertical: 14, borderRadius: Radius.control, alignItems: 'center', justifyContent: 'center' },
+  button: { minHeight: 52, paddingHorizontal: 18, paddingVertical: 14, borderRadius: Radius.control, flexDirection: 'row', gap: 10, alignItems: 'center', justifyContent: 'center' },
   label: { fontSize: 16, fontWeight: '600', textAlign: 'center' },
   dimmed: { opacity: 0.65 },
 });

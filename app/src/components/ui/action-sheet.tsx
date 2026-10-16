@@ -1,4 +1,5 @@
 import { Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { SymbolView } from 'expo-symbols';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useReducedMotion } from 'react-native-reanimated';
 import { ThemedText } from '@/components/themed-text';
@@ -7,7 +8,7 @@ import { useTheme } from '@/hooks/use-theme';
 
 export function ActionSheet({ title, visible, onClose, actions }: {
   title: string; visible: boolean; onClose: () => void;
-  actions: { label: string; onPress: () => void; destructive?: boolean }[];
+  actions: { label: string; onPress: () => void; destructive?: boolean; selected?: boolean }[];
 }) {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
@@ -20,12 +21,15 @@ export function ActionSheet({ title, visible, onClose, actions }: {
           <ThemedText accessibilityRole="header" style={styles.title}>{title}</ThemedText>
           <ScrollView>
             {actions.map((action) => (
-              <AnimatedPressable key={action.label} style={[styles.action, { borderBottomColor: theme.border }]} onPress={() => { onClose(); action.onPress(); }}>
-                <ThemedText themeColor={action.destructive ? 'danger' : 'interactive'}>{action.label}</ThemedText>
+              <AnimatedPressable accessibilityRole="button" accessibilityState={action.selected === undefined ? undefined : { selected: action.selected }} key={action.label} style={[styles.action, { borderBottomColor: theme.border }]} onPress={() => { onClose(); action.onPress(); }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                  <ThemedText style={{ flex: 1 }} themeColor={action.destructive ? 'danger' : action.selected === false ? 'text' : 'interactive'}>{action.label}</ThemedText>
+                  {action.selected ? <SymbolView name={{ ios: 'checkmark', android: 'check', web: 'check' }} size={20} tintColor={theme.interactive} /> : null}
+                </View>
               </AnimatedPressable>
             ))}
           </ScrollView>
-          <AnimatedPressable style={styles.action} onPress={onClose}><ThemedText>Cancel</ThemedText></AnimatedPressable>
+          <AnimatedPressable accessibilityRole="button" style={styles.action} onPress={onClose}><ThemedText>Cancel</ThemedText></AnimatedPressable>
         </View>
       </View>
     </Modal>

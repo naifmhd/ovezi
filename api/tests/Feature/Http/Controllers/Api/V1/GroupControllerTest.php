@@ -8,6 +8,41 @@ use App\Models\Placeholder;
 use App\Models\User;
 
 describe('index', function () {
+    it('searches group names before pagination and respects status and membership', function (string $status) {
+        $currency = Currency::factory()->mvr()->create();
+        $user = User::factory()->create(['default_currency_code' => $currency->code]);
+        $groups = Group::factory()->count(2)->for($user, 'creator')->create([
+            'name' => 'Friday coffee',
+            'reporting_currency_code' => $currency->code,
+            'archived_at' => $status === 'archived' ? now() : null,
+        ]);
+        foreach ($groups as $group) {
+            GroupMember::factory()->owner()->for($group)->for($user)->create();
+        }
+        $unmatched = Group::factory()->for($user, 'creator')->create([
+            'name' => 'Island trip',
+            'reporting_currency_code' => $currency->code,
+        ]);
+        GroupMember::factory()->owner()->for($unmatched)->for($user)->create();
+        Group::factory()->create(['name' => 'Private coffee', 'reporting_currency_code' => $currency->code]);
+        $token = $user->createToken('User phone')->plainTextToken;
+
+        $response = $this->withToken($token)->getJson("/api/v1/groups?status={$status}&q=coffee&per_page=1&page=2");
+
+        $response->assertOk()->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $groups->first()->id)
+            ->assertJsonPath('meta.total', 2)
+            ->assertJsonPath('meta.last_page', 2);
+    })->with(['active', 'archived']);
+
+    it('rejects group searches longer than 120 characters', function () {
+        $user = User::factory()->create();
+
+        $this->withToken($user->createToken('User phone')->plainTextToken)
+            ->getJson('/api/v1/groups?q='.str_repeat('a', 121))
+            ->assertUnprocessable()->assertJsonValidationErrors('q');
+    });
+
     it('returns 401 when no access token is provided', function () {
         $this->getJson('/api/v1/groups')->assertUnauthorized();
     });

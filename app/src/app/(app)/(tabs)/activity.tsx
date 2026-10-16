@@ -1,2 +1,2 @@
-import { ActivityFeed } from '@/components/activity-feed';
-export default function ActivityScreen() { return <ActivityFeed />; }
+import { Redirect } from 'expo-router';
+export default function Activity() { return <Redirect href="/(app)/profile/activity" />; }

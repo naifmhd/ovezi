@@ -173,7 +173,7 @@ export default function NotificationSettingsScreen() {
             />
             <Divider />
             <SettingRow
-              label="Payments received"
+              label="Payments & lending updates"
               subtitle="When a settlement to you is recorded"
               value={preferencesQuery.data?.payment_received ?? true}
               disabled={!preferencesQuery.data || preferenceMutation.isPending}

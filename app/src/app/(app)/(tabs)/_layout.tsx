@@ -23,9 +23,9 @@ export default function TabsLayout() {
         <NativeTabs.Trigger.Label>Groups</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon sf={{ default: 'person.2', selected: 'person.2.fill' }} md="groups" />
       </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="activity" disableAutomaticContentInsets={Platform.OS === 'ios'}>
-        <NativeTabs.Trigger.Label>Activity</NativeTabs.Trigger.Label>
-        <NativeTabs.Trigger.Icon sf={{ default: 'clock', selected: 'clock.fill' }} md="history" />
+      <NativeTabs.Trigger name="lending" disableAutomaticContentInsets={Platform.OS === 'ios'}>
+        <NativeTabs.Trigger.Label>Lending</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Icon sf={{ default: 'arrow.left.arrow.right', selected: 'arrow.left.arrow.right' }} md="swap_horiz" />
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="profile" disableAutomaticContentInsets={Platform.OS === 'ios'}>
         <NativeTabs.Trigger.Label>Profile</NativeTabs.Trigger.Label>

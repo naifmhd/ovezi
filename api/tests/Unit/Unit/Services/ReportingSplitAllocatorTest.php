@@ -26,9 +26,21 @@ it('uses integer math for very large amounts', function () {
     expect(array_sum($allocations))->toBe(PHP_INT_MAX - 100);
 });
 
-it('requires the payer and positive base total', function (array $baseAllocations, string $payer) {
+it('requires a positive base total', function (array $baseAllocations, string $payer) {
     (new ReportingSplitAllocator)->allocate(100, $baseAllocations, $payer);
 })->with([
-    'payer missing' => [['user:1' => 100], 'user:2'],
     'zero total' => [['user:1' => 0], 'user:1'],
 ])->throws(InvalidArgumentException::class);
+
+it('assigns the reporting remainder to a beneficiary when the payer is excluded', function () {
+    $allocations = (new ReportingSplitAllocator)->allocate(
+        101,
+        ['user:1' => 50, 'user:2' => 50],
+        'user:3',
+    );
+
+    expect($allocations)->toBe([
+        'user:1' => 51,
+        'user:2' => 50,
+    ])->and(array_sum($allocations))->toBe(101);
+});

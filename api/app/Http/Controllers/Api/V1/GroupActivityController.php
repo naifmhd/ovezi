@@ -17,7 +17,7 @@ class GroupActivityController extends Controller
 
         return ActivityResource::collection(
             $group->activities()
-                ->with('actor:id,name')
+                ->with(['actor:id,name', 'group:id,name'])
                 ->latest('created_at')
                 ->latest('id')
                 ->paginate($request->integer('per_page', 20)),

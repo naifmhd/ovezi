@@ -3,10 +3,10 @@ import type { SearchResults } from '@/types/api';
 
 type DataResponse<T> = { data: T };
 
-export async function searchOvezi(token: string, query: string) {
+export async function searchOvezi(token: string, query: string, signal?: AbortSignal) {
   const response = await apiRequest<DataResponse<SearchResults>>(
     `/search?q=${encodeURIComponent(query)}`,
-    { token },
+    { token, signal },
   );
   return response.data;
 }

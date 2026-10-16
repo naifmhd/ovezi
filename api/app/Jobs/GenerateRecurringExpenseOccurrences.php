@@ -6,6 +6,7 @@ use App\Actions\CreateExpense;
 use App\Exceptions\InvalidSplit;
 use App\Models\ActivityLog;
 use App\Models\Expense;
+use App\Models\Group;
 use App\Models\RecurringExpense;
 use App\Services\RecurrenceSchedule;
 use Carbon\CarbonImmutable;
@@ -40,6 +41,10 @@ class GenerateRecurringExpenseOccurrences implements ShouldBeUnique, ShouldQueue
                     $createExpense,
                     $recurrenceSchedule,
                 ): bool {
+                    $groupId = RecurringExpense::query()->whereKey($this->recurringExpenseId)->value('group_id');
+                    if ($groupId !== null && ! Group::query()->lockForUpdate()->find($groupId)) {
+                        return false;
+                    }
                     $recurringExpense = RecurringExpense::query()
                         ->with(['creator', 'group', 'splits'])
                         ->lockForUpdate()

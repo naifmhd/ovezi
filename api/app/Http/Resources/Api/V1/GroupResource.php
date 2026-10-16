@@ -15,6 +15,7 @@ class GroupResource extends JsonResource
     public function toArray(Request $request): array
     {
         return [
+            'is_pinned' => $this->when(array_key_exists('pin_id', $this->resource->getAttributes()), fn () => $this->resource->getAttribute('pin_id') !== null),
             'id' => $this->id,
             'name' => $this->name,
             'reporting_currency_code' => $this->reporting_currency_code,
@@ -27,6 +28,7 @@ class GroupResource extends JsonResource
             'active_member_count' => $this->whenCounted('activeMembers'),
             'is_archived' => $this->archived_at !== null,
             'archived_at' => $this->archived_at,
+            'deleted_at' => $this->deleted_at,
             'members' => GroupMemberResource::collection($this->whenLoaded('activeMembers')),
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,

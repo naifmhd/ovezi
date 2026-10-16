@@ -25,7 +25,8 @@ class IndexGroupRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'status' => ['sometimes', 'string', Rule::in(['active', 'archived', 'all'])],
+            'q' => ['sometimes', 'nullable', 'string', 'max:120'],
+            'status' => ['sometimes', 'string', Rule::in(['active', 'archived', 'all', 'hidden', 'deleted'])],
             'per_page' => ['sometimes', 'integer', 'between:1,100'],
         ];
     }

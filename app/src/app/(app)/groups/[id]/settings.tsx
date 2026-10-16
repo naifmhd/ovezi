@@ -1,3 +1,4 @@
+import { GroupCleanupControls } from '@/components/group-cleanup-controls';
 import { HeaderAction } from '@/components/ui/header-action';
 import { Disclosure } from '@/components/ui/disclosure';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -80,6 +81,8 @@ export default function GroupSettingsScreen() {
       queryClient.invalidateQueries({ queryKey: ['group', groupId] }),
       queryClient.invalidateQueries({ queryKey: ['groups'] }),
       queryClient.invalidateQueries({ queryKey: ['activity'] }),
+      queryClient.invalidateQueries({ queryKey: ['expenses'] }),
+      queryClient.invalidateQueries({ queryKey: ['search'] }),
     ]);
   }
 
@@ -503,6 +506,7 @@ export default function GroupSettingsScreen() {
                 </Disclosure>
               </>
             ) : null}
+            <GroupCleanupControls groupId={groupId} isOwner={isOwner} />
             {visibleError ? <ThemedText themeColor="danger">{visibleError}</ThemedText> : null}
           </ScrollView>
         </KeyboardAvoidingView>

@@ -1,4 +1,5 @@
-import { StyleSheet, TextInput, TextInputProps, useWindowDimensions, View } from 'react-native';
+import { StyleSheet, TextInputProps, useWindowDimensions, View } from 'react-native';
+import { TextInput } from '@/components/ui/text-input';
 
 import { ThemedText } from '@/components/themed-text';
 import { Radius } from '@/constants/theme';

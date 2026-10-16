@@ -29,7 +29,7 @@ export default function SearchScreen() {
   }, [queryInput]);
   const query = useQuery({
     queryKey: ['search', submittedQuery],
-    queryFn: () => searchOvezi(token, submittedQuery),
+    queryFn: ({ signal }) => searchOvezi(token, submittedQuery, signal),
     enabled: submittedQuery.length >= 2,
   });
   const results = query.data;
@@ -59,7 +59,8 @@ export default function SearchScreen() {
                   autoFocus
                   label="Search Ovezi"
                   onChangeText={setQueryInput}
-                  onSubmitEditing={() => setSubmittedQuery(queryInput.trim())}
+                  onSubmitEditing={() => setSubmittedQuery(queryInput.trim().length >= 2 ? queryInput.trim() : '')}
+                  maxLength={120}
                   placeholder="Expenses, groups, or friends"
                   returnKeyType="search"
                   value={queryInput}

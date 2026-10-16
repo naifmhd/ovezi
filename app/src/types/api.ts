@@ -1,4 +1,5 @@
 export type User = {
+  features?: { lending_sharing: boolean };
   id: number;
   name: string;
   email: string;
@@ -35,6 +36,8 @@ export type GroupMember = {
 };
 
 export type Group = {
+  is_pinned?: boolean;
+  deleted_at?: string | null;
   id: number;
   name: string;
   reporting_currency_code: string;
@@ -166,7 +169,11 @@ export type OverallBalances = {
 
 export type Activity = {
   id: number;
+  timeline_id?: string;
+  source?: 'groups' | 'lending' | 'personal';
+  person?: { id: number; name: string };
   group_id: number | null;
+  group?: { id: number; name: string } | null;
   actor: { id: number; name: string } | null;
   subject: { type: string; id: number };
   event: string;
@@ -199,6 +206,7 @@ export type Expense = {
   recurring_occurrence_on: string | null;
   expense_type: ExpenseType;
   group_id: number | null;
+  group?: { id: number; name: string } | null;
   payer: {
     user_id: number | null;
     placeholder_id: number | null;

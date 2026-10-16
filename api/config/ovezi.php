@@ -1,6 +1,7 @@
 <?php
 
 return [
+    'lending_sharing_enabled' => env('OVEZI_LENDING_SHARING_ENABLED', true),
     'deep_link_scheme' => env('APP_DEEP_LINK_SCHEME', 'ovezi'),
     'support_email' => env('OVEZI_SUPPORT_EMAIL', 'naifmhd@gmail.com'),
     'app_store_url' => env('OVEZI_APP_STORE_URL'),

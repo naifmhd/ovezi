@@ -1,11 +1,12 @@
 import { Image } from 'expo-image';
-import { SymbolView } from 'expo-symbols';
 import { useState } from 'react';
 import { useReducedMotion } from 'react-native-reanimated';
 import { StyleSheet } from 'react-native';
 
 import { ThemedView } from '@/components/themed-view';
+import { ThemedText } from '@/components/themed-text';
 import { useTheme } from '@/hooks/use-theme';
+import { groupInitials, groupTone } from '@/lib/group-identity';
 import { useAuthStore } from '@/stores/auth-store';
 import type { Group } from '@/types/api';
 
@@ -26,10 +27,11 @@ function AvatarContent({ group, size, token }: { group: Group; size: number; tok
   const [imageFailed, setImageFailed] = useState(false);
   const reduceMotion = useReducedMotion();
   const theme = useTheme();
-  const tone = groupTone(theme);
+  const tone = groupTone(group.id, theme);
 
   return (
     <ThemedView
+      aria-hidden
       type="backgroundSelected"
       style={[
         styles.avatar,
@@ -49,36 +51,12 @@ function AvatarContent({ group, size, token }: { group: Group; size: number; tok
           transition={reduceMotion ? 0 : 150}
         />
       ) : (
-        <SymbolView
-          name={groupSymbol(group.name)}
-          size={size * 0.42}
-          tintColor={tone.foreground}
-          weight="semibold"
-        />
+        <ThemedText maxFontSizeMultiplier={1.3} style={{ color: tone.foreground, fontSize: size * 0.36, lineHeight: size * 0.5, fontWeight: '700' }}>
+          {groupInitials(group.name)}
+        </ThemedText>
       )}
     </ThemedView>
   );
-}
-
-function groupTone(theme: ReturnType<typeof useTheme>) {
-  return { background: theme.surfaceSubtle, foreground: theme.interactive };
-}
-
-function groupSymbol(name: string): Parameters<typeof SymbolView>[0]['name'] {
-  const normalized = name.toLowerCase();
-  if (/trip|travel|holiday|vacation|bali/.test(normalized)) {
-    return { ios: 'airplane', android: 'flight', web: 'flight' };
-  }
-  if (/home|house|family|apartment/.test(normalized)) {
-    return { ios: 'house.fill', android: 'home', web: 'home' };
-  }
-  if (/work|office|team/.test(normalized)) {
-    return { ios: 'briefcase.fill', android: 'work', web: 'work' };
-  }
-  if (/food|dinner|lunch|cafe|coffee|grocer/.test(normalized)) {
-    return { ios: 'fork.knife', android: 'restaurant', web: 'restaurant' };
-  }
-  return { ios: 'person.3.fill', android: 'groups', web: 'groups' };
 }
 
 const styles = StyleSheet.create({

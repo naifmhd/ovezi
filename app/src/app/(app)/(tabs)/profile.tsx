@@ -32,7 +32,7 @@ export default function ProfileScreen() {
   });
 
   return (
-    <AppScreen tabScreen branded title="Profile">
+    <AppScreen tabScreen showExpenseAction={false} branded title="Profile">
       <ThemedView type="backgroundElement" style={styles.profileCard}>
         <UserAvatar imageUrl={user.avatar_url} name={user.name} size={58} />
         <View style={styles.profileCopy}>
@@ -129,6 +129,11 @@ export default function ProfileScreen() {
         />
       </ThemedView>
 
+      <ThemedView type="backgroundElement" style={styles.menuCard}>
+        <ProfileLink icon={{ ios: 'clock', android: 'history', web: 'history' }} label="Personal & previous 1-on-1 records" subtitle="Your existing expenses, balances, and settlements" onPress={() => router.push('/(app)/profile/history')} />
+        <View style={styles.divider} />
+        <ProfileLink icon={{ ios: 'list.bullet', android: 'history', web: 'history' }} label="All activity" subtitle="Group expenses, loans, repayments and earlier records" onPress={() => router.push('/(app)/profile/activity')} />
+      </ThemedView>
       <ThemedText style={styles.sectionLabel} themeColor="textSecondary">DATA & PRIVACY</ThemedText>
       <ThemedView type="backgroundElement" style={styles.menuCard}>
         <ProfileLink
@@ -152,6 +157,13 @@ export default function ProfileScreen() {
 
       <ThemedText style={styles.sectionLabel} themeColor="textSecondary">SUPPORT</ThemedText>
       <ThemedView type="backgroundElement" style={styles.menuCard}>
+        <ProfileLink
+          icon={{ ios: 'info.circle.fill', android: 'info', web: 'info' }}
+          label="Find your way around"
+          onPress={() => router.push('/(app)/profile/guide')}
+          subtitle="Home, Groups, Lending and your previous records"
+        />
+        <View style={styles.divider} />
         <ProfileLink
           icon={{ ios: 'info.circle.fill', android: 'info', web: 'info' }}
           label="About Ovezi"

@@ -24,6 +24,7 @@ use App\Http\Controllers\Api\V1\ExpenseReceiptController;
 use App\Http\Controllers\Api\V1\FriendshipController;
 use App\Http\Controllers\Api\V1\GroupActivityController;
 use App\Http\Controllers\Api\V1\GroupBalanceController;
+use App\Http\Controllers\Api\V1\GroupCleanupController;
 use App\Http\Controllers\Api\V1\GroupController;
 use App\Http\Controllers\Api\V1\GroupCurrencyRateController;
 use App\Http\Controllers\Api\V1\GroupHistoryExportController;
@@ -31,9 +32,19 @@ use App\Http\Controllers\Api\V1\GroupInviteController;
 use App\Http\Controllers\Api\V1\GroupMemberController;
 use App\Http\Controllers\Api\V1\GroupNotificationMuteController;
 use App\Http\Controllers\Api\V1\GroupPhotoController;
+use App\Http\Controllers\Api\V1\LendingBalanceController;
+use App\Http\Controllers\Api\V1\LendingStatementController;
+use App\Http\Controllers\Api\V1\LendingReminderController;
+use App\Http\Controllers\Api\V1\LendingContactController;
+use App\Http\Controllers\Api\V1\LendingDuplicateController;
+use App\Http\Controllers\Api\V1\LendingInvitationController;
+use App\Http\Controllers\Api\V1\LendingLoanController;
+use App\Http\Controllers\Api\V1\LendingOverviewController;
+use App\Http\Controllers\Api\V1\LendingRepaymentController;
 use App\Http\Controllers\Api\V1\NotificationPreferenceController;
 use App\Http\Controllers\Api\V1\OverallBalanceController;
 use App\Http\Controllers\Api\V1\PersonalDataExportController;
+use App\Http\Controllers\Api\V1\PinController;
 use App\Http\Controllers\Api\V1\PlaceholderClaimController;
 use App\Http\Controllers\Api\V1\PlaceholderController;
 use App\Http\Controllers\Api\V1\ProfileController;
@@ -44,6 +55,7 @@ use App\Http\Controllers\Api\V1\SettlementController;
 use App\Http\Controllers\Api\V1\TransferGroupOwnershipController;
 use App\Http\Controllers\Api\V1\UpdateProfileController;
 use App\Http\Middleware\IdempotentFinancialWrite;
+use App\Http\Middleware\LockGroupWrite;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->name('api.v1.')->group(function (): void {
@@ -68,7 +80,35 @@ Route::prefix('v1')->name('api.v1.')->group(function (): void {
             ->name('email.verify');
     });
 
-    Route::middleware(['auth:sanctum', IdempotentFinancialWrite::class])->group(function (): void {
+    Route::middleware(['auth:sanctum', IdempotentFinancialWrite::class, LockGroupWrite::class])->group(function (): void {
+        Route::put('groups/{group}/pin', [PinController::class, 'group'])->name('groups.pin');
+        Route::put('lending/contacts/{contact}/pin', [PinController::class, 'contact'])->whereNumber('contact')->name('lending.contacts.pin');
+        Route::prefix('lending')->name('lending.')->group(function (): void {
+            Route::get('contacts/{contact}/statement', LendingStatementController::class)->whereNumber('contact')->middleware('throttle:exports')->name('statement');
+            Route::get('loans/{loan}/reminder', [LendingReminderController::class, 'show'])->whereNumber('loan');
+            Route::put('loans/{loan}/reminder', [LendingReminderController::class, 'update'])->whereNumber('loan');
+            Route::delete('loans/{loan}/reminder', [LendingReminderController::class, 'destroy'])->whereNumber('loan');
+            Route::get('contacts/{contact}/balance', LendingBalanceController::class)->whereNumber('contact')->name('balance');
+            Route::post('loans/duplicates', LendingDuplicateController::class)->name('loans.duplicates');
+            Route::get('overview', LendingOverviewController::class);
+            Route::post('loans', [LendingLoanController::class, 'quickStore'])->name('loans.quick-store');
+            Route::get('attention', [LendingOverviewController::class, 'attention']);
+            Route::get('contacts', [LendingContactController::class, 'index'])->name('contacts.index');
+            Route::post('contacts', [LendingContactController::class, 'store'])->name('contacts.store');
+            Route::get('contacts/{contact}', [LendingContactController::class, 'show'])->whereNumber('contact');
+            Route::patch('contacts/{contact}', [LendingContactController::class, 'update'])->whereNumber('contact');
+            Route::post('contacts/{contact}/disconnect', [LendingContactController::class, 'disconnect'])->whereNumber('contact')->name('disconnect');
+            Route::get('contacts/{contact}/loans', [LendingLoanController::class, 'index'])->whereNumber('contact');
+            Route::post('contacts/{contact}/loans', [LendingLoanController::class, 'store'])->whereNumber('contact')->name('loans.store');
+            Route::get('loans/{loan}', [LendingLoanController::class, 'show'])->whereNumber('loan');
+            Route::get('loans/{loan}/history', [LendingLoanController::class, 'history'])->whereNumber('loan');
+            Route::post('loans/{loan}/actions', [LendingLoanController::class, 'update'])->whereNumber('loan')->name('loans.actions');
+            Route::post('contacts/{contact}/repayments', [LendingRepaymentController::class, 'store'])->whereNumber('contact')->name('repayments.store');
+            Route::post('repayments/{repayment}/actions', [LendingRepaymentController::class, 'update'])->whereNumber('repayment')->name('repayments.actions');
+            Route::get('invitations', [LendingInvitationController::class, 'index']);
+            Route::post('contacts/{contact}/share', [LendingInvitationController::class, 'store'])->whereNumber('contact')->middleware('throttle:invitations')->name('share');
+            Route::post('invitations/{contact}/actions', [LendingInvitationController::class, 'update'])->whereNumber('contact')->middleware('throttle:invitations')->name('invitations.actions');
+        });
         Route::get('me', ProfileController::class)->name('me');
         Route::get('me/export', PersonalDataExportController::class)->middleware('throttle:exports')->name('me.export');
         Route::get('currencies', CurrencyController::class)->name('currencies.index');
@@ -128,6 +168,9 @@ Route::prefix('v1')->name('api.v1.')->group(function (): void {
             ->name('expenses.receipt.destroy');
         Route::apiResource('groups', GroupController::class)
             ->only(['index', 'store', 'show', 'update']);
+        Route::delete('groups/{group}', [GroupCleanupController::class, 'destroy'])->name('groups.destroy');
+        Route::post('groups/{group}/restore', [GroupCleanupController::class, 'restore'])->whereNumber('group')->name('groups.restore');
+        Route::put('groups/{group}/hidden', [GroupCleanupController::class, 'hidden'])->name('groups.hidden');
         Route::get('groups/{group}/photo', [GroupPhotoController::class, 'show'])
             ->name('groups.photo.show');
         Route::post('groups/{group}/photo', [GroupPhotoController::class, 'store'])

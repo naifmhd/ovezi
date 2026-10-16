@@ -24,6 +24,8 @@ class AppLinkController extends Controller
         } elseif ($route === 'app.reset') {
             $parameters = $request->validate(['token' => ['required', 'string', 'max:255'], 'email' => ['required', 'email:rfc', 'max:255']]);
             $title = 'Reset your password';
+        } elseif ($route === 'app.lending') {
+            $title = 'Open Lending in Ovezi';
         } else {
             $parameters = $request->validate(['verification_url' => ['required', 'url', 'max:2048']]);
             $url = parse_url($parameters['verification_url']);
@@ -47,7 +49,7 @@ class AppLinkController extends Controller
 
         return response()->json(['applinks' => ['apps' => [], 'details' => $team && $bundle ? [[
             'appID' => $team.'.'.$bundle,
-            'paths' => ['/group-invites/accept', '/auth/reset-password', '/auth/verify-email'],
+            'paths' => ['/group-invites/accept', '/auth/reset-password', '/auth/verify-email', '/lending'],
         ]] : []]]);
     }
 
